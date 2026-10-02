@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { dmy, flagLabel, inr, isNegative, isPositive } from "@/lib/format";
 import { StatusBadge } from "../status-badge";
+import { buildSchedule } from "@/lib/schedule";
+import { Delay, EmiSummary, InstallmentTable, RowFlags } from "../../installments";
 
 type Account = {
   id: number;
@@ -106,6 +108,15 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
   const all = (paymentData ?? []) as unknown as Payment[];
   const payments = all.filter((p) => p.ledger === a.ledger);
   const otherFile = all.filter((p) => p.ledger !== a.ledger);
+  // Fully-paid accounts (or nothing left to pay) show only the payments made, never "overdue" slots.
+  const settled = a.ledger === "closed" || !isPositive(s?.balance);
+  const schedule = buildSchedule({
+    installments: settled ? 0 : a.tenure_months,
+    intervalMonths: a.interval_months,
+    agreementDate: a.agreement_date,
+    emi: a.emi_amount,
+    payments,
+  });
 
   return (
     <div className="space-y-4">
@@ -134,14 +145,21 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
             value={inr(s?.balance)}
             tone={isPositive(s?.balance) ? "red" : "plain"}
           />
-          <Stat
-            label="EMI"
-            value={inr(a.emi_amount)}
-            sub={`${payments.length} paid of ${a.tenure_months ?? "—"}${
-              a.interval_months && a.interval_months > 1 ? ` · every ${a.interval_months} months` : ""
-            }`}
-          />
+          <Stat label="EMI" value={inr(a.emi_amount)} sub={`× ${a.tenure_months ?? "—"} EMIs`} />
         </dl>
+        <div className="mt-3">
+          {settled ? (
+            <p className="text-sm text-slate-600">
+              <span className="rounded-lg bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-800 ring-1 ring-emerald-200">
+                {a.tenure_months ?? "—"} EMIs of {inr(a.emi_amount)}
+              </span>{" "}
+              · {payments.length} payment{payments.length === 1 ? "" : "s"} made
+              {a.ledger === "closed" && " · fully paid"}
+            </p>
+          ) : (
+            <EmiSummary rows={schedule} emi={a.emi_amount} intervalMonths={a.interval_months} />
+          )}
+        </div>
       </section>
 
       {(a.data_flags.length > 0 || otherFile.length > 0) && (
@@ -192,12 +210,12 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
 
       <section className="rounded-xl bg-white ring-1 ring-slate-200">
         <h2 className="border-b border-slate-100 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Payment history ({payments.length})
+          {settled ? `Payments (${payments.length})` : `Installments (${schedule.length})`}
         </h2>
-        {payments.length === 0 ? (
+        {schedule.length === 0 ? (
           <p className="p-6 text-center text-sm text-slate-500">No payments recorded in the old software.</p>
         ) : (
-          <PaymentList payments={payments} />
+          <InstallmentTable rows={schedule} />
         )}
       </section>
 
@@ -282,31 +300,6 @@ function PaymentList({ payments }: { payments: Payment[] }) {
         </table>
       </div>
     </>
-  );
-}
-
-function Delay({ days, plain }: { days: number | null; plain?: boolean }) {
-  if (days == null) return plain ? <>—</> : null;
-  const late = days > 0;
-  const text = late ? `${days} d late` : days < 0 ? `${-days} d early` : "on time";
-  return (
-    <span className={`${plain ? "" : "ml-1 "}${late ? "font-medium text-red-700" : "text-slate-500"}`}>
-      {plain ? text : `· ${text}`}
-    </span>
-  );
-}
-
-function RowFlags({ flags }: { flags: string[] }) {
-  const shown = flags.filter((f) => f !== "receipt_no_unrecoverable");
-  if (shown.length === 0) return null;
-  return (
-    <span className="mt-1 flex flex-wrap gap-1">
-      {shown.map((f) => (
-        <span key={f} className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">
-          {flagLabel(f)}
-        </span>
-      ))}
-    </span>
   );
 }
 

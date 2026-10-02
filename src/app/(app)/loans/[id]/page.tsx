@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { dmy, inr } from "@/lib/format";
+import { buildSchedule } from "@/lib/schedule";
+import { EmiSummary, InstallmentTable } from "../../installments";
 
 type Loan = {
   id: number;
@@ -66,6 +68,13 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
   if (!data) notFound();
   const l = data as unknown as Loan;
   const b = l.borrowers;
+  const schedule = buildSchedule({
+    installments: l.installments,
+    intervalMonths: l.interval_months,
+    agreementDate: l.agreement_date,
+    emi: l.emi_amount,
+    payments: [],
+  });
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
@@ -95,6 +104,9 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
             sub={`× ${l.installments}${l.interval_months > 1 ? `, every ${l.interval_months} months` : " months"}`}
           />
         </dl>
+        <div className="mt-3">
+          <EmiSummary rows={schedule} emi={l.emi_amount} intervalMonths={l.interval_months} />
+        </div>
       </section>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -127,6 +139,13 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
           <Field label="Zone / dealer" value={[l.zone, l.dealer].filter(Boolean).join(" · ") || null} />
         </Card>
       </div>
+
+      <section className="rounded-xl bg-white ring-1 ring-slate-200">
+        <h2 className="border-b border-slate-100 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Installments ({schedule.length})
+        </h2>
+        <InstallmentTable rows={schedule} />
+      </section>
 
       <Link
         href="/loans/new"
