@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PaymentDialog } from "./payment-dialog";
 
 export type PendingRow = {
@@ -12,6 +13,7 @@ export type PendingRow = {
 };
 
 export function CollectList({ rows }: { rows: PendingRow[] }) {
+  const router = useRouter();
   const [open, setOpen] = useState<PendingRow | null>(null);
 
   return (
@@ -21,7 +23,7 @@ export function CollectList({ rows }: { rows: PendingRow[] }) {
           <li key={`${r.source}-${r.ref_id}`}>
             <button
               type="button"
-              onClick={() => setOpen(r)}
+              onClick={() => (isPhone() ? router.push(`/payments/${r.source}/${r.ref_id}`) : setOpen(r))}
               className="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 active:bg-slate-100"
             >
               <span className="num w-16 shrink-0 text-sm font-semibold text-blue-700">{r.folio}</span>
@@ -42,4 +44,9 @@ export function CollectList({ rows }: { rows: PendingRow[] }) {
       {open && <PaymentDialog key={`${open.source}-${open.ref_id}`} row={open} onClose={() => setOpen(null)} />}
     </>
   );
+}
+
+/** Phones get the full collection page; bigger screens get the pop-up window. */
+export function isPhone() {
+  return typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
 }

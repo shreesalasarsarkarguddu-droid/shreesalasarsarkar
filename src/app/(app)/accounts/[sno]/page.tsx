@@ -121,7 +121,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
 
       {/* header */}
       <section className="rounded-xl bg-white p-4 ring-1 ring-slate-200 sm:p-5">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-xl font-bold leading-tight sm:text-2xl">{a.borrower_name}</h1>
             <p className="mt-1 text-sm text-slate-500">
@@ -129,7 +129,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
               {a.agreement_date && <> · Agreement {dmy(a.agreement_date)}</>}
             </p>
           </div>
-          <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
             <StatusBadge ledger={a.ledger} seized={a.seized} />
             <Link
               href={`/accounts/${a.sno}/statement`}

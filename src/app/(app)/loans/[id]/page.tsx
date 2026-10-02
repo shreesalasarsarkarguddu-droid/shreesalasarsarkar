@@ -93,14 +93,14 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
       )}
 
       <section className="rounded-xl bg-white p-4 ring-1 ring-slate-200 sm:p-5">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-xl font-bold leading-tight sm:text-2xl">{b.full_name}</h1>
             <p className="mt-1 text-sm text-slate-500">
               Folio <span className="font-medium text-slate-700">{l.folio_no}</span> · {l.loan_type} · Agreement {dmy(l.agreement_date)}
             </p>
           </div>
-          <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
             <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold capitalize text-blue-800">{l.status}</span>
             <Link
               href={`/loans/${l.id}/statement`}

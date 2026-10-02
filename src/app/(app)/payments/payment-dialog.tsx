@@ -7,7 +7,7 @@ import { fromPaise, toPaise, todayIST, type DueRow } from "@/lib/schedule";
 import { PAYMENT_MODES } from "@/lib/payment";
 import type { Ledger } from "@/lib/ledger";
 import { EmiSummary } from "../installments";
-import { LedgerGrid } from "./ledger-grid";
+import { LedgerCards, LedgerGrid } from "./ledger-grid";
 import { loadLedger, recordPayment, type PaymentField } from "./actions";
 import type { PendingRow } from "./collect-list";
 
@@ -32,11 +32,23 @@ const emptyForm = (): Form => ({
 const plain = (p: bigint) => (p % 100n === 0n ? String(p / 100n) : fromPaise(p));
 const isAmount = (v: string) => /^\d{1,9}(\.\d{1,2})?$/.test(v);
 
-export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () => void }) {
-  const router = useRouter();
-  const dialogRef = useRef<HTMLDialogElement>(null);
+/**
+ * The collection screen: summary, installment list and the payment form.
+ * variant "dialog" = big window on computers; "page" = full page on phones (/payments/[source]/[ref]).
+ */
+export function CollectPanel({
+  row,
+  initialLedger = null,
+  variant,
+  onClose,
+}: {
+  row: PendingRow;
+  initialLedger?: Ledger | null;
+  variant: "dialog" | "page";
+  onClose?: (savedSomething: boolean) => void;
+}) {
   const savedAny = useRef(false);
-  const [ledger, setLedger] = useState<Ledger | null>(null);
+  const [ledger, setLedger] = useState<Ledger | null>(initialLedger);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm);
   const [imTouched, setImTouched] = useState(false);
@@ -54,9 +66,9 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
     else setLoadError(res.error);
   }, [row.source, row.ref_id]);
 
+  const hasInitial = initialLedger != null;
   useEffect(() => {
-    dialogRef.current?.showModal();
-    document.body.style.overflow = "hidden";
+    if (hasInitial) return;
     let alive = true;
     loadLedger(row.source, row.ref_id)
       .then((res) => {
@@ -67,9 +79,8 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
       .catch(() => alive && setLoadError("Could not load. Check your internet and try again."));
     return () => {
       alive = false;
-      document.body.style.overflow = "";
     };
-  }, [row.source, row.ref_id]);
+  }, [row.source, row.ref_id, hasInitial]);
 
   const emi = ledger ? toPaise(ledger.emi) : 0n;
   const dueRows = (ledger?.rows.filter((r) => r.kind === "due") ?? []) as DueRow[];
@@ -100,9 +111,7 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
 
   function close() {
     if (saving) return;
-    dialogRef.current?.close();
-    onClose();
-    if (savedAny.current) router.refresh();
+    onClose?.(savedAny.current);
   }
 
   function save(e: React.FormEvent) {
@@ -159,18 +168,9 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
   const covers = dueRows.slice(0, im);
 
   return (
-    <dialog
-      ref={dialogRef}
-      onCancel={(e) => {
-        e.preventDefault();
-        close();
-      }}
-      aria-labelledby="pay-title"
-      className="m-0 h-dvh max-h-none w-full max-w-none bg-slate-100 p-0 backdrop:bg-slate-900/60 md:m-auto md:h-[96dvh] md:w-[98vw] md:rounded-2xl"
-    >
-      <div className="flex h-full flex-col">
+      <div className={variant === "dialog" ? "flex h-full flex-col" : "flex flex-col"}>
         {/* header */}
-        <header className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2.5 md:px-5">
+        <header className={`flex items-start justify-between gap-3 bg-white px-4 py-2.5 md:px-5 ${variant === "dialog" ? "border-b border-slate-200" : "rounded-xl ring-1 ring-slate-200"}`}>
           <div className="min-w-0">
             <h2 id="pay-title" className="truncate text-lg font-bold md:text-xl">
               {ledger?.name ?? row.borrower_name}
@@ -191,17 +191,20 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
               <p className="truncate text-xs text-slate-500">{[ledger.address, ledger.vehicle].filter(Boolean).join(" · ")}</p>
             )}
           </div>
+          {variant === "dialog" && (
           <button
             type="button"
+            data-close
             onClick={close}
             aria-label="Close"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-2xl text-slate-500 hover:bg-slate-100"
           >
             ×
           </button>
+          )}
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
+        <div className={variant === "dialog" ? "min-h-0 flex-1 overflow-y-auto lg:overflow-hidden" : ""}>
           {loadError ? (
             <div className="m-4 rounded-xl bg-white p-6 text-center ring-1 ring-slate-200">
               <p className="font-semibold">{loadError}</p>
@@ -215,7 +218,7 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
               <div className="h-64 animate-pulse rounded-xl bg-slate-200" />
             </div>
           ) : (
-            <div className="grid gap-3 p-3 md:p-4 lg:h-full lg:grid-cols-[minmax(0,1fr)_340px]">
+            <div className={`grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_340px] ${variant === "dialog" ? "p-3 md:p-4 lg:h-full" : "pt-3"}`}>
               {/* left: summary + grid (grid scrolls inside; totals row stays visible) */}
               <div className="order-2 flex min-h-0 flex-col gap-3 lg:order-1">
                 <section className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
@@ -230,7 +233,14 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
                     <EmiSummary summary={ledger.summary} emi={ledger.emi} intervalMonths={ledger.intervalMonths} />
                   </div>
                 </section>
-                <section className="h-[65dvh] min-h-0 overflow-auto rounded-xl bg-white ring-1 ring-slate-200 lg:h-auto lg:flex-1">
+                <section className="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200 md:hidden">
+                  <LedgerCards rows={ledger.rows} summary={ledger.summary} />
+                </section>
+                <section
+                  className={`hidden min-h-0 overflow-auto rounded-xl bg-white ring-1 ring-slate-200 md:block ${
+                    variant === "dialog" ? "md:h-[65dvh] lg:h-auto lg:flex-1" : "md:max-h-[75dvh]"
+                  }`}
+                >
                   <LedgerGrid rows={ledger.rows} summary={ledger.summary} />
                 </section>
               </div>
@@ -394,6 +404,39 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
           )}
         </div>
       </div>
+  );
+}
+
+/** Computers: CollectPanel in a large window. */
+export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () => void }) {
+  const router = useRouter();
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    ref.current?.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      onCancel={(e) => {
+        e.preventDefault();
+        ref.current?.querySelector<HTMLButtonElement>("[data-close]")?.click();
+      }}
+      aria-labelledby="pay-title"
+      className="m-0 h-dvh max-h-none w-full max-w-none bg-slate-100 p-0 backdrop:bg-slate-900/60 md:m-auto md:h-[96dvh] md:w-[98vw] md:rounded-2xl"
+    >
+      <CollectPanel
+        row={row}
+        variant="dialog"
+        onClose={(saved) => {
+          ref.current?.close();
+          onClose();
+          if (saved) router.refresh();
+        }}
+      />
     </dialog>
   );
 }

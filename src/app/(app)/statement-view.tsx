@@ -37,8 +37,10 @@ export function StatementView({ s, backHref }: { s: StatementData; backHref: str
         <PrintButton />
       </div>
 
-      {/* A4 sheet */}
-      <article className="statement mx-auto w-full max-w-[210mm] bg-white p-[8mm] text-black shadow ring-1 ring-slate-200 print:max-w-none print:p-0 print:shadow-none print:ring-0">
+      {/* A4 sheet - on phones it scrolls sideways inside this frame instead of widening the page */}
+      <p className="text-xs text-slate-500 md:hidden print:hidden">Swipe sideways to see the full statement.</p>
+      <div className="overflow-x-auto rounded-lg print:overflow-visible">
+      <article className="statement mx-auto w-[210mm] min-w-[210mm] bg-white p-[8mm] text-black shadow ring-1 ring-slate-200 print:w-auto print:min-w-0 print:max-w-none print:p-0 print:shadow-none print:ring-0">
         <header className="flex items-start justify-between border-b-2 border-black pb-1">
           <div>
             <p className="text-lg font-extrabold tracking-wide">{BUSINESS.name}</p>
@@ -176,6 +178,7 @@ export function StatementView({ s, backHref }: { s: StatementData; backHref: str
           </div>
         </section>
       </article>
+      </div>
     </div>
   );
 }
