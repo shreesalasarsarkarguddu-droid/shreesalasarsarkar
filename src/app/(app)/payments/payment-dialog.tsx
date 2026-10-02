@@ -6,7 +6,7 @@ import { inr, isPositive } from "@/lib/format";
 import { todayIST } from "@/lib/schedule";
 import { PAYMENT_MODES } from "@/lib/payment";
 import type { Ledger } from "@/lib/ledger";
-import { EmiSummary, InstallmentTable } from "../installments";
+import { LedgerGrid, gridData } from "./ledger-grid";
 import { loadLedger, recordPayment, type PaymentField } from "./actions";
 import type { PendingRow } from "./collect-list";
 
@@ -88,6 +88,7 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
     else if (form.paid_date > todayIST()) errs.paid_date = "Paid date cannot be in the future";
     if (!form.payment_mode) errs.payment_mode = "Choose payment mode";
     if (!/^\d{1,12}$/.test(form.receipt_no.trim())) errs.receipt_no = "Enter the receipt number";
+    if (form.payment_mode === "CHEQUE" && !form.reference_no.trim()) errs.reference_no = "Enter the cheque number";
     if (Object.keys(errs).length) {
       setErrors(errs);
       document.getElementById(`pay-${Object.keys(errs)[0]}`)?.focus();
@@ -140,11 +141,11 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
         close();
       }}
       aria-labelledby="pay-title"
-      className="m-0 h-dvh max-h-none w-full max-w-none bg-slate-100 p-0 backdrop:bg-slate-900/60 md:m-auto md:h-[92dvh] md:w-[min(1200px,96vw)] md:rounded-2xl"
+      className="m-0 h-dvh max-h-none w-full max-w-none bg-slate-100 p-0 backdrop:bg-slate-900/60 md:m-auto md:h-[96dvh] md:w-[98vw] md:rounded-2xl"
     >
       <div className="flex h-full flex-col">
         {/* header */}
-        <header className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 md:px-6">
+        <header className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2.5 md:px-5">
           <div className="min-w-0">
             <h2 id="pay-title" className="truncate text-lg font-bold md:text-xl">
               {ledger?.name ?? row.borrower_name}
@@ -175,7 +176,7 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
           {loadError ? (
             <div className="m-4 rounded-xl bg-white p-6 text-center ring-1 ring-slate-200">
               <p className="font-semibold">{loadError}</p>
@@ -185,29 +186,16 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
             </div>
           ) : !ledger ? (
             <div className="space-y-3 p-4" aria-busy="true" aria-label="Loading">
-              <div className="h-20 animate-pulse rounded-xl bg-slate-200" />
+              <div className="h-16 animate-pulse rounded-xl bg-slate-200" />
               <div className="h-64 animate-pulse rounded-xl bg-slate-200" />
             </div>
           ) : (
-            <div className="grid gap-4 p-4 md:p-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-              {/* left: totals + installments */}
-              <div className="order-2 space-y-4 lg:order-1">
-                <section className="rounded-xl bg-white p-4 ring-1 ring-slate-200">
-                  <dl className="num grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <Stat label="Total" value={inr(ledger.total)} />
-                    <Stat label="Paid" value={inr(ledger.paid)} tone="green" />
-                    <Stat label="Balance" value={inr(ledger.balance)} tone={isPositive(ledger.balance) ? "red" : "plain"} />
-                    <Stat label="EMI" value={inr(ledger.emi)} />
-                  </dl>
-                  <div className="mt-3">
-                    <EmiSummary rows={ledger.rows} emi={ledger.emi} intervalMonths={ledger.intervalMonths} />
-                  </div>
-                </section>
-                <section className="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200">
-                  <h3 className="border-b border-slate-100 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                    Installments ({ledger.rows.length})
-                  </h3>
-                  <InstallmentTable rows={ledger.rows} />
+            <div className="grid gap-3 p-3 md:p-4 lg:h-full lg:grid-cols-[minmax(0,1fr)_320px]">
+              {/* left: summary + grid (grid scrolls inside; totals row stays visible) */}
+              <div className="order-2 flex min-h-0 flex-col gap-3 lg:order-1">
+                <Summary ledger={ledger} />
+                <section className="h-[65dvh] min-h-0 overflow-auto rounded-xl bg-white ring-1 ring-slate-200 lg:h-auto lg:flex-1">
+                  <LedgerGrid rows={ledger.rows} loanInterest={ledger.interest} loanTotal={ledger.total} emi={ledger.emi} />
                 </section>
               </div>
 
@@ -215,7 +203,7 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
               <form
                 onSubmit={save}
                 noValidate
-                className="order-1 space-y-4 rounded-xl bg-white p-4 ring-1 ring-slate-200 lg:sticky lg:top-0 lg:order-2"
+                className="order-1 space-y-4 self-start rounded-xl bg-white p-4 ring-1 ring-slate-200 lg:order-2 lg:max-h-full lg:overflow-y-auto"
               >
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Take payment</h3>
 
@@ -265,7 +253,7 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
                   <span className="mb-1 block text-sm font-medium text-slate-700">
                     Mode <span className="text-red-600">*</span>
                   </span>
-                  <div role="radiogroup" aria-label="Payment mode" className="grid grid-cols-4 gap-2">
+                  <div role="radiogroup" aria-label="Payment mode" className="grid grid-cols-5 gap-1.5">
                     {PAYMENT_MODES.map((m, i) => (
                       <button
                         key={m}
@@ -274,7 +262,7 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
                         role="radio"
                         aria-checked={form.payment_mode === m}
                         onClick={() => set("payment_mode", m)}
-                        className={`h-11 rounded-lg text-sm font-semibold ring-1 ${
+                        className={`h-11 rounded-lg text-xs font-semibold ring-1 sm:text-sm ${
                           form.payment_mode === m
                             ? "bg-blue-700 text-white ring-blue-700"
                             : errors.payment_mode
@@ -326,7 +314,15 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
                 {form.payment_mode && form.payment_mode !== "CASH" && (
                   <div>
                     <label htmlFor="pay-reference_no" className="mb-1 block text-sm font-medium text-slate-700">
-                      Cheque / UTR no. <span className="font-normal text-slate-400">(optional)</span>
+                      {form.payment_mode === "CHEQUE" ? (
+                        <>
+                          Cheque no. <span className="text-red-600">*</span>
+                        </>
+                      ) : (
+                        <>
+                          UTR / reference no. <span className="font-normal text-slate-400">(optional)</span>
+                        </>
+                      )}
                     </label>
                     <input
                       id="pay-reference_no"
@@ -334,6 +330,7 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
                       maxLength={30}
                       value={form.reference_no}
                       onChange={(e) => set("reference_no", e.target.value.toUpperCase())}
+                      aria-invalid={!!errors.reference_no}
                       className={inputCls(!!errors.reference_no)}
                     />
                     <Err msg={errors.reference_no} />
@@ -356,6 +353,33 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
   );
 }
 
+function Summary({ ledger }: { ledger: Ledger }) {
+  const { totals } = gridData(ledger.rows, ledger.interest, ledger.total, ledger.emi);
+  const paidCount = ledger.rows.filter((r) => r.status === "paid").length;
+  const overdue = ledger.rows.filter((r) => r.status === "overdue").length;
+  const every = ledger.intervalMonths && ledger.intervalMonths > 1 ? ` every ${ledger.intervalMonths} months` : " monthly";
+  return (
+    <section className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
+      <dl className="num grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <Stat label="Total" value={inr(ledger.total)} />
+        <Stat label="Paid" value={inr(ledger.paid)} tone="green" />
+        <Stat label="Balance" value={inr(ledger.balance)} tone={isPositive(ledger.balance) ? "red" : "plain"} />
+        <Stat label="EMI" value={inr(ledger.emi)} />
+        <Stat label="Total due days" value={String(totals.dueDays)} tone={totals.dueDays > 0 ? "red" : "plain"} />
+      </dl>
+      <div className="mt-2 flex flex-wrap gap-2 text-sm">
+        <span className="rounded-lg bg-blue-50 px-2.5 py-1 font-semibold text-blue-800 ring-1 ring-blue-200">
+          {ledger.rows.length} EMIs of {inr(ledger.emi)}
+          <span className="font-normal">{every}</span>
+        </span>
+        <span className="rounded-lg bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800 ring-1 ring-emerald-200">{paidCount} paid</span>
+        <span className="rounded-lg bg-slate-100 px-2.5 py-1 font-semibold text-slate-700 ring-1 ring-slate-200">{ledger.rows.length - paidCount} left</span>
+        {overdue > 0 && <span className="rounded-lg bg-red-50 px-2.5 py-1 font-semibold text-red-800 ring-1 ring-red-200">{overdue} overdue</span>}
+      </div>
+    </section>
+  );
+}
+
 const inputCls = (bad: boolean) =>
   `h-12 w-full rounded-lg border bg-white px-3 text-base outline-none focus:ring-2 ${
     bad ? "border-red-500 focus:ring-red-500/20" : "border-slate-300 focus:border-blue-600 focus:ring-blue-600/20"
@@ -368,9 +392,9 @@ function Err({ msg }: { msg?: string }) {
 function Stat({ label, value, tone = "plain" }: { label: string; value: string; tone?: "plain" | "green" | "red" }) {
   const color = tone === "green" ? "text-emerald-700" : tone === "red" ? "text-red-700" : "text-slate-900";
   return (
-    <div className="rounded-lg bg-slate-50 p-3">
-      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
-      <dd className={`mt-0.5 text-lg font-bold ${color}`}>{value}</dd>
+    <div className="rounded-lg bg-slate-50 px-3 py-2">
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className={`text-base font-bold md:text-lg ${color}`}>{value}</dd>
     </div>
   );
 }

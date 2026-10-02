@@ -36,7 +36,7 @@ const paymentSchema = z.object({
   payment_mode: z.enum(PAYMENT_MODES, { error: "Choose payment mode" }),
   receipt_no: z.string().trim().regex(/^\d{1,12}$/, { error: "Enter the receipt number" }),
   reference_no: z.string().trim().max(30, { error: "Too long" }),
-});
+}).refine((v) => v.payment_mode !== "CHEQUE" || v.reference_no !== "", { error: "Enter the cheque number", path: ["reference_no"] });
 
 // Plain strings from the form; everything is validated on the server below.
 export type PaymentInput = {

@@ -58,6 +58,7 @@ export type Ledger = {
   address: string | null;
   vehicle: string | null;
   total: string;
+  interest: string; // loan interest amount, used to split each payment into principal / interest
   emi: string;
   installments: number | null;
   intervalMonths: number | null;
@@ -73,7 +74,7 @@ export async function getLedger(supabase: SupabaseClient, source: "old" | "new",
       .from("legacy_accounts")
       .select(
         "id, sno, fno, borrower_name, borrower_father, borrower_mobile, borrower_address, registration_no, vehicle_model," +
-          " agreement_date, tenure_months, interval_months, total_amount::text, emi_amount::text",
+          " agreement_date, tenure_months, interval_months, total_amount::text, emi_amount::text, interest_amount::text",
       )
       .eq("sno", refId)
       .eq("ledger", "pending")
@@ -83,7 +84,7 @@ export async function getLedger(supabase: SupabaseClient, source: "old" | "new",
     const acc = a as unknown as {
       id: number; sno: number; fno: number; borrower_name: string; borrower_father: string | null; borrower_mobile: string | null;
       borrower_address: string | null; registration_no: string | null; vehicle_model: string | null; agreement_date: string | null;
-      tenure_months: number | null; interval_months: number | null; total_amount: string; emi_amount: string;
+      tenure_months: number | null; interval_months: number | null; total_amount: string; emi_amount: string; interest_amount: string;
     };
     const [{ data: legacy, error: lErr }, fresh, { data: sum }] = await Promise.all([
       supabase
@@ -101,7 +102,7 @@ export async function getLedger(supabase: SupabaseClient, source: "old" | "new",
     return {
       source, refId, folio: String(acc.fno), name: acc.borrower_name, father: acc.borrower_father, mobile: acc.borrower_mobile,
       address: acc.borrower_address, vehicle: [acc.vehicle_model, acc.registration_no].filter(Boolean).join(" · ") || null,
-      total: acc.total_amount, emi: acc.emi_amount, installments: acc.tenure_months, intervalMonths: acc.interval_months,
+      total: acc.total_amount, interest: acc.interest_amount, emi: acc.emi_amount, installments: acc.tenure_months, intervalMonths: acc.interval_months,
       paid: s?.total_paid ?? "0.00", balance: s?.balance ?? acc.total_amount,
       rows: buildSchedule({ installments: acc.tenure_months, intervalMonths: acc.interval_months, agreementDate: acc.agreement_date, emi: acc.emi_amount, payments }),
     };
@@ -110,7 +111,7 @@ export async function getLedger(supabase: SupabaseClient, source: "old" | "new",
   const { data: l, error } = await supabase
     .from("loans")
     .select(
-      "id, folio_no, vehicle_model, vehicle_no, agreement_date, installments, interval_months, total_amount::text, emi_amount::text," +
+      "id, folio_no, vehicle_model, vehicle_no, agreement_date, installments, interval_months, total_amount::text, emi_amount::text, interest_amount::text," +
         " borrowers(full_name, father_name, mobile, address)",
     )
     .eq("id", refId)
@@ -120,7 +121,7 @@ export async function getLedger(supabase: SupabaseClient, source: "old" | "new",
   if (!l) return null;
   const loan = l as unknown as {
     id: number; folio_no: string; vehicle_model: string; vehicle_no: string | null; agreement_date: string;
-    installments: number; interval_months: number; total_amount: string; emi_amount: string;
+    installments: number; interval_months: number; total_amount: string; emi_amount: string; interest_amount: string;
     borrowers: { full_name: string; father_name: string | null; mobile: string | null; address: string | null };
   };
   const payments = await fetchNewPayments(supabase, { loanId: loan.id });
@@ -129,7 +130,7 @@ export async function getLedger(supabase: SupabaseClient, source: "old" | "new",
     source, refId, folio: loan.folio_no, name: loan.borrowers.full_name, father: loan.borrowers.father_name,
     mobile: loan.borrowers.mobile, address: loan.borrowers.address,
     vehicle: [loan.vehicle_model, loan.vehicle_no].filter(Boolean).join(" · ") || null,
-    total: loan.total_amount, emi: loan.emi_amount, installments: loan.installments, intervalMonths: loan.interval_months,
+    total: loan.total_amount, interest: loan.interest_amount, emi: loan.emi_amount, installments: loan.installments, intervalMonths: loan.interval_months,
     paid: fromPaise(paidPaise), balance: fromPaise(toPaise(loan.total_amount) - paidPaise),
     rows: buildSchedule({ installments: loan.installments, intervalMonths: loan.interval_months, agreementDate: loan.agreement_date, emi: loan.emi_amount, payments }),
   };
