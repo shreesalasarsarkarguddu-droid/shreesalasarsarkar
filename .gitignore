@@ -1,0 +1,32 @@
+# secrets
+.env
+.env.*
+!.env.example
+New Text Document.txt
+
+# legacy customer data (personal information) - never commit
+*.xlsx
+*.xls
+*.dbf
+*.DBF
+analysis/phase1/reconstructed/
+legacy-data/
+
+# node / next
+node_modules/
+.next/
+out/
+build/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# python
+__pycache__/
+*.pyc
+
+# misc
+.DS_Store
+Thumbs.db
+*.log
+supabase/.temp/
