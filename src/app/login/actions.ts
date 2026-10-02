@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -21,6 +22,13 @@ export async function signIn(_prev: LoginState, formData: FormData): Promise<Log
 
 export async function signOut() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut();
+  if (error) console.error("sign-out:", error.message);
+  // Always clear the session cookies, even if the server call failed
+  // (e.g. the login was deleted or the session already revoked) - otherwise the user is stuck.
+  const store = await cookies();
+  for (const c of store.getAll()) {
+    if (c.name.startsWith("sb-")) store.delete(c.name);
+  }
   redirect("/login");
 }
