@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getStaff } from "@/lib/staff";
 import { signOut } from "@/app/login/actions";
 import { BottomNav, TopNav } from "./nav";
+import { InstallBanner } from "./install-banner";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -33,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </header>
       <main className="mx-auto max-w-screen-2xl px-4 pb-28 pt-4 md:pb-16 lg:px-6 print:max-w-none print:p-0">
+        {staff && <InstallBanner />}
         {staff ? (
           children
         ) : (

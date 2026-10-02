@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   title: "Shree Salasar Sarkar",
   description: "Finance accounts",
   robots: { index: false, follow: false },
+  applicationName: "Shree Salasar Sarkar",
+  appleWebApp: { capable: true, title: "SS Finance", statusBarStyle: "default" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
