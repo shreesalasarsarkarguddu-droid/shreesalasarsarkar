@@ -1,0 +1,370 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { dmy, flagLabel, inr, isNegative, isPositive } from "@/lib/format";
+import { StatusBadge } from "../status-badge";
+
+type Account = {
+  id: number;
+  ledger: "pending" | "closed";
+  sno: number;
+  fno: number;
+  fcode: string | null;
+  borrower_name: string;
+  borrower_father: string | null;
+  borrower_address: string | null;
+  borrower_mobile: string | null;
+  borrower_mobile2: string | null;
+  guarantor_name: string | null;
+  guarantor_father: string | null;
+  guarantor_address: string | null;
+  guarantor_mobile: string | null;
+  guarantor_mobile2: string | null;
+  finance_mode: string | null;
+  zone: string | null;
+  vehicle_condition: string | null;
+  vehicle_model: string | null;
+  vehicle_variant: string | null;
+  chassis_no: string | null;
+  engine_no: string | null;
+  model_year: number | null;
+  registration_no: string | null;
+  agreement_date: string | null;
+  tenure_months: number | null;
+  interval_months: number | null;
+  finance_amount: string;
+  interest_amount: string;
+  agreement_amount: string;
+  hp_amount: string;
+  total_amount: string;
+  emi_amount: string;
+  seized: boolean | null;
+  data_flags: string[];
+};
+
+type Payment = {
+  id: number;
+  ledger: "pending" | "closed";
+  installment_no: number;
+  due_amount: string | null;
+  due_date: string | null;
+  paid_amount: string;
+  paid_date: string | null;
+  balance_after: string | null;
+  delay_days: number | null;
+  payment_mode: string | null;
+  cheque_no: string | null;
+  receipt_no: number | null;
+  data_flags: string[];
+};
+
+export async function generateMetadata({ params }: PageProps<"/accounts/[sno]">) {
+  const { sno } = await params;
+  return { title: `SNO ${sno} · Shree Salasar Sarkar` };
+}
+
+export default async function AccountPage({ params }: PageProps<"/accounts/[sno]">) {
+  const { sno: snoParam } = await params;
+  const sno = Number.parseInt(snoParam, 10);
+  if (!Number.isInteger(sno) || String(sno) !== snoParam) notFound();
+
+  const supabase = await createClient();
+  const { data: accountData, error } = await supabase
+    .from("legacy_accounts")
+    .select(
+      "id, ledger, sno, fno, fcode, borrower_name, borrower_father, borrower_address, borrower_mobile, borrower_mobile2," +
+        " guarantor_name, guarantor_father, guarantor_address, guarantor_mobile, guarantor_mobile2, finance_mode, zone," +
+        " vehicle_condition, vehicle_model, vehicle_variant, chassis_no, engine_no, model_year, registration_no," +
+        " agreement_date, tenure_months, interval_months, seized, data_flags," +
+        " finance_amount::text, interest_amount::text, agreement_amount::text, hp_amount::text, total_amount::text, emi_amount::text",
+    )
+    .eq("sno", sno)
+    .maybeSingle();
+  if (error) {
+    console.error("account query failed:", error);
+    throw new Error("Could not load this account.");
+  }
+  if (!accountData) notFound();
+  const a = accountData as unknown as Account;
+
+  const [{ data: summary }, { data: paymentData, error: payError }] = await Promise.all([
+    supabase.from("legacy_account_summary").select("total_paid::text, balance::text, payments_count").eq("id", a.id).single(),
+    supabase
+      .from("legacy_payments")
+      .select(
+        "id, ledger, installment_no, due_date, paid_date, delay_days, payment_mode, cheque_no, receipt_no, data_flags," +
+          " due_amount::text, paid_amount::text, balance_after::text",
+      )
+      .eq("account_id", a.id)
+      .order("installment_no"),
+  ]);
+  if (payError) {
+    console.error("payments query failed:", payError);
+    throw new Error("Could not load payments.");
+  }
+  const s = summary as unknown as { total_paid: string; balance: string; payments_count: number } | null;
+  const all = (paymentData ?? []) as unknown as Payment[];
+  const payments = all.filter((p) => p.ledger === a.ledger);
+  const otherFile = all.filter((p) => p.ledger !== a.ledger);
+
+  return (
+    <div className="space-y-4">
+      <Link href="/accounts" className="inline-flex h-10 items-center text-sm font-medium text-blue-700">
+        ← All accounts
+      </Link>
+
+      {/* header */}
+      <section className="rounded-xl bg-white p-4 ring-1 ring-slate-200 sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold leading-tight sm:text-2xl">{a.borrower_name}</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              FNO <span className="font-medium text-slate-700">{a.fno}</span> · SNO {a.sno}
+              {a.agreement_date && <> · Agreement {dmy(a.agreement_date)}</>}
+            </p>
+          </div>
+          <StatusBadge ledger={a.ledger} seized={a.seized} />
+        </div>
+
+        <dl className="num mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat label="Total payable" value={inr(a.total_amount)} />
+          <Stat label="Paid" value={inr(s?.total_paid)} tone="green" />
+          <Stat
+            label={isNegative(s?.balance) ? "Overpaid" : "Balance"}
+            value={inr(s?.balance)}
+            tone={isPositive(s?.balance) ? "red" : "plain"}
+          />
+          <Stat
+            label="EMI"
+            value={inr(a.emi_amount)}
+            sub={`${payments.length} paid of ${a.tenure_months ?? "—"}${
+              a.interval_months && a.interval_months > 1 ? ` · every ${a.interval_months} months` : ""
+            }`}
+          />
+        </dl>
+      </section>
+
+      {(a.data_flags.length > 0 || otherFile.length > 0) && (
+        <section className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">
+          <p className="font-semibold">Notes from the import</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+            {a.data_flags.map((f) => (
+              <li key={f}>{flagLabel(f)}</li>
+            ))}
+            {otherFile.length > 0 && (
+              <li>
+                {otherFile.length} payment row(s) for this account are also in the{" "}
+                {a.ledger === "closed" ? "pending" : "fully-paid"} file (shown at the bottom, not counted).
+              </li>
+            )}
+          </ul>
+        </section>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card title="Customer">
+          <Field label="Father / husband" value={a.borrower_father} />
+          <Field label="Mobile" value={[a.borrower_mobile, a.borrower_mobile2].filter(Boolean).join(", ") || null} tel />
+          <Field label="Address" value={a.borrower_address} />
+          <Field label="Zone" value={a.zone} />
+        </Card>
+        <Card title="Guarantor / remarks">
+          <Field label="Name" value={a.guarantor_name} />
+          <Field label="Father" value={a.guarantor_father} />
+          <Field label="Mobile" value={[a.guarantor_mobile, a.guarantor_mobile2].filter(Boolean).join(", ") || null} tel />
+          <Field label="Address" value={a.guarantor_address} />
+        </Card>
+        <Card title="Vehicle">
+          <Field label="Registration no." value={a.registration_no} />
+          <Field label="Model" value={[a.vehicle_model, a.vehicle_variant].filter(Boolean).join(" · ") || null} />
+          <Field label="Year / condition" value={[a.model_year, a.vehicle_condition].filter(Boolean).join(" · ") || null} />
+          <Field label="Chassis / engine" value={[a.chassis_no, a.engine_no].filter(Boolean).join(" / ") || null} />
+        </Card>
+        <Card title="Loan">
+          <Money label="Finance amount" value={a.finance_amount} />
+          <Money label="Interest" value={a.interest_amount} />
+          <Money label="Agreement amount" value={a.agreement_amount} />
+          <Money label="HP amount" value={a.hp_amount} />
+          <Money label="Total payable" value={a.total_amount} strong />
+          <Field label="Mode / code" value={[a.finance_mode, a.fcode].filter(Boolean).join(" · ") || null} />
+        </Card>
+      </div>
+
+      <section className="rounded-xl bg-white ring-1 ring-slate-200">
+        <h2 className="border-b border-slate-100 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Payment history ({payments.length})
+        </h2>
+        {payments.length === 0 ? (
+          <p className="p-6 text-center text-sm text-slate-500">No payments recorded in the old software.</p>
+        ) : (
+          <PaymentList payments={payments} />
+        )}
+      </section>
+
+      {otherFile.length > 0 && (
+        <section className="rounded-xl bg-white ring-1 ring-amber-200">
+          <h2 className="border-b border-amber-100 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-amber-800">
+            Also in the {a.ledger === "closed" ? "pending" : "fully-paid"} file ({otherFile.length}) — not counted
+          </h2>
+          <PaymentList payments={otherFile} />
+        </section>
+      )}
+    </div>
+  );
+}
+
+function PaymentList({ payments }: { payments: Payment[] }) {
+  return (
+    <>
+      {/* phone */}
+      <ul className="num divide-y divide-slate-100 md:hidden">
+        {payments.map((p) => (
+          <li key={p.id} className="px-4 py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="font-semibold">
+                #{p.installment_no} · <span className="text-emerald-700">{inr(p.paid_amount)}</span>
+              </p>
+              <p className="text-sm text-slate-600">{dmy(p.paid_date)}</p>
+            </div>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Due {inr(p.due_amount)} on {dmy(p.due_date)}
+              <Delay days={p.delay_days} />
+            </p>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Balance <span className="font-medium text-slate-700">{inr(p.balance_after)}</span>
+              {p.payment_mode && <> · {p.payment_mode}</>}
+              {p.receipt_no != null && <> · Rcpt {p.receipt_no}</>}
+            </p>
+            <RowFlags flags={p.data_flags} />
+          </li>
+        ))}
+      </ul>
+
+      {/* tablet / desktop */}
+      <div className="hidden overflow-x-auto md:block">
+        <table className="num w-full text-sm">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-4 py-2.5">#</th>
+              <th className="px-4 py-2.5">Due date</th>
+              <th className="px-4 py-2.5 text-right">Due amt</th>
+              <th className="px-4 py-2.5">Paid date</th>
+              <th className="px-4 py-2.5 text-right">Paid amt</th>
+              <th className="px-4 py-2.5 text-right">Delay</th>
+              <th className="px-4 py-2.5 text-right">Balance</th>
+              <th className="px-4 py-2.5">Mode</th>
+              <th className="px-4 py-2.5">Receipt</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {payments.map((p) => (
+              <tr key={p.id} className="align-top">
+                <td className="px-4 py-2.5 text-slate-500">{p.installment_no}</td>
+                <td className="px-4 py-2.5">{dmy(p.due_date)}</td>
+                <td className="px-4 py-2.5 text-right">{inr(p.due_amount)}</td>
+                <td className="px-4 py-2.5">
+                  {dmy(p.paid_date)}
+                  <RowFlags flags={p.data_flags} />
+                </td>
+                <td className="px-4 py-2.5 text-right font-semibold text-emerald-700">{inr(p.paid_amount)}</td>
+                <td className="px-4 py-2.5 text-right">
+                  <Delay days={p.delay_days} plain />
+                </td>
+                <td className="px-4 py-2.5 text-right">{inr(p.balance_after)}</td>
+                <td className="px-4 py-2.5">
+                  {p.payment_mode ?? "—"}
+                  {p.cheque_no && <span className="block text-xs text-slate-500">{p.cheque_no}</span>}
+                </td>
+                <td className="px-4 py-2.5 text-slate-600">{p.receipt_no ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+function Delay({ days, plain }: { days: number | null; plain?: boolean }) {
+  if (days == null) return plain ? <>—</> : null;
+  const late = days > 0;
+  const text = late ? `${days} d late` : days < 0 ? `${-days} d early` : "on time";
+  return (
+    <span className={`${plain ? "" : "ml-1 "}${late ? "font-medium text-red-700" : "text-slate-500"}`}>
+      {plain ? text : `· ${text}`}
+    </span>
+  );
+}
+
+function RowFlags({ flags }: { flags: string[] }) {
+  const shown = flags.filter((f) => f !== "receipt_no_unrecoverable");
+  if (shown.length === 0) return null;
+  return (
+    <span className="mt-1 flex flex-wrap gap-1">
+      {shown.map((f) => (
+        <span key={f} className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">
+          {flagLabel(f)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function Stat({ label, value, sub, tone = "plain" }: { label: string; value: string; sub?: string; tone?: "plain" | "green" | "red" }) {
+  const color = tone === "green" ? "text-emerald-700" : tone === "red" ? "text-red-700" : "text-slate-900";
+  return (
+    <div className="rounded-lg bg-slate-50 p-3">
+      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className={`mt-0.5 text-lg font-bold ${color}`}>{value}</dd>
+      {sub && <dd className="text-xs text-slate-500">{sub}</dd>}
+    </div>
+  );
+}
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-xl bg-white p-4 ring-1 ring-slate-200">
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</h2>
+      <dl className="space-y-2.5">{children}</dl>
+    </section>
+  );
+}
+
+function Field({ label, value, tel }: { label: string; value: string | null; tel?: boolean }) {
+  return (
+    <div>
+      <dt className="text-xs text-slate-500">{label}</dt>
+      <dd className="break-words text-sm font-medium">
+        {value ? (
+          tel ? (
+            value.split(", ").map((m, i) => (
+              <span key={i}>
+                {i > 0 && ", "}
+                {/^\d{10}$/.test(m) ? (
+                  <a href={`tel:${m}`} className="text-blue-700">
+                    {m}
+                  </a>
+                ) : (
+                  m
+                )}
+              </span>
+            ))
+          ) : (
+            value
+          )
+        ) : (
+          <span className="text-slate-400">—</span>
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function Money({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="num flex items-baseline justify-between gap-3 text-sm">
+      <dt className="text-slate-500">{label}</dt>
+      <dd className={strong ? "font-bold" : "font-medium"}>{inr(value)}</dd>
+    </div>
+  );
+}

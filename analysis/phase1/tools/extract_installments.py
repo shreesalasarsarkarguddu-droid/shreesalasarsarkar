@@ -25,10 +25,11 @@ def run(f):
     tail=data[prev:]
     if out: out[-1]["AGAINST"]+=tail[:6]
     return out,issues,tail
-for f,o in [("F_INSMENT(1).xlsx","fins.json"),("P_INSMENT.xlsx","pins.json")]:
-    out,iss,tail=run(f)
-    json.dump(out,open(sys.argv[1]+"/"+o,"w"))
-    print(f,"records",len(out),dict(iss),"tail",repr(tail))
-    print("  RNO survivors",collections.Counter(len(x.get("RNO_raw","")) for x in out),"IM survivors",collections.Counter(len(x["IM_raw"]) for x in out))
-    print("  FCODE",collections.Counter(x.get("FCODE") for x in out).most_common(8), "DEL",collections.Counter(x.get("DEL") for x in out))
-    for x in [x for x in out if "parse_issue" in x][:3]: print("  ",x["parse_issue"])
+if __name__ == "__main__":
+    for f,o in [("F_INSMENT(1).xlsx","fins.json"),("P_INSMENT.xlsx","pins.json")]:
+        out,iss,tail=run(f)
+        json.dump(out,open(sys.argv[1]+"/"+o,"w"))
+        print(f,"records",len(out),dict(iss),"tail",repr(tail))
+        print("  RNO survivors",collections.Counter(len(x.get("RNO_raw","")) for x in out),"IM survivors",collections.Counter(len(x["IM_raw"]) for x in out))
+        print("  FCODE",collections.Counter(x.get("FCODE") for x in out).most_common(8), "DEL",collections.Counter(x.get("DEL") for x in out))
+        for x in [x for x in out if "parse_issue" in x][:3]: print("  ",x["parse_issue"])

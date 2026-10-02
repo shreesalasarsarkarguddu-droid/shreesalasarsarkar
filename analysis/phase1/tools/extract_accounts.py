@@ -67,6 +67,7 @@ def run(f):
         stats[q["recovery"]]+=1
         out.append(q)
     return out,stats
-for f,o in [("F_ACC(1).xlsx","facc.json"),("P_ACCOUNT(1).xlsx","pacc.json")]:
-    out,st=run(f); json.dump(out,open(sys.argv[1]+"/"+o,"w"))
-    print(f,len(out),dict(st))
+if __name__ == "__main__":
+    for f,o in [("F_ACC(1).xlsx","facc.json"),("P_ACCOUNT(1).xlsx","pacc.json")]:
+        out,st=run(f); json.dump(out,open(sys.argv[1]+"/"+o,"w"))
+        print(f,len(out),dict(st))
