@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { dmy, flagLabel, inr, isNegative, isPositive } from "@/lib/format";
 import { StatusBadge } from "../status-badge";
+import { CollectButton } from "../../payments/collect-button";
 import { buildSchedule } from "@/lib/schedule";
 import { LEGACY_PAYMENT_COLUMNS, NEW_PAYMENT_COLUMNS, addMoney, byInstallment, mapNewPayment, subMoney, type NewPaymentRecord } from "@/lib/ledger";
 import { Delay, EmiSummary, InstallmentTable, RowFlags } from "../../installments";
@@ -124,7 +125,14 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
               {a.agreement_date && <> · Agreement {dmy(a.agreement_date)}</>}
             </p>
           </div>
-          <StatusBadge ledger={a.ledger} seized={a.seized} />
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <StatusBadge ledger={a.ledger} seized={a.seized} />
+            {a.ledger === "pending" && (
+              <CollectButton
+                row={{ source: "old", ref_id: a.sno, folio: String(a.fno), borrower_name: a.borrower_name, borrower_mobile: a.borrower_mobile }}
+              />
+            )}
+          </div>
         </div>
 
         <dl className="num mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -5,6 +5,7 @@ import { dmy, inr } from "@/lib/format";
 import { buildSchedule } from "@/lib/schedule";
 import { NEW_PAYMENT_COLUMNS, byInstallment, mapNewPayment, type NewPaymentRecord } from "@/lib/ledger";
 import { EmiSummary, InstallmentTable } from "../../installments";
+import { CollectButton } from "../../payments/collect-button";
 
 type Loan = {
   id: number;
@@ -94,7 +95,12 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
               Folio <span className="font-medium text-slate-700">{l.folio_no}</span> · {l.loan_type} · Agreement {dmy(l.agreement_date)}
             </p>
           </div>
-          <span className="shrink-0 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold capitalize text-blue-800">{l.status}</span>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold capitalize text-blue-800">{l.status}</span>
+            {l.status === "active" && (
+              <CollectButton row={{ source: "new", ref_id: l.id, folio: l.folio_no, borrower_name: b.full_name, borrower_mobile: b.mobile }} />
+            )}
+          </div>
         </div>
         <dl className="num mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Finance amount" value={inr(l.finance_amount)} />
