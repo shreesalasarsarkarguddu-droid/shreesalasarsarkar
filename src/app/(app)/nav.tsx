@@ -33,6 +33,13 @@ const ITEMS = [
     ),
   },
   {
+    href: "/reports",
+    label: "Reports",
+    icon: (
+      <path d="M5 20V10M12 20V4M19 20v-7" strokeLinecap="round" />
+    ),
+  },
+  {
     href: "/profile",
     label: "Profile",
     icon: (
@@ -75,7 +82,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden print:hidden"
     >
       <ul className="grid" style={{ gridTemplateColumns: `repeat(${ITEMS.length}, minmax(0, 1fr))` }}>
         {ITEMS.map((item) => {

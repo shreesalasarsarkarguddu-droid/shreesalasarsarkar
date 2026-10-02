@@ -13,7 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur print:hidden">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
           <div className="flex items-center gap-6">
             <Link href="/accounts" className="text-base font-bold text-slate-900">
@@ -31,7 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 pb-28 pt-4 md:pb-16">
+      <main className="mx-auto max-w-6xl px-4 pb-28 pt-4 md:pb-16 print:max-w-none print:p-0">
         {staff ? (
           children
         ) : (
