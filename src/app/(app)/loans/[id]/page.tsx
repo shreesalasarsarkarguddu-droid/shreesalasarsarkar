@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { dmy, inr } from "@/lib/format";
 import { buildSchedule } from "@/lib/schedule";
+import { fetchNewPayments } from "@/lib/ledger";
 import { EmiSummary, InstallmentTable } from "../../installments";
 
 type Loan = {
@@ -68,12 +69,13 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
   if (!data) notFound();
   const l = data as unknown as Loan;
   const b = l.borrowers;
+  const payments = await fetchNewPayments(supabase, { loanId: l.id });
   const schedule = buildSchedule({
     installments: l.installments,
     intervalMonths: l.interval_months,
     agreementDate: l.agreement_date,
     emi: l.emi_amount,
-    payments: [],
+    payments,
   });
 
   return (

@@ -13,6 +13,16 @@ const ITEMS = [
     ),
   },
   {
+    href: "/payments",
+    label: "Collect",
+    icon: (
+      <>
+        <rect x="3" y="6" width="18" height="12" rx="2" />
+        <circle cx="12" cy="12" r="2.5" />
+      </>
+    ),
+  },
+  {
     href: "/loans/new",
     label: "New Loan",
     icon: (

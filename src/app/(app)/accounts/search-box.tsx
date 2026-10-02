@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 /** Debounced search: updates ?q= in the URL; the server does the actual search. */
-export function SearchBox() {
+export function SearchBox({ basePath = "/accounts", placeholder = "Name, FNO, mobile or vehicle no." }: { basePath?: string; placeholder?: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const [value, setValue] = useState(params.get("q") ?? "");
@@ -23,7 +23,7 @@ export function SearchBox() {
       if (next.trim()) sp.set("q", next.trim());
       else sp.delete("q");
       sp.delete("page");
-      startTransition(() => router.replace(`/accounts?${sp.toString()}`));
+      startTransition(() => router.replace(`${basePath}?${sp.toString()}`));
     }, 350);
   }
 
@@ -44,7 +44,7 @@ export function SearchBox() {
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Name, FNO, mobile or vehicle no."
+        placeholder={placeholder}
         aria-label="Search accounts"
         className="h-12 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-10 text-base outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
       />

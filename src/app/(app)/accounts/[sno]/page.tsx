@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { dmy, flagLabel, inr, isNegative, isPositive } from "@/lib/format";
 import { StatusBadge } from "../status-badge";
 import { buildSchedule } from "@/lib/schedule";
+import { fetchNewPayments } from "@/lib/ledger";
 import { Delay, EmiSummary, InstallmentTable, RowFlags } from "../../installments";
 
 type Account = {
@@ -89,7 +90,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
   if (!accountData) notFound();
   const a = accountData as unknown as Account;
 
-  const [{ data: summary }, { data: paymentData, error: payError }] = await Promise.all([
+  const [{ data: summary }, { data: paymentData, error: payError }, newPayments] = await Promise.all([
     supabase.from("legacy_account_summary").select("total_paid::text, balance::text, payments_count").eq("id", a.id).single(),
     supabase
       .from("legacy_payments")
@@ -99,6 +100,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
       )
       .eq("account_id", a.id)
       .order("installment_no"),
+    fetchNewPayments(supabase, { legacyAccountId: a.id }),
   ]);
   if (payError) {
     console.error("payments query failed:", payError);
@@ -106,7 +108,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
   }
   const s = summary as unknown as { total_paid: string; balance: string; payments_count: number } | null;
   const all = (paymentData ?? []) as unknown as Payment[];
-  const payments = all.filter((p) => p.ledger === a.ledger);
+  const payments = [...all.filter((p) => p.ledger === a.ledger), ...newPayments.map((p) => ({ ...p, ledger: a.ledger }))];
   const otherFile = all.filter((p) => p.ledger !== a.ledger);
   // Fully-paid accounts (or nothing left to pay) show only the payments made, never "overdue" slots.
   const settled = a.ledger === "closed" || !isPositive(s?.balance);
