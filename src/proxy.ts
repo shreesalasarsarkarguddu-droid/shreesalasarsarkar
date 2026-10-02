@@ -4,6 +4,10 @@ import { createServerClient } from "@supabase/ssr";
 // Refreshes the Supabase session cookie and sends signed-out visitors to /login.
 // This is only an optimistic check: the real protection is Row Level Security in the database.
 export async function proxy(request: NextRequest) {
+  // Leave /login alone: refreshing a stale session here would clear auth cookies on the
+  // same response that the sign-in action uses to set fresh ones, so sign-in would silently fail.
+  if (request.nextUrl.pathname.startsWith("/login")) return NextResponse.next({ request });
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -25,18 +29,9 @@ export async function proxy(request: NextRequest) {
   );
 
   const { data } = await supabase.auth.getClaims();
-  const signedIn = Boolean(data?.claims?.sub);
-  const onLogin = request.nextUrl.pathname.startsWith("/login");
-
-  if (!signedIn && !onLogin) {
+  if (!data?.claims?.sub) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
-  if (signedIn && onLogin) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/accounts";
     url.search = "";
     return NextResponse.redirect(url);
   }
