@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { inr, isPositive } from "@/lib/format";
 import { SearchBox } from "./search-box";
-import { StatusBadge } from "./status-badge";
+import { SourceBadge, StatusBadge } from "./status-badge";
 
 export const metadata: Metadata = { title: "Accounts · Shree Salasar Sarkar" };
 
@@ -14,10 +14,16 @@ const LEDGERS = [
   { key: "pending", label: "Pending" },
   { key: "closed", label: "Fully paid" },
 ] as const;
+const SOURCES = [
+  { key: "all", label: "Old + New" },
+  { key: "new", label: "New" },
+  { key: "old", label: "Old" },
+] as const;
 
 type Row = {
-  sno: number;
-  fno: number;
+  source: "old" | "new";
+  ref_id: number;
+  folio: string;
   ledger: "pending" | "closed";
   borrower_name: string;
   borrower_father: string | null;
@@ -41,23 +47,27 @@ function escapeLike(s: string) {
   return s.replace(/[\\%_]/g, (c) => "\\" + c);
 }
 
+const rowHref = (r: Row) => (r.source === "new" ? `/loans/${r.ref_id}` : `/accounts/${r.ref_id}`);
+
 export default async function AccountsPage({ searchParams }: PageProps<"/accounts">) {
   const sp = await searchParams;
   const q = (one(sp.q) ?? "").trim().toLowerCase().slice(0, 60);
   const ledger = LEDGERS.some((l) => l.key === one(sp.ledger)) ? one(sp.ledger)! : "all";
+  const source = SOURCES.some((s) => s.key === one(sp.source)) ? one(sp.source)! : "all";
   const page = Math.max(1, Number.parseInt(one(sp.page) ?? "1", 10) || 1);
 
   const supabase = await createClient();
   let query = supabase
-    .from("legacy_account_summary")
+    .from("all_accounts")
     .select(
-      "sno, fno, ledger, borrower_name, borrower_father, borrower_mobile, registration_no, vehicle_model," +
+      "source, ref_id, folio, ledger, borrower_name, borrower_father, borrower_mobile, registration_no, vehicle_model," +
         " tenure_months, payments_count, seized, total_amount::text, emi_amount::text, total_paid::text, balance::text",
       { count: "exact" },
     )
-    .order("sno", { ascending: false })
+    .order("sort_key", { ascending: false })
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
   if (ledger !== "all") query = query.eq("ledger", ledger);
+  if (source !== "all") query = query.eq("source", source);
   if (q) query = query.ilike("search_text", `%${escapeLike(q)}%`);
 
   const { data, count, error } = await query;
@@ -73,6 +83,7 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
     const next = new URLSearchParams();
     if (q) next.set("q", q);
     if (ledger !== "all") next.set("ledger", ledger);
+    if (source !== "all") next.set("source", source);
     for (const [k, v] of Object.entries(changes)) {
       if (v == null) next.delete(k);
       else next.set(k, v);
@@ -86,27 +97,24 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Accounts</h1>
-          <p className="text-sm text-slate-500">Imported from the old software</p>
+          <p className="text-sm text-slate-500">Old software records and new loans</p>
         </div>
+        <Link
+          href="/loans/new"
+          className="hidden h-10 items-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 md:flex"
+        >
+          + New loan
+        </Link>
       </div>
 
       <Suspense>
         <SearchBox />
       </Suspense>
 
-      <nav className="flex gap-2" aria-label="Filter by status">
-        {LEDGERS.map((l) => (
-          <Link
-            key={l.key}
-            href={href({ ledger: l.key === "all" ? null : l.key, page: null })}
-            className={`flex h-10 items-center rounded-full px-4 text-sm font-medium ring-1 ${
-              ledger === l.key ? "bg-blue-700 text-white ring-blue-700" : "bg-white text-slate-700 ring-slate-300"
-            }`}
-          >
-            {l.label}
-          </Link>
-        ))}
-      </nav>
+      <div className="flex flex-wrap gap-x-4 gap-y-2">
+        <Chips label="Filter by status" items={LEDGERS} active={ledger} param="ledger" href={href} />
+        <Chips label="Filter by old or new" items={SOURCES} active={source} param="source" href={href} />
+      </div>
 
       <p className="text-sm text-slate-500">
         {total.toLocaleString("en-IN")} account{total === 1 ? "" : "s"}
@@ -116,24 +124,24 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
       {rows.length === 0 ? (
         <div className="rounded-xl bg-white p-8 text-center ring-1 ring-slate-200">
           <p className="font-medium">No accounts found</p>
-          <p className="mt-1 text-sm text-slate-500">Try a different name, FNO, mobile or vehicle number.</p>
+          <p className="mt-1 text-sm text-slate-500">Try a different name, folio, mobile or vehicle number.</p>
         </div>
       ) : (
         <>
           {/* phone: cards */}
           <ul className="space-y-3 md:hidden">
             {rows.map((r) => (
-              <li key={r.sno}>
-                <Link
-                  href={`/accounts/${r.sno}`}
-                  className="block rounded-xl bg-white p-4 ring-1 ring-slate-200 active:bg-slate-50"
-                >
+              <li key={`${r.source}-${r.ref_id}`}>
+                <Link href={rowHref(r)} className="block rounded-xl bg-white p-4 ring-1 ring-slate-200 active:bg-slate-50">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate font-semibold">{r.borrower_name}</p>
-                      <p className="truncate text-sm text-slate-500">
-                        FNO {r.fno}
-                        {r.borrower_mobile && <> · {r.borrower_mobile}</>}
+                      <p className="flex items-center gap-1.5 truncate text-sm text-slate-500">
+                        <SourceBadge source={r.source} />
+                        <span className="truncate">
+                          Folio {r.folio}
+                          {r.borrower_mobile && <> · {r.borrower_mobile}</>}
+                        </span>
                       </p>
                     </div>
                     <StatusBadge ledger={r.ledger} seized={r.seized} />
@@ -149,9 +157,7 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
                     </div>
                     <div>
                       <dt className="text-xs text-slate-500">Balance</dt>
-                      <dd className={`font-semibold ${isPositive(r.balance) ? "text-red-700" : "text-slate-700"}`}>
-                        {inr(r.balance)}
-                      </dd>
+                      <dd className={`font-semibold ${isPositive(r.balance) ? "text-red-700" : "text-slate-700"}`}>{inr(r.balance)}</dd>
                     </div>
                   </dl>
                 </Link>
@@ -164,7 +170,8 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">FNO</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Folio</th>
                   <th className="px-4 py-3">Customer</th>
                   <th className="px-4 py-3">Vehicle</th>
                   <th className="px-4 py-3 text-right">Total</th>
@@ -176,14 +183,17 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
               </thead>
               <tbody className="num divide-y divide-slate-100">
                 {rows.map((r) => (
-                  <tr key={r.sno} className="hover:bg-slate-50">
+                  <tr key={`${r.source}-${r.ref_id}`} className="hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <SourceBadge source={r.source} />
+                    </td>
                     <td className="px-4 py-3 font-medium">
-                      <Link href={`/accounts/${r.sno}`} className="text-blue-700 hover:underline">
-                        {r.fno}
+                      <Link href={rowHref(r)} className="text-blue-700 hover:underline">
+                        {r.folio}
                       </Link>
                     </td>
                     <td className="max-w-64 px-4 py-3">
-                      <Link href={`/accounts/${r.sno}`} className="block truncate font-medium hover:underline">
+                      <Link href={rowHref(r)} className="block truncate font-medium hover:underline">
                         {r.borrower_name}
                       </Link>
                       <span className="block truncate text-xs text-slate-500">
@@ -201,9 +211,7 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
                       <span className="block text-xs text-slate-500">× {r.tenure_months ?? "—"}</span>
                     </td>
                     <td className="px-4 py-3 text-right text-emerald-700">{inr(r.total_paid)}</td>
-                    <td
-                      className={`px-4 py-3 text-right font-semibold ${isPositive(r.balance) ? "text-red-700" : "text-slate-700"}`}
-                    >
+                    <td className={`px-4 py-3 text-right font-semibold ${isPositive(r.balance) ? "text-red-700" : "text-slate-700"}`}>
                       {inr(r.balance)}
                     </td>
                     <td className="px-4 py-3">
@@ -227,6 +235,33 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
         </nav>
       )}
     </div>
+  );
+}
+
+function Chips({
+  label, items, active, param, href,
+}: {
+  label: string;
+  items: readonly { key: string; label: string }[];
+  active: string;
+  param: string;
+  href: (c: Record<string, string | null>) => string;
+}) {
+  return (
+    <nav className="flex gap-2" aria-label={label}>
+      {items.map((i) => (
+        <Link
+          key={i.key}
+          href={href({ [param]: i.key === "all" ? null : i.key, page: null })}
+          aria-current={active === i.key ? "true" : undefined}
+          className={`flex h-10 items-center rounded-full px-4 text-sm font-medium ring-1 ${
+            active === i.key ? "bg-blue-700 text-white ring-blue-700" : "bg-white text-slate-700 ring-slate-300"
+          }`}
+        >
+          {i.label}
+        </Link>
+      ))}
+    </nav>
   );
 }
 

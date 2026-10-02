@@ -1,3 +1,11 @@
+export function SourceBadge({ source }: { source: "old" | "new" }) {
+  return source === "new" ? (
+    <span className="shrink-0 rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-blue-800">New</span>
+  ) : (
+    <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">Old</span>
+  );
+}
+
 export function StatusBadge({ ledger, seized }: { ledger: "pending" | "closed"; seized: boolean | null }) {
   return (
     <span className="flex shrink-0 flex-col items-end gap-1">
