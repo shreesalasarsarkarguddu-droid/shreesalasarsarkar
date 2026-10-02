@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { dmy, inr } from "@/lib/format";
 import { buildSchedule } from "@/lib/schedule";
-import { fetchNewPayments } from "@/lib/ledger";
+import { NEW_PAYMENT_COLUMNS, byInstallment, mapNewPayment, type NewPaymentRecord } from "@/lib/ledger";
 import { EmiSummary, InstallmentTable } from "../../installments";
 
 type Loan = {
@@ -58,7 +58,7 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
         " vehicle_condition, sold_by, vehicle_model, vehicle_color, chassis_no, engine_no, make_year, vehicle_no, insurance_expiry," +
         " agreement_date, installments, interval_months, status, created_at, interest_rate::text," +
         " finance_amount::text, agreement_amount::text, hp_amount::text, interest_amount::text, total_amount::text, emi_amount::text," +
-        " borrowers(full_name, father_name, mobile, date_of_birth, address)",
+        ` borrowers(full_name, father_name, mobile, date_of_birth, address), payments(${NEW_PAYMENT_COLUMNS})`,
     )
     .eq("id", id)
     .maybeSingle();
@@ -67,9 +67,9 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
     throw new Error("Could not load this loan.");
   }
   if (!data) notFound();
-  const l = data as unknown as Loan;
+  const l = data as unknown as Loan & { payments: NewPaymentRecord[] };
   const b = l.borrowers;
-  const payments = await fetchNewPayments(supabase, { loanId: l.id });
+  const payments = l.payments.map(mapNewPayment).sort(byInstallment);
   const schedule = buildSchedule({
     installments: l.installments,
     intervalMonths: l.interval_months,

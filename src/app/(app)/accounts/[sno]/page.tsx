@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { dmy, flagLabel, inr, isNegative, isPositive } from "@/lib/format";
 import { StatusBadge } from "../status-badge";
 import { buildSchedule } from "@/lib/schedule";
-import { fetchNewPayments } from "@/lib/ledger";
+import { LEGACY_PAYMENT_COLUMNS, NEW_PAYMENT_COLUMNS, addMoney, byInstallment, mapNewPayment, subMoney, type NewPaymentRecord } from "@/lib/ledger";
 import { Delay, EmiSummary, InstallmentTable, RowFlags } from "../../installments";
 
 type Account = {
@@ -72,6 +72,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
   if (!Number.isInteger(sno) || String(sno) !== snoParam) notFound();
 
   const supabase = await createClient();
+  // One request: the account with its legacy payments and its new-system payments embedded.
   const { data: accountData, error } = await supabase
     .from("legacy_accounts")
     .select(
@@ -79,7 +80,8 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
         " guarantor_name, guarantor_father, guarantor_address, guarantor_mobile, guarantor_mobile2, finance_mode, zone," +
         " vehicle_condition, vehicle_model, vehicle_variant, chassis_no, engine_no, model_year, registration_no," +
         " agreement_date, tenure_months, interval_months, seized, data_flags," +
-        " finance_amount::text, interest_amount::text, agreement_amount::text, hp_amount::text, total_amount::text, emi_amount::text",
+        " finance_amount::text, interest_amount::text, agreement_amount::text, hp_amount::text, total_amount::text, emi_amount::text," +
+        ` legacy_paid::text, legacy_payments(${LEGACY_PAYMENT_COLUMNS}), payments(${NEW_PAYMENT_COLUMNS})`,
     )
     .eq("sno", sno)
     .maybeSingle();
@@ -88,27 +90,13 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
     throw new Error("Could not load this account.");
   }
   if (!accountData) notFound();
-  const a = accountData as unknown as Account;
+  const a = accountData as unknown as Account & { legacy_paid: string; legacy_payments: Payment[]; payments: NewPaymentRecord[] };
 
-  const [{ data: summary }, { data: paymentData, error: payError }, newPayments] = await Promise.all([
-    supabase.from("legacy_account_summary").select("total_paid::text, balance::text, payments_count").eq("id", a.id).single(),
-    supabase
-      .from("legacy_payments")
-      .select(
-        "id, ledger, installment_no, due_date, paid_date, delay_days, payment_mode, cheque_no, receipt_no, data_flags," +
-          " due_amount::text, paid_amount::text, balance_after::text",
-      )
-      .eq("account_id", a.id)
-      .order("installment_no"),
-    fetchNewPayments(supabase, { legacyAccountId: a.id }),
-  ]);
-  if (payError) {
-    console.error("payments query failed:", payError);
-    throw new Error("Could not load payments.");
-  }
-  const s = summary as unknown as { total_paid: string; balance: string; payments_count: number } | null;
-  const all = (paymentData ?? []) as unknown as Payment[];
-  const payments = [...all.filter((p) => p.ledger === a.ledger), ...newPayments.map((p) => ({ ...p, ledger: a.ledger }))];
+  const all = [...a.legacy_payments].sort(byInstallment);
+  const newPayments = a.payments.map(mapNewPayment);
+  const totalPaid = addMoney(a.legacy_paid, newPayments.map((p) => p.paid_amount));
+  const s = { total_paid: totalPaid, balance: subMoney(a.total_amount, totalPaid) };
+  const payments = [...all.filter((p) => p.ledger === a.ledger), ...newPayments.map((p) => ({ ...p, ledger: a.ledger }))].sort(byInstallment);
   const otherFile = all.filter((p) => p.ledger !== a.ledger);
   // Fully-paid accounts (or nothing left to pay) show only the payments made, never "overdue" slots.
   const settled = a.ledger === "closed" || !isPositive(s?.balance);

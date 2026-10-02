@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getStaff } from "@/lib/staff";
 import { signOut } from "@/app/login/actions";
 import { BottomNav, TopNav } from "./nav";
 
@@ -9,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: claims } = await supabase.auth.getClaims();
   if (!claims?.claims?.sub) redirect("/login");
 
-  const { data: staff } = await supabase.from("staff").select("full_name").maybeSingle();
+  const staff = await getStaff();
 
   return (
     <div className="min-h-dvh">

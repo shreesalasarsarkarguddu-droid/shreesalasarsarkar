@@ -231,6 +231,16 @@ def main():
             )
             print(f"  {key}: {len(rows)} payments imported")
 
+        # ---- stored per-account legacy totals (used by legacy_account_summary for speed) ----
+        cur.execute("""
+            update public.legacy_accounts a
+            set legacy_paid = coalesce(t.paid, 0), legacy_payments_count = coalesce(t.cnt, 0), legacy_last_paid = t.last_paid
+            from (select a2.id, sum(lp.paid_amount) paid, count(lp.id) cnt, max(lp.paid_date) last_paid
+                  from public.legacy_accounts a2
+                  left join public.legacy_payments lp on lp.account_id = a2.id and lp.ledger = a2.ledger
+                  group by a2.id) t
+            where t.id = a.id""")
+
         # ---- verification against the source files (inside the transaction) ----
         problems = []
         for ledger, key in (("closed", "F_ACC"), ("pending", "P_ACCOUNT")):

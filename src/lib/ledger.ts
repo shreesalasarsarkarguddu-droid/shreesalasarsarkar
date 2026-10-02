@@ -2,11 +2,11 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSchedule, type PaymentRow, type ScheduleRow } from "@/lib/schedule";
 
-const NEW_PAYMENT_COLUMNS =
+export const NEW_PAYMENT_COLUMNS =
   "id, installment_no, due_date, paid_date, delay_days, payment_mode, reference_no, receipt_no," +
   " due_amount::text, paid_amount::text, balance_after::text";
 
-type NewPaymentRecord = {
+export type NewPaymentRecord = {
   id: number;
   installment_no: number;
   due_date: string | null;
@@ -20,19 +20,9 @@ type NewPaymentRecord = {
   balance_after: string;
 };
 
-/** Payments taken in the new system, in the same shape as legacy payment rows. */
-export async function fetchNewPayments(
-  supabase: SupabaseClient,
-  by: { legacyAccountId: number } | { loanId: number },
-): Promise<PaymentRow[]> {
-  let q = supabase.from("payments").select(NEW_PAYMENT_COLUMNS).order("installment_no");
-  q = "loanId" in by ? q.eq("loan_id", by.loanId) : q.eq("legacy_account_id", by.legacyAccountId);
-  const { data, error } = await q;
-  if (error) {
-    console.error("new payments query failed:", error);
-    throw new Error("Could not load payments.");
-  }
-  return ((data ?? []) as unknown as NewPaymentRecord[]).map((p) => ({
+/** A new-system payment in the same shape as legacy payment rows. */
+export function mapNewPayment(p: NewPaymentRecord): PaymentRow {
+  return {
     id: -p.id, // negative: never collides with legacy payment ids in React keys
     installment_no: p.installment_no,
     due_amount: p.due_amount,
@@ -45,8 +35,21 @@ export async function fetchNewPayments(
     cheque_no: p.reference_no,
     receipt_no: p.receipt_no,
     data_flags: [],
-  }));
+  };
 }
+
+export const LEGACY_PAYMENT_COLUMNS =
+  "id, ledger, installment_no, due_date, paid_date, delay_days, payment_mode, cheque_no, receipt_no, data_flags," +
+  " due_amount::text, paid_amount::text, balance_after::text";
+
+/** Exact money: a + sum(list) and a - b on "1234.50" strings (paise bigint inside). */
+export function addMoney(base: string, list: string[]): string {
+  return fromPaise(list.reduce((t, v) => t + toPaise(v), toPaise(base)));
+}
+export function subMoney(a: string, b: string): string {
+  return fromPaise(toPaise(a) - toPaise(b));
+}
+export const byInstallment = <T extends { installment_no: number }>(a: T, b: T) => a.installment_no - b.installment_no;
 
 export type Ledger = {
   source: "old" | "new";
@@ -70,11 +73,13 @@ export type Ledger = {
 /** Everything the Collect Payment window needs for one pending account. RLS applies. */
 export async function getLedger(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<Ledger | null> {
   if (source === "old") {
+    // One request: account + its legacy payments + its new-system payments.
     const { data: a, error } = await supabase
       .from("legacy_accounts")
       .select(
-        "id, sno, fno, borrower_name, borrower_father, borrower_mobile, borrower_address, registration_no, vehicle_model," +
-          " agreement_date, tenure_months, interval_months, total_amount::text, emi_amount::text, interest_amount::text",
+        "id, sno, fno, ledger, borrower_name, borrower_father, borrower_mobile, borrower_address, registration_no, vehicle_model," +
+          " agreement_date, tenure_months, interval_months, total_amount::text, emi_amount::text, interest_amount::text, legacy_paid::text," +
+          ` legacy_payments(${LEGACY_PAYMENT_COLUMNS}), payments(${NEW_PAYMENT_COLUMNS})`,
       )
       .eq("sno", refId)
       .eq("ledger", "pending")
@@ -82,28 +87,19 @@ export async function getLedger(supabase: SupabaseClient, source: "old" | "new",
     if (error) throw new Error("Could not load account.");
     if (!a) return null;
     const acc = a as unknown as {
-      id: number; sno: number; fno: number; borrower_name: string; borrower_father: string | null; borrower_mobile: string | null;
+      id: number; sno: number; fno: number; ledger: string; borrower_name: string; borrower_father: string | null; borrower_mobile: string | null;
       borrower_address: string | null; registration_no: string | null; vehicle_model: string | null; agreement_date: string | null;
       tenure_months: number | null; interval_months: number | null; total_amount: string; emi_amount: string; interest_amount: string;
+      legacy_paid: string; legacy_payments: (PaymentRow & { ledger: string })[]; payments: NewPaymentRecord[];
     };
-    const [{ data: legacy, error: lErr }, fresh, { data: sum }] = await Promise.all([
-      supabase
-        .from("legacy_payments")
-        .select("id, installment_no, due_date, paid_date, delay_days, payment_mode, cheque_no, receipt_no, data_flags, due_amount::text, paid_amount::text, balance_after::text")
-        .eq("account_id", acc.id)
-        .eq("ledger", "pending")
-        .order("installment_no"),
-      fetchNewPayments(supabase, { legacyAccountId: acc.id }),
-      supabase.from("legacy_account_summary").select("total_paid::text, balance::text").eq("id", acc.id).single(),
-    ]);
-    if (lErr) throw new Error("Could not load payments.");
-    const payments = [...((legacy ?? []) as unknown as PaymentRow[]), ...fresh];
-    const s = sum as unknown as { total_paid: string; balance: string } | null;
+    const fresh = acc.payments.map(mapNewPayment);
+    const payments = [...acc.legacy_payments.filter((p) => p.ledger === acc.ledger), ...fresh].sort(byInstallment);
+    const paid = addMoney(acc.legacy_paid, fresh.map((p) => p.paid_amount));
     return {
       source, refId, folio: String(acc.fno), name: acc.borrower_name, father: acc.borrower_father, mobile: acc.borrower_mobile,
       address: acc.borrower_address, vehicle: [acc.vehicle_model, acc.registration_no].filter(Boolean).join(" · ") || null,
       total: acc.total_amount, interest: acc.interest_amount, emi: acc.emi_amount, installments: acc.tenure_months, intervalMonths: acc.interval_months,
-      paid: s?.total_paid ?? "0.00", balance: s?.balance ?? acc.total_amount,
+      paid, balance: subMoney(acc.total_amount, paid),
       rows: buildSchedule({ installments: acc.tenure_months, intervalMonths: acc.interval_months, agreementDate: acc.agreement_date, emi: acc.emi_amount, payments }),
     };
   }
@@ -112,7 +108,7 @@ export async function getLedger(supabase: SupabaseClient, source: "old" | "new",
     .from("loans")
     .select(
       "id, folio_no, vehicle_model, vehicle_no, agreement_date, installments, interval_months, total_amount::text, emi_amount::text, interest_amount::text," +
-        " borrowers(full_name, father_name, mobile, address)",
+        ` borrowers(full_name, father_name, mobile, address), payments(${NEW_PAYMENT_COLUMNS})`,
     )
     .eq("id", refId)
     .eq("status", "active")
@@ -123,8 +119,9 @@ export async function getLedger(supabase: SupabaseClient, source: "old" | "new",
     id: number; folio_no: string; vehicle_model: string; vehicle_no: string | null; agreement_date: string;
     installments: number; interval_months: number; total_amount: string; emi_amount: string; interest_amount: string;
     borrowers: { full_name: string; father_name: string | null; mobile: string | null; address: string | null };
+    payments: NewPaymentRecord[];
   };
-  const payments = await fetchNewPayments(supabase, { loanId: loan.id });
+  const payments = loan.payments.map(mapNewPayment).sort(byInstallment);
   const paidPaise = payments.reduce((t, p) => t + toPaise(p.paid_amount), 0n);
   return {
     source, refId, folio: loan.folio_no, name: loan.borrowers.full_name, father: loan.borrowers.father_name,

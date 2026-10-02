@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { getStaff } from "@/lib/staff";
 import { signOut } from "@/app/login/actions";
 import { PasswordForm } from "./password-form";
 
@@ -7,10 +8,7 @@ export const metadata: Metadata = { title: "Profile · Shree Salasar Sarkar" };
 
 export default async function ProfilePage() {
   const supabase = await createClient();
-  const [{ data: claims }, { data: staff }] = await Promise.all([
-    supabase.auth.getClaims(),
-    supabase.from("staff").select("full_name, role").maybeSingle(),
-  ]);
+  const [{ data: claims }, staff] = await Promise.all([supabase.auth.getClaims(), getStaff()]);
   const email = (claims?.claims?.email as string | undefined) ?? "—";
   const name = staff?.full_name ?? "—";
 
