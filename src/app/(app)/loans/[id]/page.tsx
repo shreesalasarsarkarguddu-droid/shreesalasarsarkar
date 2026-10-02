@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { dmy, inr } from "@/lib/format";
-import { buildSchedule } from "@/lib/schedule";
+import { buildLedger, toPaise } from "@/lib/schedule";
 import { NEW_PAYMENT_COLUMNS, byInstallment, mapNewPayment, type NewPaymentRecord } from "@/lib/ledger";
 import { EmiSummary, InstallmentTable } from "../../installments";
 import { CollectButton } from "../../payments/collect-button";
@@ -71,12 +71,17 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
   const l = data as unknown as Loan & { payments: NewPaymentRecord[] };
   const b = l.borrowers;
   const payments = l.payments.map(mapNewPayment).sort(byInstallment);
-  const schedule = buildSchedule({
+  const paidPaise = payments.reduce((t, p) => t + toPaise(p.paid_amount), 0n);
+  const { rows: schedule, summary } = buildLedger({
     installments: l.installments,
     intervalMonths: l.interval_months,
     agreementDate: l.agreement_date,
     emi: l.emi_amount,
+    total: l.total_amount,
+    finance: l.finance_amount,
+    interest: l.interest_amount,
     payments,
+    settled: l.status === "closed" || toPaise(l.total_amount) - paidPaise <= 0n,
   });
 
   return (
@@ -97,6 +102,12 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
             <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold capitalize text-blue-800">{l.status}</span>
+            <Link
+              href={`/loans/${l.id}/statement`}
+              className="inline-flex h-11 items-center rounded-lg bg-white px-4 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50"
+            >
+              Print statement
+            </Link>
             {l.status === "active" && (
               <CollectButton row={{ source: "new", ref_id: l.id, folio: l.folio_no, borrower_name: b.full_name, borrower_mobile: b.mobile }} />
             )}
@@ -113,7 +124,7 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
           />
         </dl>
         <div className="mt-3">
-          <EmiSummary rows={schedule} emi={l.emi_amount} intervalMonths={l.interval_months} />
+          <EmiSummary summary={summary} emi={l.emi_amount} intervalMonths={l.interval_months} />
         </div>
       </section>
 

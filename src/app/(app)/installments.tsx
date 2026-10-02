@@ -1,39 +1,40 @@
-import { dmy, flagLabel, inr } from "@/lib/format";
-import type { ScheduleRow } from "@/lib/schedule";
+import { dmy, flagLabel, inr, isPositive } from "@/lib/format";
+import type { LedgerRow, LedgerSummary } from "@/lib/schedule";
 
-/** Header line: "12 EMIs of ₹3,949 · 3 paid · 9 left · 2 overdue" */
-export function EmiSummary({ rows, emi, intervalMonths }: { rows: ScheduleRow[]; emi: string; intervalMonths: number | null }) {
-  const paid = rows.filter((r) => r.status === "paid").length;
-  const overdue = rows.filter((r) => r.status === "overdue").length;
-  const left = rows.length - paid;
+/** "30 EMIs of ₹3,631 monthly · 15 paid · 15 left · 3 overdue · Arrears ₹10,893" */
+export function EmiSummary({ summary, emi, intervalMonths }: { summary: LedgerSummary; emi: string; intervalMonths: number | null }) {
   const every = intervalMonths && intervalMonths > 1 ? ` every ${intervalMonths} months` : " monthly";
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <span className="rounded-lg bg-blue-50 px-3 py-1.5 font-semibold text-blue-800 ring-1 ring-blue-200">
-        {rows.length} EMIs of {inr(emi)}
+        {summary.emis} EMIs of {inr(emi)}
         <span className="font-normal">{every}</span>
       </span>
-      <span className="rounded-lg bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-800 ring-1 ring-emerald-200">{paid} paid</span>
-      <span className="rounded-lg bg-slate-100 px-3 py-1.5 font-semibold text-slate-700 ring-1 ring-slate-200">{left} left</span>
-      {overdue > 0 && (
-        <span className="rounded-lg bg-red-50 px-3 py-1.5 font-semibold text-red-800 ring-1 ring-red-200">{overdue} overdue</span>
+      <span className="rounded-lg bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-800 ring-1 ring-emerald-200">{summary.emisPaid} paid</span>
+      <span className="rounded-lg bg-slate-100 px-3 py-1.5 font-semibold text-slate-700 ring-1 ring-slate-200">{summary.emisLeft} left</span>
+      {summary.overdue > 0 && (
+        <span className="rounded-lg bg-red-50 px-3 py-1.5 font-semibold text-red-800 ring-1 ring-red-200">{summary.overdue} overdue</span>
+      )}
+      {isPositive(summary.arrears) && (
+        <span className="rounded-lg bg-red-50 px-3 py-1.5 font-semibold text-red-800 ring-1 ring-red-200">Arrears {inr(summary.arrears)}</span>
       )}
     </div>
   );
 }
 
-export function InstallmentTable({ rows }: { rows: ScheduleRow[] }) {
+export function InstallmentTable({ rows }: { rows: LedgerRow[] }) {
   if (rows.length === 0) return <p className="p-6 text-center text-sm text-slate-500">No installments.</p>;
   return (
     <>
       {/* phone */}
       <ul className="num divide-y divide-slate-100 md:hidden">
         {rows.map((r) =>
-          r.status === "paid" ? (
-            <li key={r.no} className="px-4 py-3">
+          r.kind === "receipt" ? (
+            <li key={`r${r.sno}`} className="px-4 py-3">
               <div className="flex items-baseline justify-between gap-3">
                 <p className="font-semibold">
-                  #{r.no} · <span className="text-emerald-700">{inr(r.payment.paid_amount)}</span>
+                  #{r.sno} · <span className="text-emerald-700">{inr(r.payment.paid_amount)}</span>
+                  {r.im > 1 && <span className="ml-1 text-xs font-medium text-blue-700">({r.im} EMIs)</span>}
                 </p>
                 <Status status="paid" />
               </div>
@@ -43,20 +44,20 @@ export function InstallmentTable({ rows }: { rows: ScheduleRow[] }) {
               </p>
               <p className="mt-0.5 text-sm text-slate-500">
                 Balance <span className="font-medium text-slate-700">{inr(r.payment.balance_after)}</span>
-                {r.payment.payment_mode && <> · {r.payment.payment_mode}</>}
+                {r.payment.payment_mode && <> · {modeText(r.payment)}</>}
                 {r.payment.receipt_no != null && <> · Rcpt {r.payment.receipt_no}</>}
               </p>
               <RowFlags flags={r.payment.data_flags} />
             </li>
           ) : (
-            <li key={r.no} className={`px-4 py-3 ${r.status === "overdue" ? "bg-red-50/50" : ""}`}>
+            <li key={`d${r.sno}`} className={`px-4 py-3 ${r.status === "overdue" ? "bg-red-50/50" : ""}`}>
               <div className="flex items-baseline justify-between gap-3">
                 <p className="font-semibold text-slate-700">
-                  #{r.no} · {inr(r.due_amount)}
+                  #{r.sno} · {inr(r.dueAmount)}
                 </p>
                 <Status status={r.status} />
               </div>
-              <p className="mt-0.5 text-sm text-slate-500">Due {dmy(r.due_date)}</p>
+              <p className="mt-0.5 text-sm text-slate-500">Due {dmy(r.dueDate)}</p>
             </li>
           ),
         )}
@@ -72,6 +73,7 @@ export function InstallmentTable({ rows }: { rows: ScheduleRow[] }) {
               <th className="px-4 py-2.5 text-right">Due amt</th>
               <th className="px-4 py-2.5">Paid date</th>
               <th className="px-4 py-2.5 text-right">Paid amt</th>
+              <th className="px-4 py-2.5 text-center">IM</th>
               <th className="px-4 py-2.5 text-right">Delay</th>
               <th className="px-4 py-2.5 text-right">Balance</th>
               <th className="px-4 py-2.5">Mode</th>
@@ -81,9 +83,9 @@ export function InstallmentTable({ rows }: { rows: ScheduleRow[] }) {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {rows.map((r) =>
-              r.status === "paid" ? (
-                <tr key={r.no} className="align-top">
-                  <td className="px-4 py-2.5 text-slate-500">{r.no}</td>
+              r.kind === "receipt" ? (
+                <tr key={`r${r.sno}`} className="align-top">
+                  <td className="px-4 py-2.5 text-slate-500">{r.sno}</td>
                   <td className="px-4 py-2.5">{dmy(r.payment.due_date)}</td>
                   <td className="px-4 py-2.5 text-right">{inr(r.payment.due_amount)}</td>
                   <td className="px-4 py-2.5">
@@ -91,12 +93,13 @@ export function InstallmentTable({ rows }: { rows: ScheduleRow[] }) {
                     <RowFlags flags={r.payment.data_flags} />
                   </td>
                   <td className="px-4 py-2.5 text-right font-semibold text-emerald-700">{inr(r.payment.paid_amount)}</td>
+                  <td className="px-4 py-2.5 text-center">{r.im}</td>
                   <td className="px-4 py-2.5 text-right">
                     <Delay days={r.payment.delay_days} plain />
                   </td>
                   <td className="px-4 py-2.5 text-right">{inr(r.payment.balance_after)}</td>
                   <td className="px-4 py-2.5">
-                    {r.payment.payment_mode ?? "—"}
+                    {modeText(r.payment)}
                     {r.payment.cheque_no && <span className="block text-xs text-slate-500">{r.payment.cheque_no}</span>}
                   </td>
                   <td className="px-4 py-2.5 text-slate-600">{r.payment.receipt_no ?? "—"}</td>
@@ -105,16 +108,13 @@ export function InstallmentTable({ rows }: { rows: ScheduleRow[] }) {
                   </td>
                 </tr>
               ) : (
-                <tr key={r.no} className={r.status === "overdue" ? "bg-red-50/50" : "text-slate-500"}>
-                  <td className="px-4 py-2.5">{r.no}</td>
-                  <td className={`px-4 py-2.5 ${r.status === "overdue" ? "font-medium text-red-800" : ""}`}>{dmy(r.due_date)}</td>
-                  <td className="px-4 py-2.5 text-right">{inr(r.due_amount)}</td>
-                  <td className="px-4 py-2.5">—</td>
-                  <td className="px-4 py-2.5 text-right">—</td>
-                  <td className="px-4 py-2.5 text-right">—</td>
-                  <td className="px-4 py-2.5 text-right">—</td>
-                  <td className="px-4 py-2.5">—</td>
-                  <td className="px-4 py-2.5">—</td>
+                <tr key={`d${r.sno}`} className={r.status === "overdue" ? "bg-red-50/50" : "text-slate-500"}>
+                  <td className="px-4 py-2.5">{r.sno}</td>
+                  <td className={`px-4 py-2.5 ${r.status === "overdue" ? "font-medium text-red-800" : ""}`}>{dmy(r.dueDate)}</td>
+                  <td className="px-4 py-2.5 text-right">{inr(r.dueAmount)}</td>
+                  <td className="px-4 py-2.5" colSpan={7}>
+                    —
+                  </td>
                   <td className="px-4 py-2.5">
                     <Status status={r.status} />
                   </td>
@@ -128,7 +128,12 @@ export function InstallmentTable({ rows }: { rows: ScheduleRow[] }) {
   );
 }
 
-function Status({ status }: { status: ScheduleRow["status"] }) {
+export function modeText(p: { payment_mode: string | null; bank_name?: string | null }) {
+  if (!p.payment_mode) return "—";
+  return p.payment_mode === "BANK" && p.bank_name ? `BANK · ${p.bank_name}` : p.payment_mode;
+}
+
+function Status({ status }: { status: "paid" | "overdue" | "upcoming" }) {
   const s = {
     paid: "bg-emerald-100 text-emerald-800",
     overdue: "bg-red-100 text-red-800",

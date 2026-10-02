@@ -108,13 +108,14 @@ export function LoanForm() {
 
   return (
     <div ref={topRef} className="scroll-mt-20">
-      <header className="mb-4">
+      <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
+      <header className="shrink-0">
         <h1 className="text-xl font-bold sm:text-2xl">New loan</h1>
         <p className="text-sm text-slate-500">Fields marked * are required</p>
       </header>
 
       {/* stepper */}
-      <ol className="mb-4 grid grid-cols-3 gap-2" aria-label="Steps">
+      <ol className="grid flex-1 grid-cols-3 gap-2" aria-label="Steps">
         {STEP_TITLES.map((title, i) => {
           const state = i === step ? "current" : i <= maxStep ? "done" : "todo";
           return (
@@ -139,8 +140,9 @@ export function LoanForm() {
           );
         })}
       </ol>
+      </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start">
         <form
           noValidate
           onSubmit={(e) => {
@@ -148,7 +150,7 @@ export function LoanForm() {
             if (step < STEPS.length - 1) next();
             else submit();
           }}
-          className="space-y-4"
+          className="space-y-3"
         >
           {formError && (
             <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-800 ring-1 ring-red-200">
@@ -176,13 +178,13 @@ export function LoanForm() {
                 {field("borrower_father", "Father's / husband's name")}
                 {field("borrower_mobile", "Mobile", { inputMode: "numeric", maxLength: 10, autoComplete: "off" })}
                 {field("borrower_dob", "Date of birth", { type: "date" })}
-                {field("borrower_address", "Address", { multiline: true, wide: true })}
+                {field("borrower_address", "Address", { wide: true })}
               </Section>
               <Section title="Guarantor" note="Optional">
                 {field("guarantor_name", "Name")}
                 {field("guarantor_father", "Father's name")}
                 {field("guarantor_mobile", "Mobile", { inputMode: "numeric", maxLength: 10 })}
-                {field("guarantor_address", "Address", { multiline: true, wide: true })}
+                {field("guarantor_address", "Address")}
               </Section>
             </>
           )}
@@ -261,7 +263,7 @@ export function LoanForm() {
         </form>
 
         {/* live summary (desktop) */}
-        <aside className="sticky top-20 hidden space-y-4 rounded-xl bg-white p-4 ring-1 ring-slate-200 lg:block">
+        <aside className="sticky top-20 hidden space-y-3 rounded-xl bg-white p-4 ring-1 ring-slate-200 lg:block">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Summary</h2>
           <dl className="space-y-1.5 text-sm">
             <Row label="Folio" value={values.folio_no.toUpperCase()} />
@@ -322,12 +324,12 @@ function Row({ label, value, sub }: { label: string; value: string; sub?: string
 
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
-    <fieldset className="rounded-xl bg-white p-4 ring-1 ring-slate-200 sm:p-5">
-      <legend className="float-left mb-3 w-full text-xs font-semibold uppercase tracking-wide text-slate-500">
+    <fieldset className="rounded-xl bg-white p-4 ring-1 ring-slate-200 lg:px-4 lg:py-3">
+      <legend className="float-left mb-2 w-full text-xs font-semibold uppercase tracking-wide text-slate-500">
         {title}
         {note && <span className="ml-2 font-normal normal-case tracking-normal text-slate-400">{note}</span>}
       </legend>
-      <div className="clear-both grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
+      <div className="clear-both grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-x-4 lg:gap-y-2.5">{children}</div>
     </fieldset>
   );
 }
@@ -353,8 +355,8 @@ function Field({
     error ? "border-red-500 focus:ring-red-500/20" : "border-slate-300 focus:border-blue-600 focus:ring-blue-600/20"
   }`;
   return (
-    <label className={`block ${wide ? "sm:col-span-2 xl:col-span-3" : ""}`}>
-      <span className="mb-1 block text-sm font-medium text-slate-700">
+    <label className={`block ${wide ? "sm:col-span-2 lg:col-span-4" : ""}`}>
+      <span className="mb-1 block text-sm font-medium text-slate-700 lg:mb-0.5">
         {label}
         {required && <span className="text-red-600"> *</span>}
       </span>
@@ -386,7 +388,7 @@ function Field({
           }}
           aria-invalid={!!error}
           aria-describedby={describedBy}
-          className={`${cls} h-12 ${type === "text" && !inputMode ? "uppercase" : ""}`}
+          className={`${cls} h-12 lg:h-10 ${type === "text" && !inputMode ? "uppercase" : ""}`}
         />
       )}
       {error ? (
@@ -394,7 +396,7 @@ function Field({
           {error}
         </span>
       ) : hint ? (
-        <span id={`${name}-hint`} className="mt-1 block text-xs text-slate-500">
+        <span id={`${name}-hint`} className="mt-0.5 block truncate text-xs text-slate-500">
           {hint}
         </span>
       ) : null}
@@ -420,7 +422,7 @@ function Choice({
             role="radio"
             aria-checked={value === v}
             onClick={() => onChange(name, v)}
-            className={`h-12 rounded-lg text-base font-semibold ring-1 transition-colors ${
+            className={`h-12 rounded-lg text-base font-semibold ring-1 transition-colors lg:h-10 ${
               value === v
                 ? "bg-blue-700 text-white ring-blue-700"
                 : error

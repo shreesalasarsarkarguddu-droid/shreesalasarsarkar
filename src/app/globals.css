@@ -16,3 +16,16 @@ body {
 .num {
   font-variant-numeric: tabular-nums;
 }
+
+/* printing: A4 portrait, exact colours, no app background */
+@page {
+  size: A4 portrait;
+  margin: 8mm;
+}
+@media print {
+  body {
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

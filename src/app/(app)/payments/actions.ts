@@ -36,7 +36,11 @@ const paymentSchema = z.object({
   payment_mode: z.enum(PAYMENT_MODES, { error: "Choose payment mode" }),
   receipt_no: z.string().trim().regex(/^\d{1,12}$/, { error: "Enter the receipt number" }),
   reference_no: z.string().trim().max(30, { error: "Too long" }),
-}).refine((v) => v.payment_mode !== "CHEQUE" || v.reference_no !== "", { error: "Enter the cheque number", path: ["reference_no"] });
+  bank_name: z.string().trim().max(60, { error: "Too long" }),
+  installments_covered: z.number().int().min(1, { error: "At least 1 EMI" }).max(360),
+})
+  .refine((v) => v.payment_mode !== "CHEQUE" || v.reference_no !== "", { error: "Enter the cheque number", path: ["reference_no"] })
+  .refine((v) => v.payment_mode !== "BANK" || v.bank_name !== "", { error: "Enter the bank name", path: ["bank_name"] });
 
 // Plain strings from the form; everything is validated on the server below.
 export type PaymentInput = {
@@ -48,8 +52,10 @@ export type PaymentInput = {
   payment_mode: string;
   receipt_no: string;
   reference_no: string;
+  bank_name: string;
+  installments_covered: number;
 };
-export type PaymentField = "paid_amount" | "paid_date" | "payment_mode" | "receipt_no" | "reference_no";
+export type PaymentField = "paid_amount" | "paid_date" | "payment_mode" | "receipt_no" | "reference_no" | "bank_name" | "installments_covered";
 export type RecordResult =
   | { ok: true; receiptNo: number; installmentNo: number; ledger: Ledger | null }
   | { ok: false; error: string; fieldErrors?: Partial<Record<PaymentField, string>> };
@@ -83,6 +89,8 @@ export async function recordPayment(input: PaymentInput): Promise<RecordResult> 
       payment_mode: v.payment_mode,
       receipt_no: v.receipt_no,
       reference_no: v.reference_no,
+      bank_name: v.payment_mode === "BANK" ? v.bank_name : "",
+      installments_covered: v.installments_covered,
     },
   });
   if (error) {

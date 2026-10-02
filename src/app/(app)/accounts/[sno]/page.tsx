@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { dmy, flagLabel, inr, isNegative, isPositive } from "@/lib/format";
 import { StatusBadge } from "../status-badge";
 import { CollectButton } from "../../payments/collect-button";
-import { buildSchedule } from "@/lib/schedule";
+import { buildLedger } from "@/lib/schedule";
 import { LEGACY_PAYMENT_COLUMNS, NEW_PAYMENT_COLUMNS, addMoney, byInstallment, mapNewPayment, subMoney, type NewPaymentRecord } from "@/lib/ledger";
 import { Delay, EmiSummary, InstallmentTable, RowFlags } from "../../installments";
 
@@ -101,12 +101,16 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
   const otherFile = all.filter((p) => p.ledger !== a.ledger);
   // Fully-paid accounts (or nothing left to pay) show only the payments made, never "overdue" slots.
   const settled = a.ledger === "closed" || !isPositive(s?.balance);
-  const schedule = buildSchedule({
-    installments: settled ? 0 : a.tenure_months,
+  const { rows: schedule, summary } = buildLedger({
+    installments: a.tenure_months,
     intervalMonths: a.interval_months,
     agreementDate: a.agreement_date,
     emi: a.emi_amount,
+    total: a.total_amount,
+    finance: a.finance_amount,
+    interest: a.interest_amount,
     payments,
+    settled,
   });
 
   return (
@@ -127,6 +131,12 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
             <StatusBadge ledger={a.ledger} seized={a.seized} />
+            <Link
+              href={`/accounts/${a.sno}/statement`}
+              className="inline-flex h-11 items-center rounded-lg bg-white px-4 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50"
+            >
+              Print statement
+            </Link>
             {a.ledger === "pending" && (
               <CollectButton
                 row={{ source: "old", ref_id: a.sno, folio: String(a.fno), borrower_name: a.borrower_name, borrower_mobile: a.borrower_mobile }}
@@ -155,7 +165,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
               {a.ledger === "closed" && " · fully paid"}
             </p>
           ) : (
-            <EmiSummary rows={schedule} emi={a.emi_amount} intervalMonths={a.interval_months} />
+            <EmiSummary summary={summary} emi={a.emi_amount} intervalMonths={a.interval_months} />
           )}
         </div>
       </section>

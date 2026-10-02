@@ -2,37 +2,44 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { inr, isPositive } from "@/lib/format";
-import { todayIST } from "@/lib/schedule";
+import { dmy, inr, isPositive } from "@/lib/format";
+import { fromPaise, toPaise, todayIST, type DueRow } from "@/lib/schedule";
 import { PAYMENT_MODES } from "@/lib/payment";
 import type { Ledger } from "@/lib/ledger";
-import { LedgerGrid, gridData } from "./ledger-grid";
+import { EmiSummary } from "../installments";
+import { LedgerGrid } from "./ledger-grid";
 import { loadLedger, recordPayment, type PaymentField } from "./actions";
 import type { PendingRow } from "./collect-list";
 
-type Form = { paid_amount: string; paid_date: string; payment_mode: string; receipt_no: string; reference_no: string };
-const emptyForm = (): Form => ({ paid_amount: "", paid_date: todayIST(), payment_mode: "", receipt_no: "", reference_no: "" });
-
-// ---- exact money helpers (paise as bigint, never floats)
-function toPaise(v: string): bigint {
-  const neg = v.startsWith("-");
-  const [i, f = ""] = v.replace("-", "").split(".");
-  const p = BigInt(i || "0") * 100n + BigInt((f + "00").slice(0, 2));
-  return neg ? -p : p;
-}
-function fromPaise(p: bigint): string {
-  const neg = p < 0n;
-  const a = neg ? -p : p;
-  return `${neg ? "-" : ""}${a / 100n}.${(a % 100n).toString().padStart(2, "0")}`;
-}
+type Form = {
+  paid_amount: string;
+  paid_date: string;
+  payment_mode: string;
+  receipt_no: string;
+  reference_no: string;
+  bank_name: string;
+  installments_covered: string;
+};
+const emptyForm = (): Form => ({
+  paid_amount: "",
+  paid_date: todayIST(),
+  payment_mode: "",
+  receipt_no: "",
+  reference_no: "",
+  bank_name: "",
+  installments_covered: "1",
+});
 const plain = (p: bigint) => (p % 100n === 0n ? String(p / 100n) : fromPaise(p));
+const isAmount = (v: string) => /^\d{1,9}(\.\d{1,2})?$/.test(v);
 
 export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () => void }) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const savedAny = useRef(false);
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm);
+  const [imTouched, setImTouched] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<PaymentField, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -64,10 +71,31 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
     };
   }, [row.source, row.ref_id]);
 
+  const emi = ledger ? toPaise(ledger.emi) : 0n;
+  const dueRows = (ledger?.rows.filter((r) => r.kind === "due") ?? []) as DueRow[];
+  const maxIm = Math.max(1, dueRows.length);
+
+  /** EMIs this amount covers by default: round(amount / EMI), between 1 and the EMIs left. */
+  function autoIm(amount: string): string {
+    if (!isAmount(amount) || emi <= 0n) return "1";
+    const n = Number((toPaise(amount) * 2n + emi) / (2n * emi));
+    return String(Math.min(maxIm, Math.max(1, n)));
+  }
+
   function set<K extends keyof Form>(k: K, v: string) {
-    setForm((f) => ({ ...f, [k]: v }));
+    setForm((f) => {
+      const next = { ...f, [k]: v };
+      if (k === "paid_amount" && !imTouched) next.installments_covered = autoIm(v);
+      return next;
+    });
     setErrors((e) => ({ ...e, [k]: undefined }));
     setSaved(null);
+  }
+
+  function stepIm(delta: number) {
+    const n = Math.min(maxIm, Math.max(1, (Number(form.installments_covered) || 1) + delta));
+    setImTouched(true);
+    setForm((f) => ({ ...f, installments_covered: String(n) }));
   }
 
   function close() {
@@ -76,19 +104,19 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
     onClose();
     if (savedAny.current) router.refresh();
   }
-  const savedAny = useRef(false);
 
   function save(e: React.FormEvent) {
     e.preventDefault();
     if (!ledger || saving) return;
     setFormError(null);
     const errs: Partial<Record<PaymentField, string>> = {};
-    if (!/^\d{1,9}(\.\d{1,2})?$/.test(form.paid_amount) || toPaise(form.paid_amount) <= 0n) errs.paid_amount = "Enter the amount";
+    if (!isAmount(form.paid_amount) || toPaise(form.paid_amount) <= 0n) errs.paid_amount = "Enter the amount";
     if (!form.paid_date) errs.paid_date = "Enter the paid date";
     else if (form.paid_date > todayIST()) errs.paid_date = "Paid date cannot be in the future";
     if (!form.payment_mode) errs.payment_mode = "Choose payment mode";
     if (!/^\d{1,12}$/.test(form.receipt_no.trim())) errs.receipt_no = "Enter the receipt number";
     if (form.payment_mode === "CHEQUE" && !form.reference_no.trim()) errs.reference_no = "Enter the cheque number";
+    if (form.payment_mode === "BANK" && !form.bank_name.trim()) errs.bank_name = "Enter the bank name";
     if (Object.keys(errs).length) {
       setErrors(errs);
       document.getElementById(`pay-${Object.keys(errs)[0]}`)?.focus();
@@ -96,7 +124,13 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
     }
     startSaving(async () => {
       try {
-        const res = await recordPayment({ source: ledger.source, refId: ledger.refId, idempotencyKey: key, ...form });
+        const res = await recordPayment({
+          source: ledger.source,
+          refId: ledger.refId,
+          idempotencyKey: key,
+          ...form,
+          installments_covered: Number(form.installments_covered) || 1,
+        });
         if (!res.ok) {
           setFormError(res.error);
           if (res.fieldErrors) setErrors(res.fieldErrors);
@@ -104,12 +138,13 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
         }
         savedAny.current = true;
         setSaved(
-          `Saved ${inr(fromPaise(toPaise(form.paid_amount)))} · receipt ${res.receiptNo} · installment #${res.installmentNo}` +
+          `Saved ${inr(fromPaise(toPaise(form.paid_amount)))} · receipt ${res.receiptNo} · ${form.installments_covered} EMI(s)` +
             (res.ledger ? ` · new balance ${inr(res.ledger.balance)}` : ""),
         );
         if (res.ledger) setLedger(res.ledger);
         else void load();
         setForm(emptyForm());
+        setImTouched(false);
         setKey(crypto.randomUUID());
       } catch {
         // Network dropped: pressing Save again reuses the same key, so it cannot double-save.
@@ -118,20 +153,10 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
     });
   }
 
-  // Quick amounts
-  const quick: { label: string; value: string }[] = [];
-  if (ledger) {
-    const emi = toPaise(ledger.emi);
-    const bal = toPaise(ledger.balance);
-    const overdue = ledger.rows.filter((r) => r.status === "overdue").length;
-    if (emi > 0n && bal > 0n) quick.push({ label: `1 EMI`, value: plain(emi < bal ? emi : bal) });
-    if (overdue > 1 && bal > 0n) {
-      const due = emi * BigInt(overdue);
-      quick.push({ label: `${overdue} overdue`, value: plain(due < bal ? due : bal) });
-    }
-    if (bal > 0n) quick.push({ label: "Full balance", value: plain(bal) });
-  }
-  const over = ledger && form.paid_amount && /^\d+(\.\d{1,2})?$/.test(form.paid_amount) && toPaise(form.paid_amount) > toPaise(ledger.balance);
+  const bal = ledger ? toPaise(ledger.balance) : 0n;
+  const over = ledger && isAmount(form.paid_amount) && toPaise(form.paid_amount) > bal;
+  const im = Number(form.installments_covered) || 1;
+  const covers = dueRows.slice(0, im);
 
   return (
     <dialog
@@ -190,12 +215,23 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
               <div className="h-64 animate-pulse rounded-xl bg-slate-200" />
             </div>
           ) : (
-            <div className="grid gap-3 p-3 md:p-4 lg:h-full lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="grid gap-3 p-3 md:p-4 lg:h-full lg:grid-cols-[minmax(0,1fr)_340px]">
               {/* left: summary + grid (grid scrolls inside; totals row stays visible) */}
               <div className="order-2 flex min-h-0 flex-col gap-3 lg:order-1">
-                <Summary ledger={ledger} />
+                <section className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
+                  <dl className="num grid grid-cols-2 gap-2 sm:grid-cols-5">
+                    <Stat label="Total" value={inr(ledger.total)} />
+                    <Stat label="Paid" value={inr(ledger.paid)} tone="green" />
+                    <Stat label="Balance" value={inr(ledger.balance)} tone={isPositive(ledger.balance) ? "red" : "plain"} />
+                    <Stat label="EMI" value={inr(ledger.emi)} />
+                    <Stat label="Total due days" value={String(ledger.summary.totalDueDays)} tone={ledger.summary.totalDueDays > 0 ? "red" : "plain"} />
+                  </dl>
+                  <div className="mt-2">
+                    <EmiSummary summary={ledger.summary} emi={ledger.emi} intervalMonths={ledger.intervalMonths} />
+                  </div>
+                </section>
                 <section className="h-[65dvh] min-h-0 overflow-auto rounded-xl bg-white ring-1 ring-slate-200 lg:h-auto lg:flex-1">
-                  <LedgerGrid rows={ledger.rows} loanInterest={ledger.interest} loanTotal={ledger.total} emi={ledger.emi} />
+                  <LedgerGrid rows={ledger.rows} summary={ledger.summary} />
                 </section>
               </div>
 
@@ -218,6 +254,7 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
                   </p>
                 )}
 
+                {/* amount, then 1 EMI, then full balance */}
                 <div>
                   <label htmlFor="pay-paid_amount" className="mb-1 block text-sm font-medium text-slate-700">
                     Amount (₹) <span className="text-red-600">*</span>
@@ -231,29 +268,53 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
                     aria-invalid={!!errors.paid_amount}
                     className={inputCls(!!errors.paid_amount) + " num text-xl font-semibold"}
                   />
-                  {quick.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {quick.map((q) => (
-                        <button
-                          key={q.label}
-                          type="button"
-                          onClick={() => set("paid_amount", q.value)}
-                          className="num h-10 rounded-full bg-slate-100 px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200"
-                        >
-                          {q.label} · {inr(q.value)}
-                        </button>
-                      ))}
+                  {bal > 0n && (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {emi > 0n && (
+                        <QuickButton label="1 EMI" amount={inr(fromPaise(emi < bal ? emi : bal))} onClick={() => set("paid_amount", plain(emi < bal ? emi : bal))} />
+                      )}
+                      <QuickButton label="Full balance" amount={inr(ledger.balance)} onClick={() => set("paid_amount", plain(bal))} />
                     </div>
                   )}
                   <Err msg={errors.paid_amount} />
                   {over && !errors.paid_amount && <p className="mt-1 text-sm text-amber-700">More than the balance — this will show as overpaid.</p>}
                 </div>
 
+                {/* EMIs covered (old software's IM) */}
+                <div>
+                  <span className="mb-1 block text-sm font-medium text-slate-700">EMIs covered by this payment</span>
+                  <div className="flex items-center gap-2">
+                    <StepButton label="One less EMI" disabled={im <= 1} onClick={() => stepIm(-1)}>
+                      −
+                    </StepButton>
+                    <span className="num w-12 text-center text-xl font-bold" aria-live="polite">
+                      {im}
+                    </span>
+                    <StepButton label="One more EMI" disabled={im >= maxIm} onClick={() => stepIm(1)}>
+                      +
+                    </StepButton>
+                    <span className="min-w-0 flex-1 text-xs leading-tight text-slate-500">
+                      {covers.length > 0 ? (
+                        <>
+                          EMI #{covers[0].sno}
+                          {covers.length > 1 && <>–#{covers[covers.length - 1].sno}</>}
+                          <br />
+                          due {dmy(covers[0].dueDate)}
+                          {covers.length > 1 && <> – {dmy(covers[covers.length - 1].dueDate)}</>}
+                        </>
+                      ) : (
+                        "No EMIs left"
+                      )}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">EMI stays {inr(ledger.emi)}. Any extra or short amount stays in the balance.</p>
+                </div>
+
                 <div>
                   <span className="mb-1 block text-sm font-medium text-slate-700">
                     Mode <span className="text-red-600">*</span>
                   </span>
-                  <div role="radiogroup" aria-label="Payment mode" className="grid grid-cols-5 gap-1.5">
+                  <div role="radiogroup" aria-label="Payment mode" className="grid grid-cols-4 gap-1.5">
                     {PAYMENT_MODES.map((m, i) => (
                       <button
                         key={m}
@@ -262,7 +323,7 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
                         role="radio"
                         aria-checked={form.payment_mode === m}
                         onClick={() => set("payment_mode", m)}
-                        className={`h-11 rounded-lg text-xs font-semibold ring-1 sm:text-sm ${
+                        className={`h-11 rounded-lg text-sm font-semibold ring-1 ${
                           form.payment_mode === m
                             ? "bg-blue-700 text-white ring-blue-700"
                             : errors.payment_mode
@@ -276,6 +337,16 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
                   </div>
                   <Err msg={errors.payment_mode} />
                 </div>
+
+                {form.payment_mode === "BANK" && (
+                  <TextField id="bank_name" label="Bank name" required value={form.bank_name} error={errors.bank_name} onChange={(v) => set("bank_name", v.toUpperCase())} />
+                )}
+                {form.payment_mode === "CHEQUE" && (
+                  <TextField id="reference_no" label="Cheque no." required value={form.reference_no} error={errors.reference_no} onChange={(v) => set("reference_no", v.toUpperCase())} />
+                )}
+                {(form.payment_mode === "SBI" || form.payment_mode === "BANK") && (
+                  <TextField id="reference_no" label="UTR / reference no." value={form.reference_no} error={errors.reference_no} onChange={(v) => set("reference_no", v.toUpperCase())} />
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -311,38 +382,12 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
                   </div>
                 </div>
 
-                {form.payment_mode && form.payment_mode !== "CASH" && (
-                  <div>
-                    <label htmlFor="pay-reference_no" className="mb-1 block text-sm font-medium text-slate-700">
-                      {form.payment_mode === "CHEQUE" ? (
-                        <>
-                          Cheque no. <span className="text-red-600">*</span>
-                        </>
-                      ) : (
-                        <>
-                          UTR / reference no. <span className="font-normal text-slate-400">(optional)</span>
-                        </>
-                      )}
-                    </label>
-                    <input
-                      id="pay-reference_no"
-                      autoComplete="off"
-                      maxLength={30}
-                      value={form.reference_no}
-                      onChange={(e) => set("reference_no", e.target.value.toUpperCase())}
-                      aria-invalid={!!errors.reference_no}
-                      className={inputCls(!!errors.reference_no)}
-                    />
-                    <Err msg={errors.reference_no} />
-                  </div>
-                )}
-
                 <button
                   type="submit"
                   disabled={saving}
                   className="h-12 w-full rounded-xl bg-emerald-700 text-base font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
                 >
-                  {saving ? "Saving…" : form.paid_amount ? `Save ${inr(fromPaise(/^\d+(\.\d{1,2})?$/.test(form.paid_amount) ? toPaise(form.paid_amount) : 0n))}` : "Save payment"}
+                  {saving ? "Saving…" : isAmount(form.paid_amount) ? `Save ${inr(fromPaise(toPaise(form.paid_amount)))}` : "Save payment"}
                 </button>
               </form>
             </div>
@@ -353,37 +398,57 @@ export function PaymentDialog({ row, onClose }: { row: PendingRow; onClose: () =
   );
 }
 
-function Summary({ ledger }: { ledger: Ledger }) {
-  const { totals } = gridData(ledger.rows, ledger.interest, ledger.total, ledger.emi);
-  const paidCount = ledger.rows.filter((r) => r.status === "paid").length;
-  const overdue = ledger.rows.filter((r) => r.status === "overdue").length;
-  const every = ledger.intervalMonths && ledger.intervalMonths > 1 ? ` every ${ledger.intervalMonths} months` : " monthly";
-  return (
-    <section className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
-      <dl className="num grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <Stat label="Total" value={inr(ledger.total)} />
-        <Stat label="Paid" value={inr(ledger.paid)} tone="green" />
-        <Stat label="Balance" value={inr(ledger.balance)} tone={isPositive(ledger.balance) ? "red" : "plain"} />
-        <Stat label="EMI" value={inr(ledger.emi)} />
-        <Stat label="Total due days" value={String(totals.dueDays)} tone={totals.dueDays > 0 ? "red" : "plain"} />
-      </dl>
-      <div className="mt-2 flex flex-wrap gap-2 text-sm">
-        <span className="rounded-lg bg-blue-50 px-2.5 py-1 font-semibold text-blue-800 ring-1 ring-blue-200">
-          {ledger.rows.length} EMIs of {inr(ledger.emi)}
-          <span className="font-normal">{every}</span>
-        </span>
-        <span className="rounded-lg bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800 ring-1 ring-emerald-200">{paidCount} paid</span>
-        <span className="rounded-lg bg-slate-100 px-2.5 py-1 font-semibold text-slate-700 ring-1 ring-slate-200">{ledger.rows.length - paidCount} left</span>
-        {overdue > 0 && <span className="rounded-lg bg-red-50 px-2.5 py-1 font-semibold text-red-800 ring-1 ring-red-200">{overdue} overdue</span>}
-      </div>
-    </section>
-  );
-}
-
 const inputCls = (bad: boolean) =>
   `h-12 w-full rounded-lg border bg-white px-3 text-base outline-none focus:ring-2 ${
     bad ? "border-red-500 focus:ring-red-500/20" : "border-slate-300 focus:border-blue-600 focus:ring-blue-600/20"
   }`;
+
+function QuickButton({ label, amount, onClick }: { label: string; amount: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="num flex min-h-12 flex-col items-center justify-center rounded-lg bg-slate-100 px-2 py-1 leading-tight ring-1 ring-slate-200 hover:bg-slate-200"
+    >
+      <span className="text-xs text-slate-500">{label}</span>
+      <span className="text-sm font-semibold text-slate-800">{amount}</span>
+    </button>
+  );
+}
+
+function StepButton({ label, disabled, onClick, children }: { label: string; disabled: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex h-11 w-11 items-center justify-center rounded-lg bg-white text-xl font-bold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
+}
+
+function TextField({ id, label, required, value, error, onChange }: { id: PaymentField; label: string; required?: boolean; value: string; error?: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label htmlFor={`pay-${id}`} className="mb-1 block text-sm font-medium text-slate-700">
+        {label} {required ? <span className="text-red-600">*</span> : <span className="font-normal text-slate-400">(optional)</span>}
+      </label>
+      <input
+        id={`pay-${id}`}
+        autoComplete="off"
+        maxLength={id === "bank_name" ? 60 : 30}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={!!error}
+        className={inputCls(!!error)}
+      />
+      <Err msg={error} />
+    </div>
+  );
+}
 
 function Err({ msg }: { msg?: string }) {
   return msg ? <p className="mt-1 text-sm text-red-700">{msg}</p> : null;
