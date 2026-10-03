@@ -7,6 +7,7 @@ const REPORTS = [
   { href: "/reports/day-book", title: "Day Book", text: "Every receipt and loan given, day by day, with debit, credit and totals." },
   { href: "/reports/due-installments", title: "Due Installments", text: "Pending borrowers with EMIs due or short-paid: next due date, arrears, due EMIs, mobile." },
   { href: "/reports/seized", title: "Seized Vehicles", text: "Every vehicle seized right now: seizure date, remarks, balance, mobile." },
+  { href: "/reports/finance-details", title: "Finance Details", text: "Every pending account: finance, interest, total, EMI, received, last paid, arrears, balance, late days." },
 ];
 
 export default function ReportsPage() {

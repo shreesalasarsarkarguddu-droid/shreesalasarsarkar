@@ -55,6 +55,7 @@ const ITEMS = [
       { href: "/reports/day-book", label: "Day Book" },
       { href: "/reports/due-installments", label: "Due Installments" },
       { href: "/reports/seized", label: "Seized Vehicles" },
+      { href: "/reports/finance-details", label: "Finance Details" },
     ],
   },
   {
