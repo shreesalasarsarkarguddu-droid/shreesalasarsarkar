@@ -122,13 +122,15 @@ export function buildLedger(opts: {
   payments: PaymentRow[];
   /** fully paid / closed: list receipts only, no remaining EMI rows */
   settled?: boolean;
+  /** "as of" date for overdue / arrears (default: today in India) */
+  asOf?: string;
 }): { rows: LedgerRow[]; summary: LedgerSummary } {
   const interval = Math.max(1, opts.intervalMonths ?? 1);
   const emi = toPaise(opts.emi);
   const finance = toPaise(opts.finance);
   const loanInterest = toPaise(opts.interest);
   const total = toPaise(opts.total);
-  const today = todayIST();
+  const today = opts.asOf ?? todayIST();
   const payments = [...opts.payments].sort((a, b) => a.installment_no - b.installment_no || (a.paid_date ?? "").localeCompare(b.paid_date ?? ""));
 
   const rows: LedgerRow[] = [];

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 // Add future sections (Dashboard, Reports, ...) here; both navs update together.
 const ITEMS = [
@@ -38,6 +39,11 @@ const ITEMS = [
     icon: (
       <path d="M5 20V10M12 20V4M19 20v-7" strokeLinecap="round" />
     ),
+    // shown as a drop-down in the top bar (phones open the /reports list)
+    children: [
+      { href: "/reports/day-book", label: "Day Book" },
+      { href: "/reports/due-installments", label: "Due Installments" },
+    ],
   },
   {
     href: "/profile",
@@ -60,19 +66,90 @@ export function TopNav() {
   const pathname = usePathname();
   return (
     <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
-      {ITEMS.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          aria-current={isActive(pathname, item.href) ? "page" : undefined}
-          className={`flex h-10 items-center rounded-lg px-3 text-sm font-medium ${
-            isActive(pathname, item.href) ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          {item.label}
-        </Link>
-      ))}
+      {ITEMS.map((item) =>
+        "children" in item ? (
+          <Dropdown key={item.href} label={item.label} active={isActive(pathname, item.href)} items={item.children} pathname={pathname} />
+        ) : (
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-current={isActive(pathname, item.href) ? "page" : undefined}
+            className={`flex h-10 items-center rounded-lg px-3 text-sm font-medium ${
+              isActive(pathname, item.href) ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            {item.label}
+          </Link>
+        ),
+      )}
     </nav>
+  );
+}
+
+function Dropdown({
+  label,
+  active,
+  items,
+  pathname,
+}: {
+  label: string;
+  active: boolean;
+  items: readonly { href: string; label: string }[];
+  pathname: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // close on outside click / Escape
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className={`flex h-10 items-center gap-1 rounded-lg px-3 text-sm font-medium ${
+          active || open ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
+        }`}
+      >
+        {label}
+        <svg aria-hidden viewBox="0 0 20 20" className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} fill="none">
+          <path d="M5.5 7.5 10 12l4.5-4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div role="menu" className="absolute left-0 top-11 z-30 min-w-52 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-slate-200">
+          {items.map((c, i) => (
+            <Link
+              key={c.href}
+              role="menuitem"
+              href={c.href}
+              onClick={() => setOpen(false)}
+              className={`flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium ${
+                isActive(pathname, c.href) ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <span className="num w-4 text-xs text-slate-400">{i + 1}</span>
+              {c.label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
