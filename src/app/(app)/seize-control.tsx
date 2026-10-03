@@ -13,11 +13,12 @@ export function SeizeControl({ source, refId, seized }: { source: "old" | "new";
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`inline-flex h-11 items-center rounded-lg px-4 text-sm font-semibold ring-1 ${
+        className={`inline-flex h-11 items-center justify-center rounded-lg px-2 text-sm font-semibold ring-1 sm:px-4 ${
           seized ? "bg-white text-emerald-800 ring-emerald-300 hover:bg-emerald-50" : "bg-white text-red-700 ring-red-300 hover:bg-red-50"
         }`}
       >
-        {seized ? "Release (back to normal)" : "Seize vehicle"}
+        <span className="sm:hidden">{seized ? "Release" : "Seize"}</span>
+        <span className="hidden sm:inline">{seized ? "Release (back to normal)" : "Seize vehicle"}</span>
       </button>
       {open && <SeizeDialog source={source} refId={refId} seize={!seized} onClose={() => setOpen(false)} />}
     </>

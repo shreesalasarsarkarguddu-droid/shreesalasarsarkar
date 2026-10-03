@@ -139,20 +139,23 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
               {a.agreement_date && <> · Agreement {dmy(a.agreement_date)}</>}
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
+          <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
             <StatusBadge ledger={a.ledger} seized={seizedNow} />
-            <Link
-              href={`/accounts/${a.sno}/statement`}
-              className="inline-flex h-11 items-center rounded-lg bg-white px-4 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50"
-            >
-              Print statement
-            </Link>
-            {a.ledger === "pending" && (
-              <CollectButton
-                row={{ source: "old", ref_id: a.sno, folio: String(a.fno), borrower_name: a.borrower_name, borrower_mobile: a.borrower_mobile }}
-              />
-            )}
-            {(a.ledger === "pending" || seizedNow) && <SeizeControl source="old" refId={a.sno} seized={seizedNow} />}
+            <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+              <Link
+                href={`/accounts/${a.sno}/statement`}
+                className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 sm:px-4"
+              >
+                <span className="sm:hidden">Statement</span>
+                <span className="hidden sm:inline">Print statement</span>
+              </Link>
+              {a.ledger === "pending" && (
+                <CollectButton
+                  row={{ source: "old", ref_id: a.sno, folio: String(a.fno), borrower_name: a.borrower_name, borrower_mobile: a.borrower_mobile }}
+                />
+              )}
+              {(a.ledger === "pending" || seizedNow) && <SeizeControl source="old" refId={a.sno} seized={seizedNow} />}
+            </div>
           </div>
         </div>
 
