@@ -29,3 +29,23 @@ body {
     print-color-adjust: exact;
   }
 }
+
+/* Cell borders on every app table (the printed statement keeps its own black borders).
+   "separate" + 0 spacing keeps borders on sticky header/total rows while scrolling. */
+main table:not(.statement table) {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+main table:not(.statement table) :is(th, td) {
+  border-right: 1px solid #e2e8f0; /* slate-200 */
+  border-bottom: 1px solid #e2e8f0;
+}
+main table:not(.statement table) :is(th, td):first-child {
+  border-left: 1px solid #e2e8f0;
+}
+main table:not(.statement table) thead tr:first-child :is(th, td) {
+  border-top: 1px solid #e2e8f0;
+}
+main table:not(.statement table) thead :is(th, td) {
+  border-color: #cbd5e1; /* slate-300: header slightly stronger */
+}
