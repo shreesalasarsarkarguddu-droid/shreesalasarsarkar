@@ -29,7 +29,15 @@ export function InstallmentTable({ rows }: { rows: LedgerRow[] }) {
       {/* phone */}
       <ul className="num divide-y divide-slate-100 md:hidden">
         {rows.map((r) =>
-          r.kind === "receipt" ? (
+          r.kind === "covered" ? (
+            <li key={`c${r.sno}`} className="flex items-baseline justify-between gap-3 bg-emerald-50/40 px-4 py-2.5 text-sm">
+              <span className="font-semibold text-slate-700">
+                #{r.sno} · {inr(r.dueAmount)}
+                <span className="block text-xs font-normal text-slate-500">Due {dmy(r.dueDate)}</span>
+              </span>
+              <span className="text-right text-xs italic text-emerald-800">Covered by installment #{r.coveredBy}</span>
+            </li>
+          ) : r.kind === "receipt" ? (
             <li key={`r${r.sno}`} className="px-4 py-3">
               <div className="flex items-baseline justify-between gap-3">
                 <p className="font-semibold">
@@ -83,7 +91,19 @@ export function InstallmentTable({ rows }: { rows: LedgerRow[] }) {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {rows.map((r) =>
-              r.kind === "receipt" ? (
+              r.kind === "covered" ? (
+                <tr key={`c${r.sno}`} className="bg-emerald-50/40 text-slate-600">
+                  <td className="px-4 py-2.5">{r.sno}</td>
+                  <td className="px-4 py-2.5">{dmy(r.dueDate)}</td>
+                  <td className="px-4 py-2.5 text-right">{inr(r.dueAmount)}</td>
+                  <td className="px-4 py-2.5 text-center italic text-emerald-800" colSpan={7}>
+                    — Covered by installment #{r.coveredBy} —
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <Status status="paid" />
+                  </td>
+                </tr>
+              ) : r.kind === "receipt" ? (
                 <tr key={`r${r.sno}`} className="align-top">
                   <td className="px-4 py-2.5 text-slate-500">{r.sno}</td>
                   <td className="px-4 py-2.5">{dmy(r.payment.due_date)}</td>

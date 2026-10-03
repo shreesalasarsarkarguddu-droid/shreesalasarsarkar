@@ -26,7 +26,15 @@ export function LedgerCards({ rows, summary }: { rows: LedgerRow[]; summary: Led
       </dl>
       <ul className="divide-y divide-slate-100">
         {rows.map((r) =>
-          r.kind === "receipt" ? (
+          r.kind === "covered" ? (
+            <li key={`c${r.sno}`} className="flex items-center justify-between gap-2 bg-emerald-50/50 px-3 py-2 text-sm text-slate-600">
+              <span>
+                #{r.sno} · {inr2(r.dueAmount)}
+                <span className="block text-xs">Due {dmy(r.dueDate)}</span>
+              </span>
+              <span className="text-right text-xs italic text-emerald-800">Covered by installment #{r.coveredBy}</span>
+            </li>
+          ) : r.kind === "receipt" ? (
             <li key={`r${r.sno}`} className="px-3 py-2.5 text-sm">
               <div className="flex items-baseline justify-between gap-2">
                 <p className="min-w-0 truncate font-semibold">
@@ -86,7 +94,16 @@ export function LedgerGrid({ rows, summary }: { rows: LedgerRow[]; summary: Ledg
       </thead>
       <tbody>
         {rows.map((r) =>
-          r.kind === "receipt" ? (
+          r.kind === "covered" ? (
+            <tr key={`c${r.sno}`} className="bg-emerald-50/50 text-slate-600">
+              <td className={td}>{r.sno}</td>
+              <td className={`${td} text-right`}>{inr2(r.dueAmount)}</td>
+              <td className={td}>{dmy(r.dueDate)}</td>
+              <td className={`${td} italic text-emerald-800`} colSpan={10}>
+                — Covered by installment #{r.coveredBy} —
+              </td>
+            </tr>
+          ) : r.kind === "receipt" ? (
             <tr key={`r${r.sno}`} className="even:bg-slate-50/60">
               <td className={`${td} text-slate-500`}>{r.sno}</td>
               <td className={`${td} text-right`}>{inr2(r.payment.due_amount)}</td>

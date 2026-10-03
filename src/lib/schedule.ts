@@ -1,6 +1,8 @@
 // One calculation for every installment view (account page, loan page, payment window, printed statement).
 //
-// Rows = one row per receipt (like the old software), then one row per EMI not yet covered.
+// Rows = one row per EMI (S.No = EMI number): a receipt row where a payment starts,
+// "covered by installment #n" rows for the further EMIs that payment covered (IM > 1),
+// then one row per EMI not yet covered.
 //   * IM (installments covered): stored on new receipts; for legacy receipts max(1, round(paid / EMI)).
 //   * The EMI amount never changes. A receipt covering IM EMIs moves the next due date forward by IM x interval.
 //   * Principal / interest split of each receipt: interest = paid x (loan interest / finance amount),
@@ -41,7 +43,15 @@ export type DueRow = {
   dueAmount: string;
   status: "overdue" | "upcoming";
 };
-export type LedgerRow = ReceiptRow | DueRow;
+/** An EMI paid by an earlier receipt that covered more than one EMI (IM > 1). */
+export type CoveredRow = {
+  kind: "covered";
+  sno: number;
+  dueDate: string | null;
+  dueAmount: string;
+  coveredBy: number; // S.No of the receipt row that paid it
+};
+export type LedgerRow = ReceiptRow | DueRow | CoveredRow;
 
 export type LedgerSummary = {
   emis: number; // total EMIs in the loan
@@ -131,12 +141,22 @@ export function buildLedger(opts: {
   let lastDue: string | null = null;
   let lastIm = 1;
 
-  payments.forEach((p, i) => {
+  payments.forEach((p) => {
     const amount = toPaise(p.paid_amount);
     const im = receiptIm(p, emi);
     const interest = finance > 0n ? mulDivRound(amount, loanInterest, finance) : 0n;
     const dueDays = Math.max(0, p.delay_days ?? 0);
-    rows.push({ kind: "receipt", sno: i + 1, payment: p, im, principal: fromPaise(amount - interest), interest: fromPaise(interest), dueDays });
+    const sno = used + 1;
+    rows.push({ kind: "receipt", sno, payment: p, im, principal: fromPaise(amount - interest), interest: fromPaise(interest), dueDays });
+    for (let j = 1; j < im; j++) {
+      rows.push({
+        kind: "covered",
+        sno: sno + j,
+        dueDate: p.due_date ? addMonths(p.due_date, j * interval) : null,
+        dueAmount: p.due_amount ?? opts.emi,
+        coveredBy: sno,
+      });
+    }
     if (p.due_date) {
       for (let j = 0; j < im; j++) if (addMonths(p.due_date, j * interval) <= today) dueByToday++;
       lastDue = p.due_date;
@@ -161,7 +181,7 @@ export function buildLedger(opts: {
     const isOverdue = !!dueDate && dueDate < today;
     if (isOverdue) overdue++;
     if (dueDate && dueDate <= today) dueByToday++;
-    rows.push({ kind: "due", sno: payments.length + k, dueDate, dueAmount: opts.emi, status: isOverdue ? "overdue" : "upcoming" });
+    rows.push({ kind: "due", sno: used + k, dueDate, dueAmount: opts.emi, status: isOverdue ? "overdue" : "upcoming" });
   }
 
   const balance = total - paid;

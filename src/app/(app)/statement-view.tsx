@@ -114,7 +114,16 @@ export function StatementView({ s, backHref }: { s: StatementData; backHref: str
           </thead>
           <tbody>
             {s.rows.map((r) =>
-              r.kind === "receipt" ? (
+              r.kind === "covered" ? (
+                <tr key={`c${r.sno}`} className="break-inside-avoid">
+                  <td className={`${cell} text-right`}>{r.sno}.</td>
+                  <td className={`${cell} text-right`}>{amt(r.dueAmount)}</td>
+                  <td className={`${cell} text-center`}>{d(r.dueDate)}</td>
+                  <td className={`${cell} text-center italic`} colSpan={8}>
+                    --- Covered by Installment #{r.coveredBy} ---
+                  </td>
+                </tr>
+              ) : r.kind === "receipt" ? (
                 <tr key={`r${r.sno}`} className="break-inside-avoid">
                   <td className={`${cell} text-right`}>{r.sno}.</td>
                   <td className={`${cell} text-right`}>{amt(r.payment.due_amount)}</td>
