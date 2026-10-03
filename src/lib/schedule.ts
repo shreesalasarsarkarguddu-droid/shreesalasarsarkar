@@ -102,12 +102,31 @@ function mulDivRound(a: bigint, b: bigint, c: bigint): bigint {
   return neg ? -q : q;
 }
 
-/** Legacy receipts have no stored IM: max(1, round(paid / EMI)). */
-export function receiptIm(p: PaymentRow, emi: bigint): number {
-  if (p.installments_covered && p.installments_covered > 0) return p.installments_covered;
-  if (emi <= 0n) return 1;
-  const paid = toPaise(p.paid_amount);
-  return Math.max(1, Number((paid * 2n + emi) / (2n * emi)));
+/** Whole months from date a to date b ("YYYY-MM-DD"), ignoring the day. */
+function monthGap(a: string, b: string): number {
+  return (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + (Number(b.slice(5, 7)) - Number(a.slice(5, 7)));
+}
+
+/**
+ * EMIs covered by each receipt (the old software's "IM").
+ *  - New receipts store it.
+ *  - Legacy receipts lost it, so it is recovered the way the old software applied it: the gap between this
+ *    receipt's due date and the next receipt's due date, in intervals (e.g. due 13 Nov, next due 13 Feb = 3).
+ *    When there is no usable gap (last receipt, missing/odd dates) it falls back to max(1, round(paid / EMI)).
+ */
+export function receiptIms(sorted: PaymentRow[], emi: bigint, interval: number): number[] {
+  return sorted.map((p, i) => {
+    if (p.installments_covered && p.installments_covered > 0) return p.installments_covered;
+    const next = sorted[i + 1];
+    if (p.due_date && next?.due_date) {
+      const gap = monthGap(p.due_date, next.due_date);
+      const ims = Math.floor(gap / interval);
+      if (gap > 0 && gap % interval === 0 && ims >= 1 && ims <= 60) return ims;
+    }
+    if (emi <= 0n) return 1;
+    const paid = toPaise(p.paid_amount);
+    return Math.max(1, Number((paid * 2n + emi) / (2n * emi)));
+  });
 }
 
 // ---------------------------------------------------------------- the ledger
@@ -143,9 +162,10 @@ export function buildLedger(opts: {
   let lastDue: string | null = null;
   let lastIm = 1;
 
-  payments.forEach((p) => {
+  const ims = receiptIms(payments, emi, interval);
+  payments.forEach((p, idx) => {
     const amount = toPaise(p.paid_amount);
-    const im = receiptIm(p, emi);
+    const im = ims[idx];
     const interest = finance > 0n ? mulDivRound(amount, loanInterest, finance) : 0n;
     const dueDays = Math.max(0, p.delay_days ?? 0);
     const sno = used + 1;
