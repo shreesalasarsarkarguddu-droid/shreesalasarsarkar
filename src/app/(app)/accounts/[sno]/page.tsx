@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { dmy, flagLabel, inr, isNegative, isPositive } from "@/lib/format";
 import { StatusBadge } from "../status-badge";
 import { CollectButton } from "../../payments/collect-button";
+import { SeizeControl, type SeizureEvent } from "../../seize-control";
+import { SeizureInfo } from "../../seizure-history";
 import { buildLedger } from "@/lib/schedule";
 import { LEGACY_PAYMENT_COLUMNS, NEW_PAYMENT_COLUMNS, addMoney, byInstallment, mapNewPayment, subMoney, type NewPaymentRecord } from "@/lib/ledger";
 import { Delay, EmiSummary, InstallmentTable, RowFlags } from "../../installments";
@@ -82,7 +84,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
         " vehicle_condition, vehicle_model, vehicle_variant, chassis_no, engine_no, model_year, registration_no," +
         " agreement_date, tenure_months, interval_months, seized, data_flags," +
         " finance_amount::text, interest_amount::text, agreement_amount::text, hp_amount::text, total_amount::text, emi_amount::text," +
-        ` legacy_paid::text, legacy_payments(${LEGACY_PAYMENT_COLUMNS}), payments(${NEW_PAYMENT_COLUMNS})`,
+        ` legacy_paid::text, legacy_payments(${LEGACY_PAYMENT_COLUMNS}), payments(${NEW_PAYMENT_COLUMNS}), seizures(id, action, action_date, remarks, created_at, staff(full_name))`,
     )
     .eq("sno", sno)
     .maybeSingle();
@@ -91,7 +93,15 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
     throw new Error("Could not load this account.");
   }
   if (!accountData) notFound();
-  const a = accountData as unknown as Account & { legacy_paid: string; legacy_payments: Payment[]; payments: NewPaymentRecord[] };
+  const a = accountData as unknown as Account & {
+    legacy_paid: string;
+    legacy_payments: Payment[];
+    payments: NewPaymentRecord[];
+    seizures: SeizureEvent[];
+  };
+  // Seized right now = latest seize/release event, else the old software's flag
+  const lastEvent = [...a.seizures].sort((x, y) => y.created_at.localeCompare(x.created_at) || y.id - x.id)[0];
+  const seizedNow = lastEvent ? lastEvent.action === "seize" : a.seized === true;
 
   const all = [...a.legacy_payments].sort(byInstallment);
   const newPayments = a.payments.map(mapNewPayment);
@@ -130,7 +140,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
-            <StatusBadge ledger={a.ledger} seized={a.seized} />
+            <StatusBadge ledger={a.ledger} seized={seizedNow} />
             <Link
               href={`/accounts/${a.sno}/statement`}
               className="inline-flex h-11 items-center rounded-lg bg-white px-4 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50"
@@ -142,6 +152,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
                 row={{ source: "old", ref_id: a.sno, folio: String(a.fno), borrower_name: a.borrower_name, borrower_mobile: a.borrower_mobile }}
               />
             )}
+            {(a.ledger === "pending" || seizedNow) && <SeizeControl source="old" refId={a.sno} seized={seizedNow} />}
           </div>
         </div>
 
@@ -169,6 +180,8 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
           )}
         </div>
       </section>
+
+      <SeizureInfo seized={seizedNow} events={a.seizures} fromOldSoftware={a.seized === true} />
 
       {(a.data_flags.length > 0 || otherFile.length > 0) && (
         <section className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">

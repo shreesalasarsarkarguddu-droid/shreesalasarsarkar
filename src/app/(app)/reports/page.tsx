@@ -6,6 +6,7 @@ export const metadata: Metadata = { title: "Reports · Shree Salasar Sarkar" };
 const REPORTS = [
   { href: "/reports/day-book", title: "Day Book", text: "Every receipt and loan given, day by day, with debit, credit and totals." },
   { href: "/reports/due-installments", title: "Due Installments", text: "Pending borrowers with EMIs due or short-paid: next due date, arrears, due EMIs, mobile." },
+  { href: "/reports/seized", title: "Seized Vehicles", text: "Every vehicle seized right now: seizure date, remarks, balance, mobile." },
 ];
 
 export default function ReportsPage() {

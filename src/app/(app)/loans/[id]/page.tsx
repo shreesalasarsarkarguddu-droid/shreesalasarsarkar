@@ -6,6 +6,8 @@ import { buildLedger, toPaise } from "@/lib/schedule";
 import { NEW_PAYMENT_COLUMNS, byInstallment, mapNewPayment, type NewPaymentRecord } from "@/lib/ledger";
 import { EmiSummary, InstallmentTable } from "../../installments";
 import { CollectButton } from "../../payments/collect-button";
+import { SeizeControl, type SeizureEvent } from "../../seize-control";
+import { SeizureInfo } from "../../seizure-history";
 
 type Loan = {
   id: number;
@@ -59,7 +61,7 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
         " vehicle_condition, sold_by, vehicle_model, vehicle_color, chassis_no, engine_no, make_year, vehicle_no, insurance_expiry," +
         " agreement_date, installments, interval_months, status, created_at, interest_rate::text," +
         " finance_amount::text, agreement_amount::text, hp_amount::text, interest_amount::text, total_amount::text, emi_amount::text," +
-        ` borrowers(full_name, father_name, mobile, date_of_birth, address), payments(${NEW_PAYMENT_COLUMNS})`,
+        ` borrowers(full_name, father_name, mobile, date_of_birth, address), payments(${NEW_PAYMENT_COLUMNS}), seizures(id, action, action_date, remarks, created_at, staff(full_name))`,
     )
     .eq("id", id)
     .maybeSingle();
@@ -68,7 +70,8 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
     throw new Error("Could not load this loan.");
   }
   if (!data) notFound();
-  const l = data as unknown as Loan & { payments: NewPaymentRecord[] };
+  const l = data as unknown as Loan & { payments: NewPaymentRecord[]; seizures: SeizureEvent[] };
+  const seizedNow = l.status === "seized";
   const b = l.borrowers;
   const payments = l.payments.map(mapNewPayment).sort(byInstallment);
   const paidPaise = payments.reduce((t, p) => t + toPaise(p.paid_amount), 0n);
@@ -101,16 +104,21 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
-            <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold capitalize text-blue-800">{l.status}</span>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${seizedNow ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"}`}
+            >
+              {l.status}
+            </span>
             <Link
               href={`/loans/${l.id}/statement`}
               className="inline-flex h-11 items-center rounded-lg bg-white px-4 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50"
             >
               Print statement
             </Link>
-            {l.status === "active" && (
+            {l.status !== "closed" && (
               <CollectButton row={{ source: "new", ref_id: l.id, folio: l.folio_no, borrower_name: b.full_name, borrower_mobile: b.mobile }} />
             )}
+            {l.status !== "closed" && <SeizeControl source="new" refId={l.id} seized={seizedNow} />}
           </div>
         </div>
         <dl className="num mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -127,6 +135,8 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
           <EmiSummary summary={summary} emi={l.emi_amount} intervalMonths={l.interval_months} />
         </div>
       </section>
+
+      <SeizureInfo seized={seizedNow} events={l.seizures} fromOldSoftware={false} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="Borrower">

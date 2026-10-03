@@ -4,7 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-// Add future sections (Dashboard, Reports, ...) here; both navs update together.
+// Top bar on computers: drop-down groups. Bottom bar on phones keeps one-tap buttons.
+const FINANCE = {
+  href: "/finance",
+  label: "Finance",
+  children: [
+    { href: "/loans/new", label: "New Loan" },
+    { href: "/accounts", label: "Accounts" },
+    { href: "/payments", label: "Collect" },
+  ],
+} as const;
+
+// Phone bottom bar (and the Reports / Profile entries of the top bar).
 const ITEMS = [
   {
     href: "/accounts",
@@ -43,6 +54,7 @@ const ITEMS = [
     children: [
       { href: "/reports/day-book", label: "Day Book" },
       { href: "/reports/due-installments", label: "Due Installments" },
+      { href: "/reports/seized", label: "Seized Vehicles" },
     ],
   },
   {
@@ -64,24 +76,22 @@ function isActive(pathname: string, href: string) {
 /** Links shown in the top bar on tablet/desktop. */
 export function TopNav() {
   const pathname = usePathname();
+  const financeActive = FINANCE.children.some((c) => isActive(pathname, c.href));
+  const reports = ITEMS.find((i) => i.href === "/reports")!;
+  const profile = ITEMS.find((i) => i.href === "/profile")!;
   return (
     <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
-      {ITEMS.map((item) =>
-        "children" in item ? (
-          <Dropdown key={item.href} label={item.label} active={isActive(pathname, item.href)} items={item.children} pathname={pathname} />
-        ) : (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={isActive(pathname, item.href) ? "page" : undefined}
-            className={`flex h-10 items-center rounded-lg px-3 text-sm font-medium ${
-              isActive(pathname, item.href) ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
-            }`}
-          >
-            {item.label}
-          </Link>
-        ),
-      )}
+      <Dropdown label={FINANCE.label} active={financeActive} items={FINANCE.children} pathname={pathname} />
+      {"children" in reports && <Dropdown label={reports.label} active={isActive(pathname, reports.href)} items={reports.children} pathname={pathname} />}
+      <Link
+        href={profile.href}
+        aria-current={isActive(pathname, profile.href) ? "page" : undefined}
+        className={`flex h-10 items-center rounded-lg px-3 text-sm font-medium ${
+          isActive(pathname, profile.href) ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
+        }`}
+      >
+        {profile.label}
+      </Link>
     </nav>
   );
 }

@@ -120,7 +120,7 @@ export async function getLedger(supabase: SupabaseClient, source: "old" | "new",
         ` borrowers(full_name, father_name, mobile, address), payments(${NEW_PAYMENT_COLUMNS})`,
     )
     .eq("id", refId)
-    .eq("status", "active")
+    .in("status", ["active", "seized"])
     .maybeSingle();
   if (error) throw new Error("Could not load loan.");
   if (!l) return null;
