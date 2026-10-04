@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getStaff } from "@/lib/staff";
@@ -28,6 +29,16 @@ export default async function ProfilePage() {
           </span>
         </div>
       </section>
+
+      {staff?.role === "admin" && (
+        <Link href="/settings" className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
+          <span>
+            <span className="block font-semibold text-blue-700">Settings</span>
+            <span className="block text-sm text-slate-500">Telegram group alerts, WhatsApp receipts and reminders</span>
+          </span>
+          <span aria-hidden className="text-slate-400">›</span>
+        </Link>
+      )}
 
       <section className="rounded-xl bg-white p-4 ring-1 ring-slate-200">
         <h2 className="mb-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Change password</h2>

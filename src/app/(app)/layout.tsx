@@ -21,7 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Link href="/accounts" className="text-base font-bold text-slate-900">
               Shree Salasar Sarkar
             </Link>
-            {staff && <TopNav />}
+            {staff && <TopNav isAdmin={staff.role === "admin"} />}
           </div>
           <div className="hidden items-center gap-3 md:flex">
             {staff && <span className="text-sm text-slate-500">{staff.full_name}</span>}

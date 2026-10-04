@@ -75,7 +75,7 @@ function isActive(pathname: string, href: string) {
 }
 
 /** Links shown in the top bar on tablet/desktop. */
-export function TopNav() {
+export function TopNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
   const financeActive = FINANCE.children.some((c) => isActive(pathname, c.href));
   const reports = ITEMS.find((i) => i.href === "/reports")!;
@@ -93,6 +93,17 @@ export function TopNav() {
       >
         {profile.label}
       </Link>
+      {isAdmin && (
+        <Link
+          href="/settings"
+          aria-current={isActive(pathname, "/settings") ? "page" : undefined}
+          className={`flex h-10 items-center rounded-lg px-3 text-sm font-medium ${
+            isActive(pathname, "/settings") ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          Settings
+        </Link>
+      )}
     </nav>
   );
 }
