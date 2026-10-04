@@ -182,6 +182,23 @@ export function SettingsForm({ initial }: { initial: Settings }) {
         </p>
       </section>
 
+      {/* ---------------- Backup */}
+      <section className={card}>
+        <div>
+          <h2 className={head}>Backup</h2>
+          <p className="text-sm text-slate-500">
+            Download every account, payment, loan and seizure as one zip file (one CSV per table, opens in Excel). It contains customer
+            details, so keep it private.
+          </p>
+        </div>
+        <a
+          href="/settings/backup"
+          className="inline-flex h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50"
+        >
+          Download backup (.zip)
+        </a>
+      </section>
+
       {/* ---------------- General */}
       <section className={card}>
         <h2 className={head}>General</h2>
