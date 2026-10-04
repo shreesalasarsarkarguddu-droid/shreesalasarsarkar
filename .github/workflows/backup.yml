@@ -13,6 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check secrets
+        env:
+          S1: ${{ secrets.BACKUP_DATABASE_URL }}
+          S2: ${{ secrets.BACKUP_PASSWORD }}
+          S3: ${{ secrets.BACKUP_TELEGRAM_TOKEN }}
+          S4: ${{ secrets.BACKUP_TELEGRAM_CHAT_ID }}
+        run: |
+          ok=1
+          [ -n "$S1" ] || { echo "::error::Secret BACKUP_DATABASE_URL is missing"; ok=0; }
+          [ -n "$S2" ] || { echo "::error::Secret BACKUP_PASSWORD is missing"; ok=0; }
+          [ -n "$S3" ] || { echo "::error::Secret BACKUP_TELEGRAM_TOKEN is missing"; ok=0; }
+          [ -n "$S4" ] || { echo "::error::Secret BACKUP_TELEGRAM_CHAT_ID is missing"; ok=0; }
+          [ $ok = 1 ]
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
