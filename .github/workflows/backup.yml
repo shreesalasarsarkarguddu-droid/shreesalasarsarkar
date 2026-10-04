@@ -1,0 +1,45 @@
+name: Nightly backup
+
+on:
+  schedule:
+    - cron: "30 20 * * *" # 02:00 IST every night
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "psycopg[binary]"
+      - name: Dump every table
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: python scripts/backup.py backup.zip
+      - name: Encrypt
+        env:
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          D=$(TZ=Asia/Kolkata date +%Y-%m-%d)
+          echo "FILE=salasar-backup-$D.zip.enc" >> "$GITHUB_ENV"
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_PASSWORD -in backup.zip -out "salasar-backup-$D.zip.enc"
+          rm backup.zip
+      - name: Send to Telegram
+        env:
+          TOKEN: ${{ secrets.BACKUP_TELEGRAM_TOKEN }}
+          CHAT: ${{ secrets.BACKUP_TELEGRAM_CHAT_ID }}
+        run: |
+          curl -sf "https://api.telegram.org/bot$TOKEN/sendDocument" \
+            -F chat_id="$CHAT" -F document=@"$FILE" \
+            -F caption="Encrypted backup $FILE (decrypt: openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in $FILE -out backup.zip)" > /dev/null
+      - name: Keep a copy for 30 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup
+          path: salasar-backup-*.zip.enc
+          retention-days: 30
