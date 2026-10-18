@@ -5,6 +5,7 @@ import { requirePerm } from "@/lib/staff";
 export const metadata: Metadata = { title: "Reports · Shree Salasar Sarkar" };
 
 const REPORTS = [
+  { href: "/dashboard", title: "Dashboard", text: "Today and this month's collection, outstanding, arrears, due, seized, new loans, staff performance." },
   { href: "/reports/day-book", title: "Day Book", text: "Every receipt and loan given, day by day, with debit, credit and totals." },
   { href: "/reports/due-installments", title: "Due Installments", text: "Pending borrowers with EMIs due or short-paid: next due date, arrears, due EMIs, mobile." },
   { href: "/reports/seized", title: "Seized Vehicles", text: "Every vehicle seized right now: seizure date, remarks, balance, mobile." },

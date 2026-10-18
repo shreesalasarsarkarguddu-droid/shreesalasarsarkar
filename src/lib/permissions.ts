@@ -50,6 +50,7 @@ export function controlLinks(access: Access): { href: string; label: string; tex
 
 /** First page this person may open (where to send them when they land somewhere they cannot use). */
 export function homeFor(a: Access | null | undefined): string {
+  if (a?.role === "admin") return "/dashboard";
   if (can(a, "view_accounts")) return "/accounts";
   if (can(a, "collect")) return "/payments";
   if (can(a, "new_loan")) return "/loans/new";

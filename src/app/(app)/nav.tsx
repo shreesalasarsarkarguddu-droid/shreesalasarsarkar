@@ -57,6 +57,7 @@ const ITEMS = [
     ),
     // shown as a drop-down in the top bar (phones open the /reports list)
     children: [
+      { href: "/dashboard", label: "Dashboard" },
       { href: "/reports/day-book", label: "Day Book" },
       { href: "/reports/due-installments", label: "Due Installments" },
       { href: "/reports/seized", label: "Seized Vehicles" },
@@ -91,7 +92,14 @@ export function TopNav({ access }: { access: Access }) {
   return (
     <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
       {finance.length > 0 && <Dropdown label={FINANCE.label} active={financeActive} items={finance} pathname={pathname} />}
-      {can(access, "reports") && "children" in reports && <Dropdown label={reports.label} active={isActive(pathname, reports.href)} items={reports.children} pathname={pathname} />}
+      {can(access, "reports") && "children" in reports && (
+        <Dropdown
+          label={reports.label}
+          active={isActive(pathname, reports.href) || isActive(pathname, "/dashboard")}
+          items={reports.children}
+          pathname={pathname}
+        />
+      )}
       <Link
         href={profile.href}
         aria-current={isActive(pathname, profile.href) ? "page" : undefined}
