@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getStaff } from "@/lib/staff";
+import { Section } from "@/components/section";
 import { SettingsForm, type Settings } from "./settings-form";
 
 export const metadata: Metadata = { title: "Settings · Shree Salasar Sarkar" };
@@ -33,12 +34,9 @@ export default async function SettingsPage() {
 
       <SettingsForm initial={settings as Settings} />
 
-      <section className="rounded-xl bg-white ring-1 ring-slate-200">
-        <h2 className="border-b border-slate-200 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Recent messages
-        </h2>
+      <Section title="Recent messages" hint="The latest Telegram and WhatsApp messages and whether they were sent.">
         {(log as LogRow[] | null)?.length ? (
-          <ul className="divide-y divide-slate-100">
+          <ul className="-mx-4 -my-4 divide-y divide-slate-100">
             {(log as LogRow[]).map((r) => (
               <li key={r.id} className="px-4 py-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
@@ -64,9 +62,9 @@ export default async function SettingsPage() {
             ))}
           </ul>
         ) : (
-          <p className="px-4 py-6 text-sm text-slate-500">No messages yet.</p>
+          <p className="text-sm text-slate-500">No messages yet.</p>
         )}
-      </section>
+      </Section>
     </div>
   );
 }

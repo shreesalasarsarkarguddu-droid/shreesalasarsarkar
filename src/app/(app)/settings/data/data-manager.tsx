@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Section } from "@/components/section";
 import { commitImport, createRestorePoint, deleteData, restore, type Result } from "./actions";
 
 type Counts = Record<string, number>;
@@ -11,8 +12,6 @@ export type Overview = {
   audit: { id: number; at: string; by_name: string | null; action: string; details: Record<string, unknown> }[];
 };
 
-const card = "rounded-xl bg-white p-4 ring-1 ring-slate-200 space-y-3";
-const head = "text-xs font-semibold uppercase tracking-wide text-slate-500";
 const btn = "h-11 rounded-lg px-5 text-sm font-semibold disabled:opacity-50";
 const input =
   "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20";
@@ -37,8 +36,7 @@ export function DataManager({ o }: { o: Overview }) {
   const c = o.counts;
   return (
     <div className="space-y-4">
-      <section className={card}>
-        <h2 className={head}>Data now</h2>
+      <Section title="Data now" hint={`${n(c.legacy_accounts)} old accounts · ${n(c.loans)} new loans · ${n(c.payments)} app payments`}>
         <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
           {[
             ["Old accounts", c.legacy_accounts],
@@ -55,15 +53,14 @@ export function DataManager({ o }: { o: Overview }) {
             </div>
           ))}
         </div>
-      </section>
+      </Section>
 
       <BackupCard />
       <RestoreCard points={o.restore_points} />
       <ImportCard />
       <DeleteCard o={o} />
 
-      <section className={card}>
-        <h2 className={head}>Activity</h2>
+      <Section title="Activity" hint="Who saved, restored, deleted or imported data, and when.">
         {o.audit.length === 0 ? (
           <p className="text-sm text-slate-500">Nothing yet.</p>
         ) : (
@@ -77,7 +74,7 @@ export function DataManager({ o }: { o: Overview }) {
             ))}
           </ul>
         )}
-      </section>
+      </Section>
     </div>
   );
 }
@@ -95,8 +92,7 @@ function BackupCard() {
   const [r, setR] = useState<Result | null>(null);
   const [pending, start] = useTransition();
   return (
-    <section className={card}>
-      <h2 className={head}>Backup</h2>
+    <Section title="Backup" hint="Download a zip to your device, or save a restore point now.">
       <p className="text-sm text-slate-500">
         The zip is a copy on your own device (one Excel-readable CSV per table). A restore point is a copy kept inside the database
         that can be put back with one button. The newest 5 restore points are kept.
@@ -115,15 +111,18 @@ function BackupCard() {
         </button>
       </div>
       <Msg r={r} />
-    </section>
+    </Section>
   );
 }
 
 function RestoreCard({ points }: { points: Overview["restore_points"] }) {
   const [open, setOpen] = useState<number | null>(null);
   return (
-    <section className={card}>
-      <h2 className={head}>Restore points</h2>
+    <Section
+      title="Restore points"
+      hint="Put all data back as it was at an earlier moment."
+      badge={<span className="num rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{points.length}</span>}
+    >
       {points.length === 0 ? (
         <p className="text-sm text-slate-500">None yet. One is saved automatically before every delete, import or restore.</p>
       ) : (
@@ -153,7 +152,7 @@ function RestoreCard({ points }: { points: Overview["restore_points"] }) {
           ))}
         </ul>
       )}
-    </section>
+    </Section>
   );
 }
 
@@ -230,8 +229,7 @@ function DeleteCard({ o }: { o: Overview }) {
     { key: "all" as const, title: "Everything", text: "All of the above. Users, settings and the activity log stay.", warn: null },
   ];
   return (
-    <section className={`${card} ring-red-200`}>
-      <h2 className={`${head} text-red-700`}>Delete data</h2>
+    <Section danger title="Delete data" hint="Remove old software data, app entries, or everything (password needed).">
       <p className="text-sm text-slate-500">
         Logins, settings and this page&apos;s history are never deleted. A restore point is saved first, so you can undo it from
         Restore points above.
@@ -267,7 +265,7 @@ function DeleteCard({ o }: { o: Overview }) {
           )}
         </div>
       )}
-    </section>
+    </Section>
   );
 }
 
@@ -348,8 +346,7 @@ function ImportCard() {
 
   const a = pv?.accounts;
   return (
-    <section className={card}>
-      <h2 className={head}>Import from the old software</h2>
+    <Section title="Import from the old software" hint="Bring in the latest P_ACCOUNT, P_INSMENT, F_ACCOUNT, F_INSMENT files.">
       <p className="text-sm text-slate-500">
         Choose all 4 files from the old software&apos;s folder: P_ACCOUNT, P_INSMENT, F_ACCOUNT, F_INSMENT (.DAT; the older .xlsx
         exports also work). Do this again any time to bring in the latest changes. First you see what would change; nothing is saved
@@ -505,6 +502,6 @@ function ImportCard() {
           )}
         </div>
       )}
-    </section>
+    </Section>
   );
 }

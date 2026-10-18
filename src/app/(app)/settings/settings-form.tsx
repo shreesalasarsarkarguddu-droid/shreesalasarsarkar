@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { OnOff, Section } from "@/components/section";
 import { saveSettings, sendTest, type Result } from "./actions";
 
 export type Settings = {
@@ -27,8 +28,6 @@ export type Settings = {
 
 const input =
   "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20";
-const card = "rounded-xl bg-white p-4 ring-1 ring-slate-200 space-y-4";
-const head = "text-xs font-semibold uppercase tracking-wide text-slate-500";
 
 const HOURS = Array.from({ length: 24 }, (_, h) => ({
   value: h,
@@ -58,12 +57,13 @@ export function SettingsForm({ initial }: { initial: Settings }) {
       }}
     >
       {/* ---------------- Telegram */}
-      <section className={card}>
+      <Section
+        title="Telegram · staff group"
+        hint="Every payment, new loan and seizure is posted to your staff group."
+        badge={<OnOff on={s.telegram_enabled} />}
+      >
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className={head}>Telegram · staff group</h2>
-            <p className="text-sm text-slate-500">Every payment, new loan and seizure is posted to your staff group.</p>
-          </div>
+          <span className="text-sm font-medium text-slate-700">Telegram messages</span>
           <Switch checked={s.telegram_enabled} onChange={(v) => set("telegram_enabled", v)} label="Telegram on" />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -102,15 +102,16 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           <TestButton channel="telegram" label="Send test message" />
           <TestButton channel="summary" label="Send today's summary now" />
         </div>
-      </section>
+      </Section>
 
       {/* ---------------- WhatsApp */}
-      <section className={card}>
+      <Section
+        title="WhatsApp · customers"
+        hint="Payment receipts and EMI due reminders to the borrower's mobile."
+        badge={<OnOff on={s.whatsapp_enabled} />}
+      >
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className={head}>WhatsApp · customers</h2>
-            <p className="text-sm text-slate-500">Payment receipts and EMI due reminders to the borrower&apos;s mobile.</p>
-          </div>
+          <span className="text-sm font-medium text-slate-700">WhatsApp messages</span>
           <Switch checked={s.whatsapp_enabled} onChange={(v) => set("whatsapp_enabled", v)} label="WhatsApp on" />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -180,17 +181,14 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           Unofficial WhatsApp gateways can get the number blocked by WhatsApp. Use a separate business number, keep messages
           useful (receipts, reminders), and avoid sending too many in one go.
         </p>
-      </section>
+      </Section>
 
       {/* ---------------- Backup */}
-      <section className={card}>
-        <div>
-          <h2 className={head}>Backup</h2>
-          <p className="text-sm text-slate-500">
-            Download every account, payment, loan and seizure as one zip file (one CSV per table, opens in Excel). It contains customer
-            details, so keep it private.
-          </p>
-        </div>
+      <Section title="Backup & data" hint="Download a backup; restore points, delete and import from the old software.">
+        <p className="text-sm text-slate-500">
+          Download every account, payment, loan and seizure as one zip file (one CSV per table, opens in Excel). It contains customer
+          details, so keep it private.
+        </p>
         <a
           href="/settings/backup"
           className="inline-flex h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50"
@@ -203,15 +201,14 @@ export function SettingsForm({ initial }: { initial: Settings }) {
         >
           Data: restore points, delete, import →
         </a>
-      </section>
+      </Section>
 
       {/* ---------------- General */}
-      <section className={card}>
-        <h2 className={head}>General</h2>
+      <Section title="General" hint="Business name used in messages.">
         <Field label="Business name in messages">
           <input className={input} value={s.business_name} onChange={(e) => set("business_name", e.target.value)} />
         </Field>
-      </section>
+      </Section>
 
       <div className="sticky bottom-20 z-10 flex flex-wrap items-center gap-3 rounded-xl bg-white/95 p-3 ring-1 ring-slate-200 backdrop-blur md:bottom-4">
         <button
