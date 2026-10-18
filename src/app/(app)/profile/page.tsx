@@ -41,6 +41,16 @@ export default async function ProfilePage() {
       )}
 
       {staff?.role === "admin" && (
+        <Link href="/activity" className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
+          <span>
+            <span className="block font-semibold text-blue-700">Activity</span>
+            <span className="block text-sm text-slate-500">Who took payments, made loans, seized, edited or cancelled — and when</span>
+          </span>
+          <span aria-hidden className="text-slate-400">›</span>
+        </Link>
+      )}
+
+      {staff?.role === "admin" && (
         <Link href="/settings" className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
           <span>
             <span className="block font-semibold text-blue-700">Settings</span>

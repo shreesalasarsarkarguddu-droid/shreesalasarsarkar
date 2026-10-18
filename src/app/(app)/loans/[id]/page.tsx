@@ -10,6 +10,8 @@ import { EmiSummary, InstallmentTable } from "../../installments";
 import { CollectButton } from "../../payments/collect-button";
 import { SeizeControl, type SeizureEvent } from "../../seize-control";
 import { SeizureInfo } from "../../seizure-history";
+import { PaymentFixes } from "../../payment-fixes";
+import { DeleteLoan } from "./delete-loan";
 
 type Loan = {
   id: number;
@@ -104,6 +106,11 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
           Loan saved.
         </p>
       )}
+      {sp.edited === "1" && (
+        <p role="status" className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200">
+          Loan updated. Amounts and payments were recalculated; the change is in the activity log.
+        </p>
+      )}
 
       {/* header - same layout as old accounts */}
       <section className="rounded-xl bg-white p-4 ring-1 ring-slate-200 sm:p-5">
@@ -137,6 +144,14 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
                 <CollectButton row={{ source: "new", ref_id: l.id, folio: l.folio_no, borrower_name: b.full_name, borrower_mobile: b.mobile }} />
               )}
               {l.status !== "closed" && can(staff, "seize") && <SeizeControl source="new" refId={l.id} seized={seizedNow} />}
+              {staff.role === "admin" && (
+                <Link
+                  href={`/loans/${l.id}/edit`}
+                  className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50"
+                >
+                  Edit loan
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -196,6 +211,9 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
         </h2>
         <InstallmentTable rows={schedule} />
       </section>
+
+      {staff.role === "admin" && <PaymentFixes payments={l.payments} path={`/loans/${l.id}`} />}
+      {staff.role === "admin" && l.payments.length === 0 && <DeleteLoan id={l.id} folio={l.folio_no} />}
     </div>
   );
 }

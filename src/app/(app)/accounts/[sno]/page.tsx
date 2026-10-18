@@ -11,6 +11,7 @@ import { SeizureInfo } from "../../seizure-history";
 import { buildLedger } from "@/lib/schedule";
 import { LEGACY_PAYMENT_COLUMNS, NEW_PAYMENT_COLUMNS, addMoney, byInstallment, mapNewPayment, subMoney, type NewPaymentRecord } from "@/lib/ledger";
 import { Delay, EmiSummary, InstallmentTable, RowFlags } from "../../installments";
+import { PaymentFixes } from "../../payment-fixes";
 
 type Account = {
   id: number;
@@ -245,6 +246,8 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
           <InstallmentTable rows={schedule} />
         )}
       </section>
+
+      {staff.role === "admin" && <PaymentFixes payments={a.payments} path={`/accounts/${a.sno}`} />}
 
       {otherFile.length > 0 && (
         <section className="rounded-xl bg-white ring-1 ring-amber-200">

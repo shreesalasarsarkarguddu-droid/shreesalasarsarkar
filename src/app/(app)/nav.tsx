@@ -114,6 +114,17 @@ export function TopNav({ access }: { access: Access }) {
       )}
       {isAdmin && (
         <Link
+          href="/activity"
+          aria-current={isActive(pathname, "/activity") ? "page" : undefined}
+          className={`flex h-10 items-center rounded-lg px-3 text-sm font-medium ${
+            isActive(pathname, "/activity") ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          Activity
+        </Link>
+      )}
+      {isAdmin && (
+        <Link
           href="/settings"
           aria-current={isActive(pathname, "/settings") ? "page" : undefined}
           className={`flex h-10 items-center rounded-lg px-3 text-sm font-medium ${

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { EMPTY_LOAN, STEPS, calcLoan, loanSchema, paiseToString, type LoanFields } from "@/lib/loan";
 import { inr } from "@/lib/format";
 import { createLoan } from "./actions";
+import { editLoan } from "../../fix-actions";
 
 type Values = Record<LoanFields, string>;
 type Errors = Partial<Record<LoanFields, string>>;
@@ -25,18 +26,27 @@ function validate(step: number, values: Values): Errors {
   return errors;
 }
 
-export function LoanForm() {
+/** New loan, or (admin) edit an existing one: `edit` gives the loan id and its current values. */
+export function LoanForm({ edit }: { edit?: { id: number; initial: Values; payments: number } }) {
   const router = useRouter();
-  const [values, setValues] = useState<Values>(EMPTY_LOAN);
+  const start = edit?.initial ?? EMPTY_LOAN;
+  const [values, setValues] = useState<Values>(start);
   const [errors, setErrors] = useState<Errors>({});
   const [step, setStep] = useState(0);
-  const [maxStep, setMaxStep] = useState(0);
+  const [maxStep, setMaxStep] = useState(edit ? STEPS.length - 1 : 0);
   const [formError, setFormError] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [reasonError, setReasonError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   // One key per form: a double-click, retry or network replay can never create a second loan.
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   const topRef = useRef<HTMLDivElement>(null);
-  const dirty = useMemo(() => Object.values(values).some((v) => v !== ""), [values]);
+  const dirty = useMemo(() => (Object.keys(values) as LoanFields[]).some((k) => values[k] !== start[k]), [values, start]);
+  const moneyChanged =
+    !!edit &&
+    (["agreement_date", "installments", "interval_months", "finance_amount", "interest_rate", "agreement_amount", "hp_amount"] as const).some(
+      (k) => values[k] !== start[k],
+    );
   const calc = useMemo(() => calcLoan(values), [values]);
 
   useEffect(() => {
@@ -81,16 +91,23 @@ export function LoanForm() {
       }
     }
     if (!loanSchema.safeParse(values).success) return;
+    if (edit && reason.trim().length < 3) {
+      setReasonError("Write the reason for the change (at least 3 letters)");
+      requestAnimationFrame(() => document.getElementById("edit_reason")?.focus());
+      return;
+    }
     startTransition(async () => {
       try {
-        const res = await createLoan(idempotencyKey, values);
+        const res = edit ? await editLoan(edit.id, values, reason) : await createLoan(idempotencyKey, values);
         if (res.ok) {
-          router.replace(`/loans/${res.id}?saved=1`);
+          router.replace(edit ? `/loans/${res.id}?edited=1` : `/loans/${res.id}?saved=1`);
           return;
         }
         setFormError(res.error);
+        const reasonErr = (res.fieldErrors as Record<string, string> | undefined)?.reason;
+        if (reasonErr) setReasonError(reasonErr);
         if (res.fieldErrors) {
-          setErrors(res.fieldErrors);
+          setErrors(res.fieldErrors as Errors);
           const s = STEP_FIELDS.findIndex((f) => f.some((k) => res.fieldErrors?.[k]));
           if (s >= 0) setStep(s);
           focusFirstError(res.fieldErrors);
@@ -110,7 +127,7 @@ export function LoanForm() {
     <div ref={topRef} className="scroll-mt-20">
       <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
       <header className="shrink-0">
-        <h1 className="text-xl font-bold sm:text-2xl">New loan</h1>
+        <h1 className="text-xl font-bold sm:text-2xl">{edit ? `Edit loan · folio ${start.folio_no}` : "New loan"}</h1>
         <p className="text-sm text-slate-500">Fields marked * are required</p>
       </header>
 
@@ -147,7 +164,7 @@ export function LoanForm() {
           noValidate
           onSubmit={(e) => {
             e.preventDefault();
-            if (step < STEPS.length - 1) next();
+            if (step < STEPS.length - 1 && !edit) next();
             else submit();
           }}
           className="space-y-3"
@@ -231,6 +248,35 @@ export function LoanForm() {
             </>
           )}
 
+          {edit && (
+            <fieldset className="space-y-2 rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200">
+              {moneyChanged && edit.payments > 0 && (
+                <p className="text-sm text-amber-900">
+                  ⚠ You changed the loan terms. Total, EMI and the balance after each of the {edit.payments} payment(s) will be
+                  recalculated.
+                </p>
+              )}
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-slate-700">
+                  Reason for the change<span className="text-red-600"> *</span>
+                </span>
+                <input
+                  id="edit_reason"
+                  value={reason}
+                  onChange={(e) => {
+                    setReason(e.target.value);
+                    setReasonError(null);
+                  }}
+                  placeholder="e.g. wrong mobile number"
+                  className={`h-12 w-full rounded-lg border bg-white px-3 text-base outline-none focus:ring-2 lg:h-10 ${
+                    reasonError ? "border-red-500 focus:ring-red-500/20" : "border-slate-300 focus:border-blue-600 focus:ring-blue-600/20"
+                  }`}
+                />
+                {reasonError && <span className="mt-1 block text-sm text-red-700">{reasonError}</span>}
+              </label>
+            </fieldset>
+          )}
+
           {/* actions: sticky above the bottom nav on phones */}
           <div className="sticky bottom-16 z-10 -mx-4 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:rounded-xl md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
             <div className="flex items-center gap-3">
@@ -253,10 +299,10 @@ export function LoanForm() {
                 type="submit"
                 disabled={pending}
                 className={`ml-auto h-12 min-w-32 rounded-xl px-6 text-base font-semibold text-white disabled:opacity-60 ${
-                  step === 2 ? "bg-emerald-700 hover:bg-emerald-800" : "bg-blue-700 hover:bg-blue-800"
+                  step === 2 || edit ? "bg-emerald-700 hover:bg-emerald-800" : "bg-blue-700 hover:bg-blue-800"
                 }`}
               >
-                {step < 2 ? "Next" : pending ? "Saving…" : "Save loan"}
+                {pending ? "Saving…" : edit ? "Save changes" : step < 2 ? "Next" : "Save loan"}
               </button>
             </div>
           </div>
