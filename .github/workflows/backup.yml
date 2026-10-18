@@ -18,13 +18,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check secrets
         env:
-          S1: ${{ secrets.BACKUP_DATABASE_URL }}
+          S1: ${{ secrets.BACKUP_DB_PASSWORD }}${{ secrets.BACKUP_DATABASE_URL }}
           S2: ${{ secrets.BACKUP_PASSWORD }}
           S3: ${{ secrets.BACKUP_TELEGRAM_TOKEN }}
           S4: ${{ secrets.BACKUP_TELEGRAM_CHAT_ID }}
         run: |
           ok=1
-          [ -n "$S1" ] || { echo "::error::Secret BACKUP_DATABASE_URL is missing"; ok=0; }
+          [ -n "$S1" ] || { echo "::error::Secret BACKUP_DB_PASSWORD is missing (the database password, as it is)"; ok=0; }
           [ -n "$S2" ] || { echo "::error::Secret BACKUP_PASSWORD is missing"; ok=0; }
           [ -n "$S3" ] || { echo "::error::Secret BACKUP_TELEGRAM_TOKEN is missing"; ok=0; }
           [ -n "$S4" ] || { echo "::error::Secret BACKUP_TELEGRAM_CHAT_ID is missing"; ok=0; }
@@ -35,6 +35,8 @@ jobs:
       - run: pip install "psycopg[binary]"
       - name: Dump every table
         env:
+          # plain database password (preferred: nothing to encode); the old URL secret still works as a fallback
+          DB_PASSWORD: ${{ secrets.BACKUP_DB_PASSWORD }}
           DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
         run: python scripts/backup.py backup.zip
       - name: Encrypt

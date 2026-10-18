@@ -51,7 +51,31 @@ def describe(url):
         return "the secret is not a valid connection URL (%s)" % type(e).__name__
 
 
-if url:
+def open_password(password):
+    """Just the database password (no URL, nothing to encode): connect through the pooler."""
+    from db_connect import REF
+    last = None
+    for h in POOLERS:
+        try:
+            conn = psycopg.connect(host=h, port=5432, dbname="postgres", user=f"postgres.{REF}", password=password,
+                                   connect_timeout=8, sslmode="require")
+            print("connected via", h)
+            return conn
+        except Exception as e:
+            last = e
+            if "password authentication failed" in str(e):
+                break  # right server, wrong password: no point trying the others
+    raise last or RuntimeError("no pooler reachable")
+
+
+pw = os.environ.get("DB_PASSWORD")
+if pw:
+    try:
+        conn = open_password(pw)
+    except Exception as e:
+        print("::error::Could not connect to the database with BACKUP_DB_PASSWORD: %s" % (str(e).splitlines()[0] if str(e) else type(e).__name__))
+        sys.exit(1)
+elif url:
     try:
         conn = open_url(url)
     except Exception as e:
