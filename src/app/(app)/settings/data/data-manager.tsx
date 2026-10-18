@@ -322,7 +322,11 @@ function ImportCard() {
     setJob(null);
     try {
       const fd = new FormData();
-      files.forEach((f) => fd.append("files", f));
+      // gzip in the browser: the table files are ~7 MB together and the hosting refuses uploads over 4.5 MB
+      for (const f of files) {
+        const gz = typeof CompressionStream === "undefined" ? f : await new Response(f.stream().pipeThrough(new CompressionStream("gzip"))).blob();
+        fd.append("files", gz, f.name);
+      }
       const res = await fetch("/settings/data/import", { method: "POST", body: fd });
       const body = await res.json().catch(() => ({ ok: false, message: "The server did not answer. Try again." }));
       if (!body.ok) setErr(body.message);
@@ -342,14 +346,15 @@ function ImportCard() {
     <section className={card}>
       <h2 className={head}>Import from the old software</h2>
       <p className="text-sm text-slate-500">
-        Choose all 4 export files: P_ACCOUNT, P_INSMENT, F_ACC, F_INSMENT. First you see what would change; nothing is saved until
-        you confirm. Accounts are updated by SNO, new ones are added, and accounts missing from the files are kept. Loans, payments
-        and seizures entered in this app are not touched.
+        Choose all 4 files from the old software&apos;s folder: P_ACCOUNT, P_INSMENT, F_ACCOUNT, F_INSMENT (.DAT; the older .xlsx
+        exports also work). Do this again any time to bring in the latest changes. First you see what would change; nothing is saved
+        until you confirm. Accounts are updated by SNO, new ones are added, and accounts missing from the files are kept. Old-software
+        receipts are refreshed for the accounts in the files. Loans, payments and seizures entered in this app are not touched.
       </p>
       <input
         type="file"
         multiple
-        accept=".xlsx"
+        accept=".dat,.DAT,.dbf,.DBF,.xlsx"
         onChange={(e) => {
           setFiles([...(e.target.files ?? [])]);
           setPv(null);

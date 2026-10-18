@@ -1,3 +1,4 @@
+import { gunzipSync } from "fflate";
 import { createClient } from "@/lib/supabase/server";
 import { getStaff } from "@/lib/staff";
 import { ImportError, parseAll, type FileKey, type Files } from "@/lib/legacy/parse";
@@ -7,7 +8,7 @@ export const maxDuration = 120;
 
 const CHUNK = 2000;
 
-/** Which of the 4 files is this? Decided by the old software's file names (P_ACCOUNT, P_INSMENT, F_ACC, F_INSMENT). */
+/** Which of the 4 files is this? Decided by the old software's file names (P_ACCOUNT, P_INSMENT, F_ACC(OUNT), F_INSMENT). */
 function keyOf(name: string): FileKey | null {
   const m = /^\s*([PF])[\s_-]*(ACC|INS)/i.exec(name);
   if (!m) return null;
@@ -28,10 +29,19 @@ export async function POST(req: Request) {
   for (const f of form.getAll("files")) {
     if (!(f instanceof File)) continue;
     const key = keyOf(f.name);
-    if (!key) return fail(`"${f.name}" is not one of P_ACCOUNT, P_INSMENT, F_ACC, F_INSMENT.`);
+    if (!key) return fail(`"${f.name}" is not one of P_ACCOUNT, P_INSMENT, F_ACCOUNT, F_INSMENT.`);
     if (files[key]) return fail(`Two files look like ${key}: "${files[key].name}" and "${f.name}".`);
-    if (f.size > 20 * 1024 * 1024) return fail(`"${f.name}" is too large.`);
-    files[key] = { name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) };
+    let bytes = new Uint8Array(await f.arrayBuffer());
+    // the page gzips the files (the hosting refuses uploads over 4.5 MB; the table files are ~7 MB together)
+    if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
+      try {
+        bytes = gunzipSync(bytes);
+      } catch {
+        return fail(`"${f.name}" did not arrive complete. Try again.`);
+      }
+    }
+    if (bytes.length > 40 * 1024 * 1024) return fail(`"${f.name}" is too large.`);
+    files[key] = { name: f.name, bytes };
   }
   const missing = (["P_ACCOUNT", "P_INSMENT", "F_ACC", "F_INSMENT"] as const).filter((k) => !files[k]);
   if (missing.length) return fail(`Choose all 4 files. Missing: ${missing.join(", ")}.`);

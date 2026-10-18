@@ -1,4 +1,7 @@
-// Rebuilds accounts and receipts from the old software's 4 export files.
+// Rebuilds accounts and receipts from the old software's 4 files: either its own table files (.DAT/.DBF, read
+// exactly by dbf.ts) or the older xlsx dumps of them (rebuilt below).
+//
+// The xlsx part:
 // This is a line-by-line port of analysis/phase1/tools/extract_accounts.py, extract_installments.py and the row
 // builders in scripts/import_legacy.py (the code that made the data in the database today). It was checked to give
 // exactly the same rows for the original files. Python string semantics (strip, isdigit, slicing) are copied on
@@ -7,8 +10,22 @@
 // Anything unexpected throws an ImportError: the import is refused rather than guessed.
 
 import { readDumpCells } from "./xlsx";
+import { isDbf, readDbf } from "./dbf";
 
 export class ImportError extends Error {}
+
+/** A table file as records shaped like the xlsx extractors' output (DEL = "*" for records deleted in the old software). */
+function fromDbf(file: Uint8Array, need: string[], what: string): Rec[] {
+  let t;
+  try {
+    t = readDbf(file);
+  } catch {
+    throw new ImportError(`This ${what} file is damaged or incomplete. Copy it again from the old software's folder.`);
+  }
+  const names = new Set(t.fields.map((f) => f.name));
+  if (!need.every((n) => names.has(n))) throw new ImportError(`This does not look like ${what} file.`);
+  return t.records.map(({ _deleted, _index, ...r }) => ({ src_index: _index, recovery: "exact", DEL: _deleted ? "*" : " ", ...r }));
+}
 
 // ---------------------------------------------------------------- Python string helpers
 // str.strip() whitespace set
@@ -54,7 +71,8 @@ function noAstral(s: string) {
 }
 
 export function extractAccounts(file: Uint8Array): Rec[] {
-  const s = readDumpCells(file).join("\x01");
+  if (isDbf(file)) return fromDbf(file, ["SNO", "FNO", "BNAME", "ADATE", "TAMT"], "an account (P_ACCOUNT / F_ACCOUNT)");
+  const s =readDumpCells(file).join("\x01");
   noAstral(s);
   const i = s.indexOf("ACTIVEN");
   if (i < 0) throw new ImportError("This does not look like an account file (P_ACCOUNT / F_ACC).");
@@ -167,7 +185,8 @@ const MID_NAMES = ["DDATE", "BCODE", "CHNO", "PAMT", "IM_raw", "PDATE", "BAMT", 
 const PRE_NAMES = ["DEL", "SNO", "FCODE", "FNO", "RNO_raw", "INO", "IAMT"];
 
 export function extractInstallments(file: Uint8Array): Rec[] {
-  const s = readDumpCells(file).join("\x01");
+  if (isDbf(file)) return fromDbf(file, ["SNO", "RNO", "INO", "PAMT", "PDATE"], "an installment (P_INSMENT / F_INSMENT)");
+  const s =readDumpCells(file).join("\x01");
   noAstral(s);
   const i = s.indexOf("AGAINSTC");
   if (i < 0) throw new ImportError("This does not look like an installment file (P_INSMENT / F_INSMENT).");
@@ -240,8 +259,9 @@ function ymd(v: unknown): string | null {
   if (d > dim) return null;
   return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
-function receiptNo(raw: unknown): number | null {
-  const s = raw as string | undefined;
+function receiptNo(r: Rec): number | null {
+  if (typeof r.RNO === "number") return r.RNO; // table file: the full number
+  const s = r.RNO_raw as string | undefined; // xlsx: only the low 2 bytes survived
   if (s && s.length === 2 && !s.includes("\x01")) return s.charCodeAt(0) + s.charCodeAt(1) * 256;
   return null;
 }
@@ -297,6 +317,10 @@ export function parseAll(files: Files): Parsed {
     const seen = new Map<number | null, Rec>();
     for (const r of extractAccounts(files[key].bytes)) {
       const sno = integer(r.SNO);
+      if (r.DEL === "*") {
+        skipped.push({ key, src_index: r.src_index, sno, reason: "deleted in the old software" });
+        continue;
+      }
       if (seen.has(sno)) {
         if (stableEqual({ ...rawJson(r), src_index: 0 }, { ...rawJson(seen.get(sno)!), src_index: 0 })) {
           skipped.push({ key, src_index: r.src_index, sno, reason: "exact duplicate of an earlier record" });
@@ -334,11 +358,11 @@ export function parseAll(files: Files): Parsed {
       borrower_address: text(r.BADD), borrower_mobile: mob, borrower_mobile2: text(r.BMNO2),
       guarantor_name: text(r.GNAME), guarantor_father: text(r.GFNAME), guarantor_address: text(r.GADD),
       guarantor_mobile: text(r.GMNO1), guarantor_mobile2: text(r.GMNO2),
-      finance_mode: text(r.BCODE), zone: text(r.ZONE),
+      finance_mode: text(r.BCODE ?? r.CBCODE), zone: text(r.ZONE),
       vehicle_condition: text(r.NU), vehicle_model: text(r.MODEL), vehicle_variant: text(r.COLOR),
       chassis_no: text(r.CNO), engine_no: text(r.ENO), model_year: integer(r.MAKE) || null,
       registration_no: text(r.VNO), agreement_date: adate,
-      tenure_months: integer(r.TMONTHS), interval_months: integer(r.PIVAL),
+      tenure_months: integer(r.TMONTHS), interval_months: integer(r.PIVAL ?? r.IVAL),
       finance_amount: famt, interest_amount: iamt, agreement_amount: aamt, hp_amount: hpamt,
       total_amount: tamt, emi_amount: money(r.IRATE),
       seized: sez === "T" ? true : sez === "F" ? false : null,
@@ -350,10 +374,12 @@ export function parseAll(files: Files): Parsed {
 
   // ---- receipts
   const payments: (Rec & { _file: FileKey })[] = [];
-  const insRecs: Record<string, Rec[]> = {};
   for (const key of ["F_INSMENT", "P_INSMENT"] as const) {
-    insRecs[key] = extractInstallments(files[key].bytes);
-    for (const r of insRecs[key]) {
+    for (const r of extractInstallments(files[key].bytes)) {
+      if (r.DEL === "*") {
+        skipped.push({ key, src_index: r.src_index, sno: integer(r.SNO), reason: "deleted in the old software" });
+        continue;
+      }
       const ledger = LEDGER[key];
       const flags: string[] = [];
       const sno = integer(r.SNO);
@@ -363,7 +389,7 @@ export function parseAll(files: Files): Parsed {
       if (acctLedger === undefined) flags.push("no_matching_account");
       else if (acctLedger !== ledger) flags.push("account_in_other_ledger");
       if ((due && due < SUSPECT_BEFORE) || (paid && paid < SUSPECT_BEFORE)) flags.push("date_suspect");
-      const rno = receiptNo(r.RNO_raw);
+      const rno = receiptNo(r);
       if (rno === null) flags.push("receipt_no_unrecoverable");
       const bal = money(r.BAMT);
       if (bal === null) flags.push("balance_blank");
@@ -373,7 +399,7 @@ export function parseAll(files: Files): Parsed {
         ledger, sno,
         installment_no: integer(r.INO), due_amount: money(r.IAMT), due_date: due,
         paid_amount: money(r.PAMT), paid_date: paid, balance_after: bal,
-        delay_days: integer(r.DDAYS), payment_mode: text(r.BCODE), cheque_no: text(r.CHNO),
+        delay_days: integer(r.DDAYS), payment_mode: text(r.BCODE ?? r.CBCODE), cheque_no: text(r.CHNO),
         receipt_no: rno, data_flags: flags, raw: { ...rawJson(r), source_file: files[key].name },
       });
     }
@@ -395,10 +421,14 @@ export function parseAll(files: Files): Parsed {
   }
   for (const key of ["F_INSMENT", "P_INSMENT"] as const) {
     const rows = payments.filter((p) => p._file === key);
+    const sk = skipped.filter((s) => s.key === key);
     batches[key] = {
-      source_file: files[key].name, total: rows.length, imported: rows.length, skipped: 0,
+      source_file: files[key].name, total: rows.length + sk.length, imported: rows.length, skipped: sk.length,
       flagged: rows.filter((r) => (r.data_flags as string[]).length).length,
-      notes: { flags: count(rows.flatMap((r) => r.data_flags as string[])) },
+      notes: {
+        flags: count(rows.flatMap((r) => r.data_flags as string[])),
+        skipped: sk.map((s) => ({ src_index: s.src_index, sno: s.sno, reason: s.reason })),
+      },
     };
     checks[key] = { rows: rows.length, total: sumMoney(rows.map((r) => r.paid_amount as string | null)) };
   }
