@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Section } from "@/components/section";
-import { commitImport, createRestorePoint, deleteData, restore, type Result } from "./actions";
+import { commitImport, createRestorePoint, deleteData, restore, restoreFromFile, type Result } from "./actions";
 
 type Counts = Record<string, number>;
 export type Overview = {
@@ -57,6 +57,7 @@ export function DataManager({ o }: { o: Overview }) {
 
       <BackupCard />
       <RestoreCard points={o.restore_points} />
+      <RestoreFileCard />
       <ImportCard />
       <DeleteCard o={o} />
 
@@ -85,6 +86,7 @@ function describe(a: Overview["audit"][number]) {
   if (a.action === "restore") return `restored restore point #${d.restored} (state before saved as #${d.saved_before_restore})`;
   if (a.action === "restore_point") return `saved restore point #${d.restore_point}`;
   if (a.action === "import") return `imported files (restore point before: #${d.restore_point})`;
+  if (a.action === "restore_file") return `restored from backup file ${d.file ?? ""} (state before saved as #${d.saved_before_restore})`;
   return a.action;
 }
 
@@ -151,6 +153,186 @@ function RestoreCard({ points }: { points: Overview["restore_points"] }) {
             </li>
           ))}
         </ul>
+      )}
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------- restore from a backup file
+const DATA_TABLES = [
+  "import_batches", "legacy_accounts", "legacy_payments", "borrowers", "loans", "payments", "seizures", "adjustments",
+  "receipt_books", "cash_closings",
+];
+const TABLE_LABEL: Record<string, string> = {
+  import_batches: "Import history", legacy_accounts: "Old accounts", legacy_payments: "Old receipts", borrowers: "Borrowers",
+  loans: "New loans", payments: "Payments (app)", seizures: "Seizures", adjustments: "Late fees / discounts",
+  receipt_books: "Receipt books", cash_closings: "Cash closings",
+};
+type FilePreview = {
+  file: string; taken: string; unknown_people: number; has_accounts: boolean;
+  tables: { table: string; in_backup: number; now: number; present: boolean; ignored_columns: string[] }[];
+};
+
+/** The nightly Telegram backup is "openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt": decrypt it here with the password. */
+async function decryptOpenSsl(data: Uint8Array, password: string): Promise<Uint8Array> {
+  const salt = data.slice(8, 16);
+  const pass = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 200000 }, pass, 384));
+  const key = await crypto.subtle.importKey("raw", bits.slice(0, 32), "AES-CBC", false, ["decrypt"]);
+  try {
+    return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-CBC", iv: bits.slice(32, 48) }, key, data.slice(16)));
+  } catch {
+    throw new Error("Wrong backup password (or the file is damaged).");
+  }
+}
+const isEncrypted = (b: Uint8Array) => new TextDecoder().decode(b.slice(0, 8)) === "Salted__";
+
+function RestoreFileCard() {
+  const [file, setFile] = useState<File | null>(null);
+  const [encrypted, setEncrypted] = useState(false);
+  const [pass, setPass] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [job, setJob] = useState<string | null>(null);
+  const [pv, setPv] = useState<FilePreview | null>(null);
+
+  const post = async (fd: FormData) => {
+    const res = await fetch("/settings/data/backup-restore", { method: "POST", body: fd });
+    const body = await res.json().catch(() => ({ ok: false, message: "The server did not answer. Try again." }));
+    if (!body.ok) throw new Error(body.message);
+    return body;
+  };
+
+  const read = async () => {
+    if (!file) return;
+    setErr(null);
+    setPv(null);
+    setJob(null);
+    try {
+      setBusy("Opening the file…");
+      let bytes: Uint8Array = new Uint8Array(await file.arrayBuffer());
+      if (isEncrypted(bytes)) {
+        if (!pass) throw new Error("This is an encrypted (Telegram) backup. Enter the backup password.");
+        setBusy("Unlocking (takes a few seconds)…");
+        bytes = await decryptOpenSsl(bytes, pass);
+      }
+      const { unzipSync, strFromU8 } = await import("fflate");
+      let files: Record<string, Uint8Array>;
+      try {
+        files = unzipSync(bytes);
+      } catch {
+        throw new Error("This is not a backup zip from this app.");
+      }
+      const csvs = Object.keys(files).filter((n) => DATA_TABLES.includes(n.replace(/^.*\//, "").replace(/\.csv$/, "")));
+      if (!csvs.some((n) => /legacy_accounts\.csv$|loans\.csv$/.test(n))) throw new Error("This zip has no accounts or loans — it is not a full backup.");
+      const readme = Object.keys(files).find((n) => /README\.txt$/i.test(n));
+      const taken = readme ? strFromU8(files[readme]).split(/\r?\n/)[0].slice(0, 200) : "";
+
+      const begin = new FormData();
+      begin.set("action", "begin");
+      begin.set("file", file.name);
+      begin.set("taken", taken);
+      const { job: id } = await post(begin);
+      for (const name of csvs) {
+        const table = name.replace(/^.*\//, "").replace(/\.csv$/, "");
+        setBusy(`Uploading ${TABLE_LABEL[table] ?? table}…`);
+        const gz = await new Response(new Blob([files[name] as BlobPart]).stream().pipeThrough(new CompressionStream("gzip"))).blob();
+        const fd = new FormData();
+        fd.set("action", "stage");
+        fd.set("job", id);
+        fd.set("table", table);
+        fd.set("csv", gz, `${table}.csv.gz`);
+        await post(fd);
+      }
+      setBusy("Comparing with the data now…");
+      const pfd = new FormData();
+      pfd.set("action", "preview");
+      pfd.set("job", id);
+      const { preview } = await post(pfd);
+      setJob(id);
+      setPv(preview);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not read the backup.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Section title="Restore from a backup file" hint="Upload a backup zip (from this page or the nightly Telegram backup) and put everything back as it was then.">
+      <p className="text-sm text-slate-500">
+        Use this if the data is lost or damaged and no restore point is old enough. First you see what is in the file; nothing changes
+        until you confirm. A restore point of the data now is saved first, so this can be undone too. Logins, passwords and Settings are
+        not in backups and stay as they are.
+      </p>
+      <input
+        type="file"
+        accept=".zip,.enc"
+        onChange={async (e) => {
+          const f = e.target.files?.[0] ?? null;
+          setFile(f);
+          setPv(null);
+          setJob(null);
+          setErr(null);
+          setEncrypted(f ? isEncrypted(new Uint8Array(await f.slice(0, 8).arrayBuffer())) : false);
+        }}
+        className="block w-full text-sm file:mr-3 file:h-10 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:font-semibold file:text-blue-700"
+      />
+      {encrypted && (
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Backup password (the one set for the nightly backup)</span>
+          <input className={input} type="password" value={pass} onChange={(e) => setPass(e.target.value)} autoComplete="off" />
+        </label>
+      )}
+      <button type="button" disabled={!file || !!busy} onClick={read} className={`${btn} bg-blue-700 text-white hover:bg-blue-800`}>
+        {busy ?? "Read backup"}
+      </button>
+      {err && <Msg r={{ ok: false, message: err }} />}
+
+      {pv && job && (
+        <div className="space-y-3 rounded-lg ring-1 ring-slate-200">
+          <div className="space-y-3 p-3">
+            <p className="text-sm">
+              <b>{pv.file}</b>
+              {pv.taken && <span className="text-slate-500"> · {pv.taken}</span>}
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-slate-500">
+                    <th className="py-1 pr-3">Table</th>
+                    <th className="py-1 pr-3 text-right">In the backup</th>
+                    <th className="py-1 text-right">Now</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pv.tables.map((t) => (
+                    <tr key={t.table} className="border-t border-slate-100">
+                      <td className="py-1 pr-3">
+                        {TABLE_LABEL[t.table] ?? t.table}
+                        {!t.present && <span className="ml-1 text-xs text-amber-700">(not in this backup — will be empty)</span>}
+                        {t.ignored_columns.length > 0 && (
+                          <span className="block text-xs text-slate-400">ignored: {t.ignored_columns.join(", ")}</span>
+                        )}
+                      </td>
+                      <td className="num py-1 pr-3 text-right font-semibold">{n(t.in_backup)}</td>
+                      <td className="num py-1 text-right text-slate-500">{n(t.now)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {pv.unknown_people > 0 && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                {pv.unknown_people} person(s) named in the backup have no login here; their entries will show you as the person.
+              </p>
+            )}
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+              Everything entered after this backup was taken will be replaced by the backup (it stays in the restore point saved first).
+            </p>
+          </div>
+          <Confirm word="RESTORE" label="Restore from this file" tone="amber" run={(w, pw) => restoreFromFile(job, w, pw)} />
+        </div>
       )}
     </Section>
   );

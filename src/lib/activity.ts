@@ -40,6 +40,7 @@ export const ACTIONS: { key: string; label: string; group: string }[] = [
   { key: "import", label: "Import", group: "Data" },
   { key: "restore_point", label: "Restore point", group: "Data" },
   { key: "restore", label: "Restore", group: "Data" },
+  { key: "restore_file", label: "Restored from backup file", group: "Data" },
   { key: "delete", label: "Data deleted", group: "Data" },
 ];
 const LABEL = Object.fromEntries(ACTIONS.map((a) => [a.key, a.label]));
@@ -116,6 +117,8 @@ export function describe(a: AuditRow): string {
       return `deleted ${({ old: "old software data", new: "app entries", all: "all data" } as Record<string, string>)[d.scope as string] ?? val(d.scope)} (undo: restore point #${val(d.restore_point)})`;
     case "restore":
       return `restored restore point #${val(d.restored)} (state before saved as #${val(d.saved_before_restore)})`;
+    case "restore_file":
+      return `restored from ${val(d.file)}${d.taken ? ` (${d.taken})` : ""} · state before saved as restore point #${val(d.saved_before_restore)}`;
     case "restore_point":
       return `saved restore point #${val(d.restore_point)}`;
     case "import":

@@ -54,6 +54,19 @@ export async function restore(point: number, confirm: string, password: string):
   };
 }
 
+export async function restoreFromFile(job: string, confirm: string, password: string): Promise<Result> {
+  const bad = await checkPassword(password);
+  if (bad) return { ok: false, message: bad };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_backup_commit", { p_job: job, p_confirm: confirm });
+  if (error) return { ok: false, message: explain(error) };
+  revalidatePath("/", "layout");
+  return {
+    ok: true,
+    message: `Restored from the backup file. The data as it was just before is saved as restore point #${(data as { saved_before_restore: number }).saved_before_restore}.`,
+  };
+}
+
 export async function commitImport(job: string, confirm: string, password: string): Promise<Result> {
   const bad = await checkPassword(password);
   if (bad) return { ok: false, message: bad };
