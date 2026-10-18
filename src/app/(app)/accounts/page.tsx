@@ -17,8 +17,8 @@ const LEDGERS = [
   { key: "closed", label: "Fully paid" },
 ] as const;
 const SOURCES = [
-  { key: "all", label: "Old + New" },
   { key: "new", label: "New" },
+  { key: "all", label: "Old + New" },
   { key: "old", label: "Old" },
 ] as const;
 
@@ -56,7 +56,9 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
   const sp = await searchParams;
   const q = (one(sp.q) ?? "").trim().toLowerCase().slice(0, 60);
   const ledger = LEDGERS.some((l) => l.key === one(sp.ledger)) ? one(sp.ledger)! : "all";
-  const source = SOURCES.some((s) => s.key === one(sp.source)) ? one(sp.source)! : "all";
+  // New loans by default; a search without a chosen filter looks in old + new (so old customers are still found)
+  const sourceChosen = SOURCES.some((s) => s.key === one(sp.source));
+  const source = sourceChosen ? one(sp.source)! : q ? "all" : "new";
   const page = Math.max(1, Number.parseInt(one(sp.page) ?? "1", 10) || 1);
 
   const supabase = await createClient();
@@ -86,7 +88,7 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
     const next = new URLSearchParams();
     if (q) next.set("q", q);
     if (ledger !== "all") next.set("ledger", ledger);
-    if (source !== "all") next.set("source", source);
+    if (sourceChosen) next.set("source", source);
     for (const [k, v] of Object.entries(changes)) {
       if (v == null) next.delete(k);
       else next.set(k, v);
@@ -124,7 +126,7 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
 
       <div className="flex flex-wrap gap-x-4 gap-y-2">
         <Chips label="Filter by status" items={LEDGERS} active={ledger} param="ledger" href={href} />
-        <Chips label="Filter by old or new" items={SOURCES} active={source} param="source" href={href} />
+        <Chips label="Filter by old or new" items={SOURCES} active={source} param="source" href={href} explicit />
       </div>
 
       <p className="text-sm text-slate-500">
@@ -134,8 +136,22 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
 
       {rows.length === 0 ? (
         <div className="rounded-xl bg-white p-8 text-center ring-1 ring-slate-200">
-          <p className="font-medium">No accounts found</p>
-          <p className="mt-1 text-sm text-slate-500">Try a different name, folio, mobile or vehicle number.</p>
+          {source === "new" && !q ? (
+            <>
+              <p className="font-medium">No new loans yet</p>
+              <p className="mt-1 text-sm text-slate-500">
+                Loans made in this app show here.{" "}
+                <Link href={href({ source: "all", page: null })} className="font-semibold text-blue-700">
+                  See old + new accounts →
+                </Link>
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium">No accounts found</p>
+              <p className="mt-1 text-sm text-slate-500">Try a different name, folio, mobile or vehicle number.</p>
+            </>
+          )}
         </div>
       ) : (
         <>
@@ -250,20 +266,22 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
 }
 
 function Chips({
-  label, items, active, param, href,
+  label, items, active, param, href, explicit,
 }: {
   label: string;
   items: readonly { key: string; label: string }[];
   active: string;
   param: string;
   href: (c: Record<string, string | null>) => string;
+  /** always put the choice in the link (the default is not "all") */
+  explicit?: boolean;
 }) {
   return (
     <nav className="flex gap-2" aria-label={label}>
       {items.map((i) => (
         <Link
           key={i.key}
-          href={href({ [param]: i.key === "all" ? null : i.key, page: null })}
+          href={href({ [param]: !explicit && i.key === "all" ? null : i.key, page: null })}
           aria-current={active === i.key ? "true" : undefined}
           className={`flex h-10 items-center rounded-full px-4 text-sm font-medium ring-1 ${
             active === i.key ? "bg-blue-700 text-white ring-blue-700" : "bg-white text-slate-700 ring-slate-300"
