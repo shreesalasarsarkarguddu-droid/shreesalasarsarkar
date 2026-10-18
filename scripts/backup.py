@@ -42,8 +42,23 @@ def open_url(url):
         raise first
 
 
+def describe(url):
+    """host / port / user of the secret, never the password (for the error message)"""
+    try:
+        i = psycopg.conninfo.conninfo_to_dict(url)
+        return "host=%s port=%s user=%s password=%s" % (i.get("host"), i.get("port"), i.get("user"), "set" if i.get("password") else "MISSING")
+    except Exception as e:
+        return "the secret is not a valid connection URL (%s)" % type(e).__name__
+
+
 if url:
-    conn = open_url(url)
+    try:
+        conn = open_url(url)
+    except Exception as e:
+        msg = str(e).splitlines()[0] if str(e) else type(e).__name__
+        # ::error:: lines show up as annotations on the GitHub run page
+        print("::error::Could not connect to the database: %s [%s]" % (msg, describe(url)))
+        sys.exit(1)
 else:
     from db_connect import connect
     conn = connect()
