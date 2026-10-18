@@ -1,3 +1,4 @@
+import { requirePerm } from "@/lib/staff";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getStatement } from "@/lib/statement";
@@ -9,6 +10,7 @@ export async function generateMetadata({ params }: PageProps<"/loans/[id]/statem
 }
 
 export default async function LoanStatementPage({ params }: PageProps<"/loans/[id]/statement">) {
+  await requirePerm("view_accounts");
   const { id: idParam } = await params;
   const id = Number.parseInt(idParam, 10);
   if (!Number.isInteger(id) || String(id) !== idParam) notFound();

@@ -1,3 +1,4 @@
+import { requirePerm } from "@/lib/staff";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
@@ -72,6 +73,7 @@ function one(v: string | string[] | undefined) {
 const isDate = (v: string | undefined): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
 
 export default async function DueInstallmentsPage({ searchParams }: PageProps<"/reports/due-installments">) {
+  await requirePerm("reports");
   const sp = await searchParams;
   const today = todayIST();
   const asOf = isDate(one(sp.upto)) ? one(sp.upto)! : today;

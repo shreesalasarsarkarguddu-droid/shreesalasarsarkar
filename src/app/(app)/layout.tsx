@@ -21,7 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Link href="/accounts" className="text-base font-bold text-slate-900">
               Shree Salasar Sarkar
             </Link>
-            {staff && <TopNav isAdmin={staff.role === "admin"} />}
+            {staff && <TopNav access={staff} />}
           </div>
           <div className="hidden items-center gap-3 md:flex">
             {staff && <span className="text-sm text-slate-500">{staff.full_name}</span>}
@@ -40,7 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ) : (
           <div className="mt-10 rounded-xl bg-white p-6 text-center ring-1 ring-slate-200">
             <p className="font-semibold">Your login does not have access yet.</p>
-            <p className="mt-1 text-sm text-slate-500">Ask the admin to add you as staff.</p>
+            <p className="mt-1 text-sm text-slate-500">Ask the admin to add you or switch your login back on.</p>
             <form action={signOut} className="mt-4">
               <button className="h-11 rounded-lg px-4 text-sm font-medium text-blue-700 ring-1 ring-slate-300">
                 Sign out
@@ -49,7 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         )}
       </main>
-      {staff && <BottomNav />}
+      {staff && <BottomNav access={staff} />}
     </div>
   );
 }

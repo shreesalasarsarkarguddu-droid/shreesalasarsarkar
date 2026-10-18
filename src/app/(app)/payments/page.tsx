@@ -1,3 +1,4 @@
+import { requirePerm } from "@/lib/staff";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -14,6 +15,7 @@ function one(v: string | string[] | undefined) {
 }
 
 export default async function PaymentsPage({ searchParams }: PageProps<"/payments">) {
+  await requirePerm("collect");
   const sp = await searchParams;
   const q = (one(sp.q) ?? "").trim().toLowerCase().slice(0, 60);
   const page = Math.max(1, Number.parseInt(one(sp.page) ?? "1", 10) || 1);

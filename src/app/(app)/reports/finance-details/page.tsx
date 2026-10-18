@@ -1,3 +1,4 @@
+import { requirePerm } from "@/lib/staff";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
@@ -68,6 +69,7 @@ async function loadRows(asOf: string): Promise<Row[]> {
 }
 
 export default async function FinanceDetailsPage({ searchParams }: PageProps<"/reports/finance-details">) {
+  await requirePerm("reports");
   const sp = await searchParams;
   const today = todayIST();
   const asOf = isDate(one(sp.upto)) ? one(sp.upto)! : today;

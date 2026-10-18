@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { requirePerm } from "@/lib/staff";
 
 export const metadata: Metadata = { title: "Reports · Shree Salasar Sarkar" };
 
@@ -10,7 +11,8 @@ const REPORTS = [
   { href: "/reports/finance-details", title: "Finance Details", text: "Every pending account: finance, interest, total, EMI, received, last paid, arrears, balance, late days." },
 ];
 
-export default function ReportsPage() {
+export default async function ReportsPage() {
+  await requirePerm("reports");
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <h1 className="text-xl font-bold">Reports</h1>

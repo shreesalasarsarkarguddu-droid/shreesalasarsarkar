@@ -1,3 +1,4 @@
+import { requirePerm } from "@/lib/staff";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
@@ -55,6 +56,7 @@ const isDate = (v: string | undefined): v is string => !!v && /^\d{4}-\d{2}-\d{2
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
 
 export default async function DayBookPage({ searchParams }: PageProps<"/reports/day-book">) {
+  await requirePerm("reports");
   const sp = await searchParams;
   const today = todayIST();
   const from = isDate(one(sp.from)) ? one(sp.from)! : today;

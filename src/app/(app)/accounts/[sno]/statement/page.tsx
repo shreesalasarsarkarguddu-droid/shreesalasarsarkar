@@ -1,3 +1,4 @@
+import { requirePerm } from "@/lib/staff";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getStatement } from "@/lib/statement";
@@ -9,6 +10,7 @@ export async function generateMetadata({ params }: PageProps<"/accounts/[sno]/st
 }
 
 export default async function AccountStatementPage({ params }: PageProps<"/accounts/[sno]/statement">) {
+  await requirePerm("view_accounts");
   const { sno: snoParam } = await params;
   const sno = Number.parseInt(snoParam, 10);
   if (!Number.isInteger(sno) || String(sno) !== snoParam) notFound();

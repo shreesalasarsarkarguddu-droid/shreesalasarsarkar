@@ -3,23 +3,25 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { can, type Access, type Permission } from "@/lib/permissions";
 
 // Top bar on computers: drop-down groups. Bottom bar on phones keeps one-tap buttons.
 const FINANCE = {
   href: "/finance",
   label: "Finance",
   children: [
-    { href: "/loans/new", label: "New Loan" },
-    { href: "/accounts", label: "Accounts" },
-    { href: "/payments", label: "Collect" },
+    { href: "/loans/new", label: "New Loan", perm: "new_loan" },
+    { href: "/accounts", label: "Accounts", perm: "view_accounts" },
+    { href: "/payments", label: "Collect", perm: "collect" },
   ],
-} as const;
+} as const satisfies { children: readonly { href: string; label: string; perm: Permission }[] } & Record<string, unknown>;
 
 // Phone bottom bar (and the Reports / Profile entries of the top bar).
 const ITEMS = [
   {
     href: "/accounts",
     label: "Accounts",
+    perm: "view_accounts",
     icon: (
       <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />
     ),
@@ -27,6 +29,7 @@ const ITEMS = [
   {
     href: "/payments",
     label: "Collect",
+    perm: "collect",
     icon: (
       <>
         <rect x="3" y="6" width="18" height="12" rx="2" />
@@ -37,6 +40,7 @@ const ITEMS = [
   {
     href: "/loans/new",
     label: "New Loan",
+    perm: "new_loan",
     icon: (
       <>
         <circle cx="12" cy="12" r="9" />
@@ -47,6 +51,7 @@ const ITEMS = [
   {
     href: "/reports",
     label: "Reports",
+    perm: "reports",
     icon: (
       <path d="M5 20V10M12 20V4M19 20v-7" strokeLinecap="round" />
     ),
@@ -61,6 +66,7 @@ const ITEMS = [
   {
     href: "/profile",
     label: "Profile",
+    perm: null,
     icon: (
       <>
         <circle cx="12" cy="8" r="4" />
@@ -75,15 +81,17 @@ function isActive(pathname: string, href: string) {
 }
 
 /** Links shown in the top bar on tablet/desktop. */
-export function TopNav({ isAdmin = false }: { isAdmin?: boolean }) {
+export function TopNav({ access }: { access: Access }) {
+  const isAdmin = access.role === "admin";
   const pathname = usePathname();
-  const financeActive = FINANCE.children.some((c) => isActive(pathname, c.href));
+  const finance = FINANCE.children.filter((c) => can(access, c.perm));
+  const financeActive = finance.some((c) => isActive(pathname, c.href));
   const reports = ITEMS.find((i) => i.href === "/reports")!;
   const profile = ITEMS.find((i) => i.href === "/profile")!;
   return (
     <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
-      <Dropdown label={FINANCE.label} active={financeActive} items={FINANCE.children} pathname={pathname} />
-      {"children" in reports && <Dropdown label={reports.label} active={isActive(pathname, reports.href)} items={reports.children} pathname={pathname} />}
+      {finance.length > 0 && <Dropdown label={FINANCE.label} active={financeActive} items={finance} pathname={pathname} />}
+      {can(access, "reports") && "children" in reports && <Dropdown label={reports.label} active={isActive(pathname, reports.href)} items={reports.children} pathname={pathname} />}
       <Link
         href={profile.href}
         aria-current={isActive(pathname, profile.href) ? "page" : undefined}
@@ -93,6 +101,17 @@ export function TopNav({ isAdmin = false }: { isAdmin?: boolean }) {
       >
         {profile.label}
       </Link>
+      {isAdmin && (
+        <Link
+          href="/users"
+          aria-current={isActive(pathname, "/users") ? "page" : undefined}
+          className={`flex h-10 items-center rounded-lg px-3 text-sm font-medium ${
+            isActive(pathname, "/users") ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          Users
+        </Link>
+      )}
       {isAdmin && (
         <Link
           href="/settings"
@@ -176,15 +195,16 @@ function Dropdown({
 }
 
 /** Fixed bottom bar on phones. */
-export function BottomNav() {
+export function BottomNav({ access }: { access: Access }) {
   const pathname = usePathname();
+  const items = ITEMS.filter((i) => i.perm === null || can(access, i.perm));
   return (
     <nav
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden print:hidden"
     >
-      <ul className="grid" style={{ gridTemplateColumns: `repeat(${ITEMS.length}, minmax(0, 1fr))` }}>
-        {ITEMS.map((item) => {
+      <ul className="grid" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+        {items.map((item) => {
           const active = isActive(pathname, item.href);
           return (
             <li key={item.href}>

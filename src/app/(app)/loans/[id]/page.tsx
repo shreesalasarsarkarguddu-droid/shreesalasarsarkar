@@ -1,3 +1,5 @@
+import { requirePerm } from "@/lib/staff";
+import { can } from "@/lib/permissions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -49,6 +51,7 @@ export async function generateMetadata({ params }: PageProps<"/loans/[id]">) {
 }
 
 export default async function LoanPage({ params, searchParams }: PageProps<"/loans/[id]">) {
+  const staff = await requirePerm("view_accounts");
   const [{ id: idParam }, sp] = await Promise.all([params, searchParams]);
   const id = Number.parseInt(idParam, 10);
   if (!Number.isInteger(id) || String(id) !== idParam) notFound();
@@ -130,10 +133,10 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
                 <span className="sm:hidden">Statement</span>
                 <span className="hidden sm:inline">Print statement</span>
               </Link>
-              {l.status !== "closed" && (
+              {l.status !== "closed" && can(staff, "collect") && (
                 <CollectButton row={{ source: "new", ref_id: l.id, folio: l.folio_no, borrower_name: b.full_name, borrower_mobile: b.mobile }} />
               )}
-              {l.status !== "closed" && <SeizeControl source="new" refId={l.id} seized={seizedNow} />}
+              {l.status !== "closed" && can(staff, "seize") && <SeizeControl source="new" refId={l.id} seized={seizedNow} />}
             </div>
           </div>
         </div>

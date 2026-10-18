@@ -31,6 +31,16 @@ export default async function ProfilePage() {
       </section>
 
       {staff?.role === "admin" && (
+        <Link href="/users" className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
+          <span>
+            <span className="block font-semibold text-blue-700">Users</span>
+            <span className="block text-sm text-slate-500">Add staff logins and choose what each person can do</span>
+          </span>
+          <span aria-hidden className="text-slate-400">›</span>
+        </Link>
+      )}
+
+      {staff?.role === "admin" && (
         <Link href="/settings" className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
           <span>
             <span className="block font-semibold text-blue-700">Settings</span>

@@ -1,3 +1,4 @@
+import { requirePerm } from "@/lib/staff";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
@@ -30,6 +31,7 @@ function one(v: string | string[] | undefined) {
 }
 
 export default async function SeizedReportPage({ searchParams }: PageProps<"/reports/seized">) {
+  await requirePerm("reports");
   const sp = await searchParams;
   const q = (one(sp.q) ?? "").trim().toLowerCase().slice(0, 60);
   const status = ["pending", "closed"].includes(one(sp.status) ?? "") ? one(sp.status)! : "pending";

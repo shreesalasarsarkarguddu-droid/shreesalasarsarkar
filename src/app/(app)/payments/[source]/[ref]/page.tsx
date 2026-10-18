@@ -1,3 +1,4 @@
+import { requirePerm } from "@/lib/staff";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -8,6 +9,7 @@ export const metadata = { title: "Collect payment · Shree Salasar Sarkar" };
 
 /** Full-page collection screen (used on phones instead of the pop-up window). */
 export default async function CollectPage({ params, searchParams }: PageProps<"/payments/[source]/[ref]">) {
+  await requirePerm("collect");
   const [{ source, ref }, sp] = await Promise.all([params, searchParams]);
   const id = Number.parseInt(ref, 10);
   if ((source !== "old" && source !== "new") || !Number.isInteger(id) || String(id) !== ref) notFound();

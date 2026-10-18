@@ -1,3 +1,5 @@
+import { requirePerm } from "@/lib/staff";
+import { can } from "@/lib/permissions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -70,6 +72,7 @@ export async function generateMetadata({ params }: PageProps<"/accounts/[sno]">)
 }
 
 export default async function AccountPage({ params }: PageProps<"/accounts/[sno]">) {
+  const staff = await requirePerm("view_accounts");
   const { sno: snoParam } = await params;
   const sno = Number.parseInt(snoParam, 10);
   if (!Number.isInteger(sno) || String(sno) !== snoParam) notFound();
@@ -149,12 +152,12 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
                 <span className="sm:hidden">Statement</span>
                 <span className="hidden sm:inline">Print statement</span>
               </Link>
-              {a.ledger === "pending" && (
+              {a.ledger === "pending" && can(staff, "collect") && (
                 <CollectButton
                   row={{ source: "old", ref_id: a.sno, folio: String(a.fno), borrower_name: a.borrower_name, borrower_mobile: a.borrower_mobile }}
                 />
               )}
-              {(a.ledger === "pending" || seizedNow) && <SeizeControl source="old" refId={a.sno} seized={seizedNow} />}
+              {(a.ledger === "pending" || seizedNow) && can(staff, "seize") && <SeizeControl source="old" refId={a.sno} seized={seizedNow} />}
             </div>
           </div>
         </div>

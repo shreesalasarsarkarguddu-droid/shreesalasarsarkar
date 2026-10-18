@@ -1,3 +1,5 @@
+import { requirePerm } from "@/lib/staff";
+import { can } from "@/lib/permissions";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -50,6 +52,7 @@ function escapeLike(s: string) {
 const rowHref = (r: Row) => (r.source === "new" ? `/loans/${r.ref_id}` : `/accounts/${r.ref_id}`);
 
 export default async function AccountsPage({ searchParams }: PageProps<"/accounts">) {
+  const staff = await requirePerm("view_accounts");
   const sp = await searchParams;
   const q = (one(sp.q) ?? "").trim().toLowerCase().slice(0, 60);
   const ledger = LEDGERS.some((l) => l.key === one(sp.ledger)) ? one(sp.ledger)! : "all";
@@ -99,12 +102,14 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
           <h1 className="text-xl font-bold">Accounts</h1>
           <p className="text-sm text-slate-500">Old software records and new loans</p>
         </div>
+        {can(staff, "new_loan") && (
         <Link
           href="/loans/new"
           className="hidden h-10 items-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 md:flex"
         >
           + New loan
         </Link>
+        )}
       </div>
 
       <Suspense>
