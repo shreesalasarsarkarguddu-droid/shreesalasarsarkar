@@ -42,6 +42,33 @@ export async function reviewPayment(id: number, approve: boolean, note: string):
   return { ok: true, message: approve ? "Approved." : "Rejected — the payment was cancelled and the balance put back." };
 }
 
+const item = z.object({ source: z.enum(["old", "new"]), ref_id: z.number().int().positive() });
+
+export async function assignAccounts(d: string, userId: string, items: { source: "old" | "new"; ref_id: number }[], note: string): Promise<CtlResult> {
+  if (!day.safeParse(d).success) return { ok: false, error: "Choose the day." };
+  if (!z.uuid().safeParse(userId).success) return { ok: false, error: "Choose the collection man." };
+  const parsed = z.array(item).min(1, { error: "Tick at least one account." }).max(500).safeParse(items);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("assign_collections", { p_day: d, p_user: userId, p_items: parsed.data, p_note: note.slice(0, 200) });
+  if (error) return fail(error, "Could not assign.");
+  revalidatePath("/assign");
+  revalidatePath("/my-collections");
+  const r = data as { assigned: number; moved: number };
+  return { ok: true, message: `${r.assigned} account(s) assigned${r.moved ? ` (${r.moved} moved from someone else)` : ""}.` };
+}
+
+export async function unassignAccounts(ids: number[]): Promise<CtlResult> {
+  const parsed = z.array(z.number().int().positive()).min(1).max(1000).safeParse(ids);
+  if (!parsed.success) return { ok: false, error: "Nothing chosen." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("unassign_collections", { p_ids: parsed.data });
+  if (error) return fail(error, "Could not remove.");
+  revalidatePath("/assign");
+  revalidatePath("/my-collections");
+  return { ok: true, message: `${data} removed from the list.` };
+}
+
 const book = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("add"),

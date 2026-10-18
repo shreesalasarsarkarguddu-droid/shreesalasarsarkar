@@ -26,6 +26,7 @@ export type Settings = {
   review_backdate_days: number;
   review_above: number | string;
   require_receipt_books: boolean;
+  restrict_to_assigned: boolean;
   updated_at: string | null;
 };
 
@@ -233,6 +234,11 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           checked={s.require_receipt_books}
           onChange={(v) => set("require_receipt_books", v)}
           label="Staff must have a receipt book to take payments (receipt numbers only from their own book)"
+        />
+        <Check
+          checked={s.restrict_to_assigned}
+          onChange={(v) => set("restrict_to_assigned", v)}
+          label="Collection men can only collect accounts assigned to them for today (people with “Assign collections” can collect any)"
         />
         <p className="text-xs text-slate-500">
           Even when this is off, anyone who has a receipt book can only use numbers from their own book. Manage books under Receipt

@@ -9,7 +9,7 @@ export const maxDuration = 120;
 const CHUNK = 1000;
 const TABLES = new Set([
   "import_batches", "legacy_accounts", "legacy_payments", "borrowers", "loans", "payments", "seizures", "adjustments",
-  "receipt_books", "cash_closings",
+  "receipt_books", "cash_closings", "collection_assignments",
 ]);
 const fail = (message: string, status = 400) => Response.json({ ok: false, message }, { status });
 

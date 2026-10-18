@@ -161,12 +161,12 @@ function RestoreCard({ points }: { points: Overview["restore_points"] }) {
 // ---------------------------------------------------------------- restore from a backup file
 const DATA_TABLES = [
   "import_batches", "legacy_accounts", "legacy_payments", "borrowers", "loans", "payments", "seizures", "adjustments",
-  "receipt_books", "cash_closings",
+  "receipt_books", "cash_closings", "collection_assignments",
 ];
 const TABLE_LABEL: Record<string, string> = {
   import_batches: "Import history", legacy_accounts: "Old accounts", legacy_payments: "Old receipts", borrowers: "Borrowers",
   loans: "New loans", payments: "Payments (app)", seizures: "Seizures", adjustments: "Late fees / discounts",
-  receipt_books: "Receipt books", cash_closings: "Cash closings",
+  receipt_books: "Receipt books", cash_closings: "Cash closings", collection_assignments: "Collection lists",
 };
 type FilePreview = {
   file: string; taken: string; unknown_people: number; has_accounts: boolean;

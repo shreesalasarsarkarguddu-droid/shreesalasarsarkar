@@ -28,6 +28,8 @@ export const ACTIONS: { key: string; label: string; group: string }[] = [
   { key: "payment_approved", label: "Payment approved", group: "Control" },
   { key: "payment_rejected", label: "Payment rejected", group: "Fixes" },
   { key: "cash_received", label: "Cash received", group: "Control" },
+  { key: "assigned", label: "Collections assigned", group: "Control" },
+  { key: "unassigned", label: "Collections removed", group: "Control" },
   { key: "book_add", label: "Receipt book given", group: "Control" },
   { key: "book_close", label: "Receipt book closed", group: "Control" },
   { key: "book_reopen", label: "Receipt book reopened", group: "Control" },
@@ -84,6 +86,10 @@ export function describe(a: AuditRow): string {
     case "book_reopen":
     case "book_delete":
       return `Receipts ${val(d.from_no)}–${val(d.to_no)}${d.note ? ` · ${d.note}` : ""}`;
+    case "assigned":
+      return `${val(d.accounts)} account(s) for ${val(d.day)}${Number(d.moved_from_others) > 0 ? ` (${d.moved_from_others} moved from someone else)` : ""}`;
+    case "unassigned":
+      return `${val(d.removed)} account(s) removed from collection lists`;
     case "signed_out":
       return "signed out on every device";
     case "payment_rejected":

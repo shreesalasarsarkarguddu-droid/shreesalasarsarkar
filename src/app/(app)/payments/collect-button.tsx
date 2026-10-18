@@ -26,7 +26,15 @@ export function CollectButton({ row }: { row: PendingRow }) {
         <span className="sm:hidden">Collect</span>
         <span className="hidden sm:inline">Collect payment</span>
       </button>
-      {open && <PaymentDialog row={row} onClose={() => setOpen(false)} />}
+      {open && (
+        <PaymentDialog
+          row={row}
+          onClose={() => {
+            setOpen(false);
+            router.refresh(); // show the new balance / "collected" on the page behind
+          }}
+        />
+      )}
     </>
   );
 }

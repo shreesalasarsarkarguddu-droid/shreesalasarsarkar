@@ -9,7 +9,7 @@ export const maxDuration = 60;
 // Tables included in the manual backup (app_settings is left out on purpose: it holds the bot / gateway keys).
 const TABLES = [
   "legacy_accounts", "legacy_payments", "borrowers", "loans", "payments", "seizures", "adjustments",
-  "receipt_books", "cash_closings", "staff", "import_batches",
+  "receipt_books", "cash_closings", "collection_assignments", "staff", "import_batches",
 ] as const;
 const PAGE = 1000;
 

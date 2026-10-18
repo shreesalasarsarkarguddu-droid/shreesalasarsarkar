@@ -8,6 +8,7 @@ export const PERMISSIONS = [
   { key: "new_loan", label: "Create new loans", text: "Enter a new loan and borrower.", group: "Daily work" },
   { key: "seize", label: "Seize / release vehicles", text: "Mark a vehicle seized or release it.", group: "Daily work" },
   { key: "reports", label: "Reports", text: "Day Book, Due Installments, Seized Vehicles, Finance Details.", group: "Daily work" },
+  { key: "assign", label: "Assign collections", text: "Give accounts to collection men for a day and see everyone's list.", group: "Extra powers" },
   { key: "backdate", label: "Back-dated payments", text: "Enter payments with an old date without waiting for approval.", group: "Extra powers" },
   { key: "approve", label: "Approve payments", text: "Approve or reject back-dated / big payments that wait for approval.", group: "Extra powers" },
   { key: "cash", label: "Cash closing & receipt books", text: "Receive each person's cash at day end; give out receipt books.", group: "Extra powers" },
@@ -22,7 +23,7 @@ export type Permission = (typeof PERMISSIONS)[number]["key"];
 /** Quick starting points in the Users form; every box can still be changed per person. */
 export const PRESETS: { key: string; label: string; role: "admin" | "staff"; perms: Permission[] }[] = [
   { key: "collection", label: "Collection man", role: "staff", perms: ["view_accounts", "collect", "reports"] },
-  { key: "manager", label: "Manager", role: "staff", perms: ["view_accounts", "collect", "new_loan", "seize", "reports", "backdate", "approve", "cash"] },
+  { key: "manager", label: "Manager", role: "staff", perms: ["view_accounts", "collect", "new_loan", "seize", "reports", "assign", "backdate", "approve", "cash"] },
   { key: "viewer", label: "Viewer", role: "staff", perms: ["view_accounts", "reports"] },
   { key: "admin", label: "Admin", role: "admin", perms: [] },
 ];
@@ -37,6 +38,7 @@ export function can(a: Access | null | undefined, p: Permission): boolean {
 export function controlLinks(access: Access): { href: string; label: string; text: string }[] {
   const isAdmin = access.role === "admin";
   return [
+    { href: "/assign", label: "Assign collections", text: "Give accounts to collection men for a day; see their progress", ok: can(access, "assign") },
     { href: "/cash", label: "Daily cash", text: "Each person's collection and the cash handed in", ok: can(access, "cash") || can(access, "collect") },
     { href: "/approvals", label: "Approvals", text: "Back-dated or big payments waiting for approval", ok: can(access, "approve") },
     { href: "/receipt-books", label: "Receipt books", text: "Receipt number ranges for each person, skipped numbers", ok: can(access, "cash") },
@@ -51,6 +53,8 @@ export function controlLinks(access: Access): { href: string; label: string; tex
 /** First page this person may open (where to send them when they land somewhere they cannot use). */
 export function homeFor(a: Access | null | undefined): string {
   if (a?.role === "admin") return "/dashboard";
+  // collection men start on their list for the day
+  if (can(a, "collect") && !can(a, "new_loan") && !can(a, "assign")) return "/my-collections";
   if (can(a, "view_accounts")) return "/accounts";
   if (can(a, "collect")) return "/payments";
   if (can(a, "new_loan")) return "/loans/new";

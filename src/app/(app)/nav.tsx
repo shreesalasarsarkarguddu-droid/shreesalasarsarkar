@@ -13,6 +13,7 @@ const FINANCE = {
     { href: "/loans/new", label: "New Loan", perm: "new_loan" },
     { href: "/accounts", label: "Accounts", perm: "view_accounts" },
     { href: "/payments", label: "Collect", perm: "collect" },
+    { href: "/my-collections", label: "My collection list", perm: "collect" },
   ],
 } as const satisfies { children: readonly { href: string; label: string; perm: Permission }[] } & Record<string, unknown>;
 
@@ -24,6 +25,17 @@ const ITEMS = [
     perm: "view_accounts",
     icon: (
       <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />
+    ),
+  },
+  {
+    href: "/my-collections",
+    label: "My list",
+    perm: "collect",
+    icon: (
+      <>
+        <path d="M9 6h11M9 12h11M9 18h11" strokeLinecap="round" />
+        <path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" strokeLinecap="round" strokeLinejoin="round" />
+      </>
     ),
   },
   {
