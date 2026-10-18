@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createRestorePoint, deleteData, restore, type Result } from "./actions";
+import { commitImport, createRestorePoint, deleteData, restore, type Result } from "./actions";
 
 type Counts = Record<string, number>;
 export type Overview = {
@@ -59,6 +59,7 @@ export function DataManager({ o }: { o: Overview }) {
 
       <BackupCard />
       <RestoreCard points={o.restore_points} />
+      <ImportCard />
       <DeleteCard o={o} />
 
       <section className={card}>
@@ -263,6 +264,199 @@ function DeleteCard({ o }: { o: Overview }) {
             <Confirm word="DELETE" label="Delete now" tone="red" run={(w, pw) => deleteData(scope, w, pw)} />
           ) : (
             <p className="border-t border-slate-200 p-3 text-sm text-slate-500">Step 2 (confirm and delete) opens after the download.</p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+type Preview = {
+  files: Record<string, { source_file: string; total: number; imported: number; skipped: number; flagged: number }>;
+  checks: Record<string, { rows: number; total: string }>;
+  duplicate_snos: number[];
+  accounts: {
+    in_files: number;
+    new: number;
+    changed: number;
+    same: number;
+    moved: number;
+    not_in_files: number;
+    examples_new: { sno: number; name: string }[];
+    examples_changed: { sno: number; name: string }[];
+    examples_moved: { sno: number; name: string; from: string; to: string }[];
+    examples_not_in_files: { sno: number; name: string; ledger: string }[];
+  };
+  receipts: { in_files: number; now_for_these_accounts: number; added: number; removed: number };
+  double_entry_risk: { sno: number; name: string; app_first: string; file_receipts_after: number }[];
+};
+
+const FILE_LABEL: Record<string, string> = {
+  P_ACCOUNT: "Pending accounts",
+  P_INSMENT: "Pending installments",
+  F_ACC: "Closed accounts",
+  F_INSMENT: "Closed installments",
+};
+
+function Examples({ title, items }: { title: string; items: { sno: number; name: string; extra?: string }[] }) {
+  if (!items.length) return null;
+  return (
+    <p className="text-xs text-slate-500">
+      {title}: {items.map((x) => `SNO ${x.sno} ${x.name}${x.extra ? ` (${x.extra})` : ""}`).join(", ")}
+      {items.length === 10 ? " …" : ""}
+    </p>
+  );
+}
+
+function ImportCard() {
+  const [files, setFiles] = useState<File[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [job, setJob] = useState<string | null>(null);
+  const [pv, setPv] = useState<Preview | null>(null);
+
+  const check = async () => {
+    setBusy(true);
+    setErr(null);
+    setPv(null);
+    setJob(null);
+    try {
+      const fd = new FormData();
+      files.forEach((f) => fd.append("files", f));
+      const res = await fetch("/settings/data/import", { method: "POST", body: fd });
+      const body = await res.json().catch(() => ({ ok: false, message: "The server did not answer. Try again." }));
+      if (!body.ok) setErr(body.message);
+      else {
+        setJob(body.job);
+        setPv(body.preview);
+      }
+    } catch {
+      setErr("Could not upload. Check the internet connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const a = pv?.accounts;
+  return (
+    <section className={card}>
+      <h2 className={head}>Import from the old software</h2>
+      <p className="text-sm text-slate-500">
+        Choose all 4 export files: P_ACCOUNT, P_INSMENT, F_ACC, F_INSMENT. First you see what would change; nothing is saved until
+        you confirm. Accounts are updated by SNO, new ones are added, and accounts missing from the files are kept. Loans, payments
+        and seizures entered in this app are not touched.
+      </p>
+      <input
+        type="file"
+        multiple
+        accept=".xlsx"
+        onChange={(e) => {
+          setFiles([...(e.target.files ?? [])]);
+          setPv(null);
+          setJob(null);
+          setErr(null);
+        }}
+        className="block w-full text-sm file:mr-3 file:h-10 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:font-semibold file:text-blue-700"
+      />
+      {files.length > 0 && (
+        <p className="text-xs text-slate-500">
+          {files.length} file{files.length > 1 ? "s" : ""}: {files.map((f) => f.name).join(", ")}
+        </p>
+      )}
+      <button type="button" disabled={busy || files.length === 0} onClick={check} className={`${btn} bg-blue-700 text-white hover:bg-blue-800`}>
+        {busy ? "Reading and comparing… (up to a minute)" : "Check files"}
+      </button>
+      {err && <Msg r={{ ok: false, message: err }} />}
+
+      {pv && a && job && (
+        <div className="space-y-3 rounded-lg ring-1 ring-slate-200">
+          <div className="space-y-3 p-3">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-slate-500">
+                    <th className="py-1 pr-3">File</th>
+                    <th className="py-1 pr-3 text-right">Rows</th>
+                    <th className="py-1 pr-3 text-right">Skipped</th>
+                    <th className="py-1 pr-3 text-right">Flagged</th>
+                    <th className="py-1 text-right">Total ₹</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(["P_ACCOUNT", "P_INSMENT", "F_ACC", "F_INSMENT"] as const).map((k) => (
+                    <tr key={k} className="border-t border-slate-100">
+                      <td className="py-1 pr-3">
+                        <span className="font-medium">{FILE_LABEL[k]}</span>{" "}
+                        <span className="text-xs text-slate-500">{pv.files[k].source_file}</span>
+                      </td>
+                      <td className="num py-1 pr-3 text-right">{n(pv.files[k].imported)}</td>
+                      <td className="num py-1 pr-3 text-right">{n(pv.files[k].skipped)}</td>
+                      <td className="num py-1 pr-3 text-right">{n(pv.files[k].flagged)}</td>
+                      <td className="num py-1 text-right">
+                        {Number(pv.checks[k].total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
+              {(
+                [
+                  ["New accounts", a.new],
+                  ["Changed", a.changed],
+                  ["Unchanged", a.same],
+                  ["Pending ↔ closed", a.moved],
+                  ["Not in files (kept)", a.not_in_files],
+                ] as const
+              ).map(([label, v]) => (
+                <div key={label} className="rounded-lg bg-slate-50 px-3 py-2">
+                  <p className="text-xs text-slate-500">{label}</p>
+                  <p className="num text-lg font-semibold">{n(v)}</p>
+                </div>
+              ))}
+            </div>
+            <Examples title="New" items={a.examples_new} />
+            <Examples title="Changed" items={a.examples_changed} />
+            <Examples title="Moved" items={a.examples_moved.map((x) => ({ ...x, extra: `${x.from} → ${x.to}` }))} />
+            <Examples title="Not in files" items={a.examples_not_in_files.map((x) => ({ ...x, extra: x.ledger }))} />
+
+            <p className="text-sm">
+              Receipts: <b className="num">{n(pv.receipts.in_files)}</b> in the files,{" "}
+              <b className="num">{n(pv.receipts.now_for_these_accounts)}</b> now for these accounts —{" "}
+              <b className="num text-emerald-700">+{n(pv.receipts.added)}</b> added,{" "}
+              <b className="num text-red-700">−{n(pv.receipts.removed)}</b> removed.
+            </p>
+
+            {pv.duplicate_snos.length > 0 && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                The files contain the same SNO twice ({pv.duplicate_snos.slice(0, 10).join(", ")}). Fix the files; this cannot be
+                imported.
+              </p>
+            )}
+            {pv.double_entry_risk.length > 0 && (
+              <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <p className="font-semibold">⚠ Check for double entries on {pv.double_entry_risk.length} account(s)</p>
+                <p className="text-xs">
+                  These accounts have payments taken in this app, and the files also have receipts on or after that date. If the same
+                  money was entered in both places, it will be counted twice.
+                </p>
+                <p className="mt-1 text-xs">
+                  {pv.double_entry_risk
+                    .slice(0, 15)
+                    .map((x) => `SNO ${x.sno} ${x.name} (${x.file_receipts_after} receipts)`)
+                    .join(", ")}
+                </p>
+              </div>
+            )}
+            <p className="text-xs text-slate-500">
+              A restore point is saved first. After importing, the totals are checked against the files; if anything does not match,
+              nothing is saved.
+            </p>
+          </div>
+          {pv.duplicate_snos.length === 0 && (
+            <Confirm word="IMPORT" label="Import now" tone="amber" run={(w, pw) => commitImport(job, w, pw)} />
           )}
         </div>
       )}

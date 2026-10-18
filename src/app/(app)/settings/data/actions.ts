@@ -53,3 +53,17 @@ export async function restore(point: number, confirm: string, password: string):
     message: `Restored to #${point}. The data as it was just before is saved as restore point #${(data as { saved_before_restore: number }).saved_before_restore}.`,
   };
 }
+
+export async function commitImport(job: string, confirm: string, password: string): Promise<Result> {
+  const bad = await checkPassword(password);
+  if (bad) return { ok: false, message: bad };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_import_commit", { p_job: job, p_confirm: confirm });
+  if (error) return { ok: false, message: explain(error) };
+  revalidatePath("/", "layout");
+  const d = data as { restore_point: number; accounts: number; receipts: number };
+  return {
+    ok: true,
+    message: `Imported ${d.accounts.toLocaleString("en-IN")} accounts and ${d.receipts.toLocaleString("en-IN")} receipts. Totals matched the files. To undo, restore #${d.restore_point}.`,
+  };
+}
