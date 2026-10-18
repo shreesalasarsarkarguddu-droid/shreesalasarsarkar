@@ -13,6 +13,7 @@ export const metadata: Metadata = { title: "Daily cash · Shree Salasar Sarkar" 
 type Row = {
   user_id: string; full_name: string; receipts: number; cash: number; cheque: number; sbi: number; bank: number; total: number;
   closed: boolean; received_amount: number | null; expected_at_close: number | null; note: string | null; received_by: string | null; received_at: string | null;
+  pending_count: number; pending_amount: number;
 };
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -125,6 +126,16 @@ export default async function CashPage({ searchParams }: PageProps<"/cash">) {
                       <span className="mt-1 block font-semibold text-amber-700">
                         ⚠ Payments changed after the cash was received (was {n(r.expected_at_close)}). Receive again to update.
                       </span>
+                    )}
+                  </p>
+                )}
+                {r.pending_count > 0 && (
+                  <p className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    ⏳ {r.pending_count} payment{r.pending_count > 1 ? "s" : ""} ({n(r.pending_amount)}) waiting for approval — not counted yet.
+                    {can(staff, "approve") && (
+                      <Link href="/approvals" className="font-semibold text-blue-700">
+                        Approve after counting →
+                      </Link>
                     )}
                   </p>
                 )}

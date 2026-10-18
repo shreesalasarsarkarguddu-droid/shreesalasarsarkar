@@ -5,7 +5,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { dmy, inr, isNegative, isPositive } from "@/lib/format";
 import { buildLedger, fromPaise, toPaise } from "@/lib/schedule";
-import { NEW_PAYMENT_COLUMNS, byInstallment, mapNewPayment, type NewPaymentRecord } from "@/lib/ledger";
+import { NEW_PAYMENT_COLUMNS, byInstallment, getWaiting, mapNewPayment, type NewPaymentRecord } from "@/lib/ledger";
+import { WaitingBanner } from "../../waiting-banner";
 import { EmiSummary, InstallmentTable } from "../../installments";
 import { CollectButton } from "../../payments/collect-button";
 import { SeizeControl, type SeizureEvent } from "../../seize-control";
@@ -80,6 +81,7 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
     throw new Error("Could not load this loan.");
   }
   if (!data) notFound();
+  const waiting = await getWaiting(supabase, "new", id);
   const l = data as unknown as Loan & { payments: NewPaymentRecord[]; seizures: SeizureEvent[]; adjustments: Adjustment[] };
   const seizedNow = l.status === "seized";
   const b = l.borrowers;
@@ -184,6 +186,8 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
           <EmiSummary summary={summary} emi={adj.reschedule?.emi ?? l.emi_amount} intervalMonths={l.interval_months} />
         </div>
       </section>
+
+      <WaitingBanner waiting={waiting} canApprove={can(staff, "approve")} />
 
       <SeizureInfo seized={seizedNow} events={l.seizures} fromOldSoftware={false} />
 

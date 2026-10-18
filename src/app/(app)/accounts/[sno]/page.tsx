@@ -9,7 +9,8 @@ import { CollectButton } from "../../payments/collect-button";
 import { SeizeControl, type SeizureEvent } from "../../seize-control";
 import { SeizureInfo } from "../../seizure-history";
 import { buildLedger } from "@/lib/schedule";
-import { LEGACY_PAYMENT_COLUMNS, NEW_PAYMENT_COLUMNS, addMoney, byInstallment, mapNewPayment, subMoney, type NewPaymentRecord } from "@/lib/ledger";
+import { LEGACY_PAYMENT_COLUMNS, NEW_PAYMENT_COLUMNS, addMoney, byInstallment, getWaiting, mapNewPayment, subMoney, type NewPaymentRecord } from "@/lib/ledger";
+import { WaitingBanner } from "../../waiting-banner";
 import { Delay, EmiSummary, InstallmentTable, RowFlags } from "../../installments";
 import { PaymentFixes } from "../../payment-fixes";
 import { MoneyActions } from "../../money-actions";
@@ -102,6 +103,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
     throw new Error("Could not load this account.");
   }
   if (!accountData) notFound();
+  const waiting = await getWaiting(supabase, "old", sno);
   const a = accountData as unknown as Account & {
     legacy_paid: string;
     legacy_payments: Payment[];
@@ -205,6 +207,8 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
           )}
         </div>
       </section>
+
+      <WaitingBanner waiting={waiting} canApprove={can(staff, "approve")} />
 
       <SeizureInfo seized={seizedNow} events={a.seizures} fromOldSoftware={a.seized === true} />
 

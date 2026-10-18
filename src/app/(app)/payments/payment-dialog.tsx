@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { dmy, inr, isPositive } from "@/lib/format";
 import { fromPaise, toPaise, todayIST, type DueRow } from "@/lib/schedule";
 import { PAYMENT_MODES } from "@/lib/payment";
-import type { Ledger } from "@/lib/ledger";
+import type { Ledger, ReceiptHint } from "@/lib/ledger";
 import { EmiSummary } from "../installments";
 import { LedgerCards, LedgerGrid } from "./ledger-grid";
 import { loadLedger, recordPayment, type PaymentField } from "./actions";
@@ -147,9 +147,10 @@ export function CollectPanel({
         }
         savedAny.current = true;
         setSaved(
-          `Saved ${inr(fromPaise(toPaise(form.paid_amount)))} · receipt ${res.receiptNo} · ${form.installments_covered} EMI(s)` +
-            (res.ledger ? ` · new balance ${inr(res.ledger.balance)}` : "") +
-            (res.review ? ` · ⚠ waits for approval (${res.review})` : ""),
+          res.pending
+            ? `Saved ${inr(fromPaise(toPaise(form.paid_amount)))} · receipt ${res.receiptNo} · ⏳ waiting for approval — the balance changes after the admin counts the cash and approves`
+            : `Saved ${inr(fromPaise(toPaise(form.paid_amount)))} · receipt ${res.receiptNo} · ${form.installments_covered} EMI(s)` +
+                (res.ledger ? ` · new balance ${inr(res.ledger.balance)}` : ""),
         );
         if (res.ledger) setLedger(res.ledger);
         else void load();
@@ -263,6 +264,17 @@ export function CollectPanel({
                   <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-800 ring-1 ring-red-200">
                     {formError}
                   </p>
+                )}
+                {ledger.waiting.length > 0 && (
+                  <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
+                    <p className="font-semibold">
+                      ⏳ {inr(fromPaise(ledger.waiting.reduce((t, w) => t + toPaise(w.paid_amount), 0n)))} already collected, waiting for approval
+                    </p>
+                    <p className="num text-xs">
+                      {ledger.waiting.map((w) => `Rcpt ${w.receipt_no} · ${inr(w.paid_amount)} · ${dmy(w.paid_date)}`).join(" | ")}
+                    </p>
+                    <p className="text-xs">Not in the balance yet — do not collect it again.</p>
+                  </div>
                 )}
 
                 {/* amount, then 1 EMI, then full balance */}
@@ -392,6 +404,7 @@ export function CollectPanel({
                     <Err msg={errors.paid_date} />
                   </div>
                 </div>
+                {ledger.receiptHint && <ReceiptHintLine h={ledger.receiptHint} onUse={(n) => set("receipt_no", String(n))} />}
 
                 <button
                   type="submit"
@@ -446,6 +459,33 @@ const inputCls = (bad: boolean) =>
   `h-12 w-full rounded-lg border bg-white px-3 text-base outline-none focus:ring-2 ${
     bad ? "border-red-500 focus:ring-red-500/20" : "border-slate-300 focus:border-blue-600 focus:ring-blue-600/20"
   }`;
+
+/** "Last receipt no.: 12345 (yours 12340) · old software 446496 · next in your book: 12341 [Use]" */
+function ReceiptHintLine({ h, onUse }: { h: ReceiptHint; onUse: (n: number) => void }) {
+  const next = h.books.find((b) => b.next != null)?.next ?? null;
+  return (
+    <div className="num space-y-1 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+      <p>
+        Last receipt no. used: <b className="text-slate-800">{h.last_app ?? "—"}</b>
+        {h.last_mine != null && h.last_mine !== h.last_app && <> (yours {h.last_mine})</>}
+        {h.last_old != null && <> · old software {h.last_old}</>}
+      </p>
+      {h.books.length > 0 && (
+        <p className="flex flex-wrap items-center gap-2">
+          Your book{h.books.length > 1 ? "s" : ""}: {h.books.map((b) => `${b.from}–${b.to}`).join(", ")}
+          {next != null ? (
+            <button type="button" onClick={() => onUse(next)} className="rounded-md bg-white px-2 py-0.5 font-semibold text-blue-700 ring-1 ring-slate-300">
+              Use next: {next}
+            </button>
+          ) : (
+            <span className="font-semibold text-red-700">book used up — ask for a new one</span>
+          )}
+        </p>
+      )}
+      <p>A receipt no. already used (here or in the old software) is refused.</p>
+    </div>
+  );
+}
 
 function QuickButton({ label, amount, onClick }: { label: string; amount: string; onClick: () => void }) {
   return (

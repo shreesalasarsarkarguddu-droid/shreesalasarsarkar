@@ -25,6 +25,8 @@ export const ACTIONS: { key: string; label: string; group: string }[] = [
   { key: "adjust_cancelled", label: "Fee / discount cancelled", group: "Fixes" },
   { key: "seize", label: "Vehicle seized", group: "Loans" },
   { key: "release", label: "Vehicle released", group: "Loans" },
+  { key: "payment_pending", label: "Payment collected (waiting)", group: "Money" },
+  { key: "payments_approved", label: "Payments approved", group: "Control" },
   { key: "payment_approved", label: "Payment approved", group: "Control" },
   { key: "payment_rejected", label: "Payment rejected", group: "Fixes" },
   { key: "cash_received", label: "Cash received", group: "Control" },
@@ -77,6 +79,10 @@ export function describe(a: AuditRow): string {
       return `${rs(d.amount)} · Rcpt ${val(d.receipt_no)} · ${val(d.mode)}${Number(d.emis) > 1 ? ` · ${d.emis} EMIs` : ""}`;
     case "payment_edited":
       return `Rcpt ${val(d.receipt_no)}: ${changesText(d.changes)} · Reason: ${val(d.reason)}`;
+    case "payment_pending":
+      return `${rs(d.amount)} · Rcpt ${val(d.receipt_no)} · ${val(d.mode)} · waiting for approval`;
+    case "payments_approved":
+      return `${val(d.count)} payment(s) · ${rs(d.amount)}${d.note ? ` · ${d.note}` : ""}${Number(d.failed) > 0 ? ` · ${d.failed} failed` : ""}`;
     case "payment_approved":
       return `Rcpt ${val(d.receipt_no)} · ${rs(d.amount)} · was ${val(d.why)}${d.note ? ` · ${d.note}` : ""}`;
     case "cash_received":
@@ -93,6 +99,7 @@ export function describe(a: AuditRow): string {
     case "signed_out":
       return "signed out on every device";
     case "payment_rejected":
+      return `Rcpt ${val(d.receipt_no)} · ${rs(d.amount)}${d.collected_by ? ` by ${d.collected_by}` : ""} · Reason: ${val(d.reason)}`;
     case "payment_cancelled":
       return `Rcpt ${val(d.receipt_no)} · ${rs(d.amount)} on ${val(d.paid_date)} · Reason: ${val(d.reason)}`;
     case "new_loan":

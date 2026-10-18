@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { dmy, inr } from "@/lib/format";
 import { todayIST } from "@/lib/schedule";
 import { CollectButton } from "../payments/collect-button";
+import { getReceiptHint } from "@/lib/ledger";
 
 export const metadata: Metadata = { title: "My collection list · Shree Salasar Sarkar" };
 
@@ -14,6 +15,7 @@ type Item = {
   id: number; user_id: string; collector: string; source: "old" | "new"; ref_id: number; folio: string; borrower_name: string;
   mobile: string | null; address: string | null; vehicle: string | null; emi: number | null; balance: number | null; arrears: number | null;
   overdue_emis: number | null; next_due: string | null; seized: boolean; closed: boolean; collected: number; receipts: number; note: string | null;
+  waiting: number;
 };
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -36,9 +38,10 @@ export default async function MyCollectionsPage({ searchParams }: PageProps<"/my
   const me = String(claims?.claims?.sub ?? "");
   // collection men: their own list; anyone who assigns: everyone, or one person
   const target = manager ? (/^[0-9a-f-]{36}$/.test(who) ? who : null) : me;
-  const [{ data, error }, { data: people }] = await Promise.all([
+  const [{ data, error }, { data: people }, hint] = await Promise.all([
     supabase.rpc("collection_list", { p_day: day, p_user: target }),
     manager ? supabase.rpc("staff_names") : Promise.resolve({ data: null }),
+    can(staff, "collect") ? getReceiptHint(supabase) : Promise.resolve(null),
   ]);
   if (error) {
     console.error("collection_list failed:", error);
@@ -98,6 +101,22 @@ export default async function MyCollectionsPage({ searchParams }: PageProps<"/my
         </form>
       )}
 
+      {hint && (
+        <p className="num rounded-xl bg-white px-4 py-2.5 text-sm text-slate-600 ring-1 ring-slate-200">
+          Your last receipt no.: <b className="text-slate-900">{hint.last_mine ?? "—"}</b>
+          {hint.books.length > 0 && (
+            <>
+              {" "}
+              · next in your book: <b className="text-blue-700">{hint.books.find((b) => b.next != null)?.next ?? "book used up"}</b>
+            </>
+          )}
+          <span className="block text-xs text-slate-500">
+            Last used by anyone: {hint.last_app ?? "—"}.
+            {!can(staff, "approve") && " Payments you take wait for the admin's approval after the cash count."}
+          </span>
+        </p>
+      )}
+
       {items.length > 0 && (
         <dl className="num grid grid-cols-3 gap-2">
           <div className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
@@ -144,9 +163,15 @@ export default async function MyCollectionsPage({ searchParams }: PageProps<"/my
                       </p>
                     </div>
                     {i.collected > 0 ? (
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                        ✓ Collected {rs(i.collected)}
-                      </span>
+                      Number(i.waiting) > 0 ? (
+                        <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                          ⏳ Collected {rs(i.collected)} · waiting approval
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                          ✓ Collected {rs(i.collected)}
+                        </span>
+                      )
                     ) : i.closed ? (
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">Closed</span>
                     ) : (

@@ -32,6 +32,27 @@ export async function receiveCash(userId: string, d: string, amount: string, not
   };
 }
 
+export async function reviewPending(ids: number[], approve: boolean, note: string): Promise<CtlResult> {
+  const parsed = z.array(z.number().int().positive()).min(1, { error: "Tick at least one payment." }).max(1000).safeParse(ids);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  if (!approve && note.trim().length < 3) return { ok: false, error: "Write why you reject (at least 3 letters)." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("review_pending", { p_ids: parsed.data, p_approve: approve, p_note: note.slice(0, 300) });
+  if (error) return fail(error, "Could not save.");
+  revalidatePath("/approvals");
+  revalidatePath("/cash");
+  revalidatePath("/my-collections");
+  revalidatePath("/accounts");
+  const d = data as { done: number; amount: number; failed: { receipt_no: number; reason: string }[] };
+  const money = `₹${Number(d.amount).toLocaleString("en-IN")}`;
+  const failed = d.failed.length
+    ? ` ${d.failed.length} could not be approved: ${d.failed.map((f) => `Rcpt ${f.receipt_no} (${f.reason})`).join("; ")}.`
+    : "";
+  return d.failed.length && d.done === 0
+    ? { ok: false, error: `Nothing approved.${failed}` }
+    : { ok: true, message: `${approve ? "Approved" : "Rejected"} ${d.done} · ${money}.${failed}` };
+}
+
 export async function reviewPayment(id: number, approve: boolean, note: string): Promise<CtlResult> {
   if (!approve && note.trim().length < 3) return { ok: false, error: "Write why you reject it (at least 3 letters)." };
   const supabase = await createClient();
