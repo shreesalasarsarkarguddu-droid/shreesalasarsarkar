@@ -13,8 +13,37 @@ import psycopg
 
 out = sys.argv[1] if len(sys.argv) > 1 else "backup.zip"
 url = os.environ.get("DATABASE_URL")
+
+# Supabase's direct address (db.<ref>.supabase.co) is IPv6-only and GitHub's runners have no IPv6,
+# so when it cannot be reached, connect through the session pooler (IPv4) with the same password.
+POOLERS = [f"{p}-{r}.pooler.supabase.com" for p in ("aws-0", "aws-1") for r in (
+    "ap-southeast-1", "ap-south-1", "ap-northeast-1", "ap-northeast-2", "ap-southeast-2", "us-east-1", "us-east-2",
+    "us-west-1", "eu-central-1", "eu-west-1", "eu-west-2", "eu-west-3", "ca-central-1", "sa-east-1", "eu-north-1", "eu-central-2")]
+
+
+def open_url(url):
+    try:
+        return psycopg.connect(url, connect_timeout=20, sslmode="require")
+    except Exception as first:
+        info = psycopg.conninfo.conninfo_to_dict(url)
+        host = info.get("host", "")
+        if not (host.startswith("db.") and host.endswith(".supabase.co")):
+            raise
+        ref = host.split(".")[1]
+        print("direct address not reachable (%s); trying the pooler" % str(first).splitlines()[0])
+        for h in POOLERS:
+            try:
+                conn = psycopg.connect(host=h, port=5432, dbname=info.get("dbname", "postgres"), user=f"postgres.{ref}",
+                                       password=info.get("password"), connect_timeout=8, sslmode="require")
+                print("connected via", h)
+                return conn
+            except Exception:
+                continue
+        raise first
+
+
 if url:
-    conn = psycopg.connect(url, connect_timeout=20, sslmode="require")
+    conn = open_url(url)
 else:
     from db_connect import connect
     conn = connect()
