@@ -25,7 +25,12 @@ export type PaymentRow = {
   receipt_no: number | null;
   installments_covered?: number | null;
   data_flags: string[];
+  /** set for payments taken in this app (decides before / after a reschedule) */
+  created_at?: string | null;
 };
+
+/** A reschedule in force: new EMI from a new next due date for what was left (see the adjustments table). */
+export type Reschedule = { createdAt: string; date: string; emi: string; nextDue: string };
 
 export type ReceiptRow = {
   kind: "receipt";
@@ -143,12 +148,15 @@ export function buildLedger(opts: {
   settled?: boolean;
   /** "as of" date for overdue / arrears (default: today in India) */
   asOf?: string;
+  /** charges - discounts (adds to what is owed) */
+  adjustments?: string;
+  reschedule?: Reschedule | null;
 }): { rows: LedgerRow[]; summary: LedgerSummary } {
   const interval = Math.max(1, opts.intervalMonths ?? 1);
   const emi = toPaise(opts.emi);
   const finance = toPaise(opts.finance);
   const loanInterest = toPaise(opts.interest);
-  const total = toPaise(opts.total);
+  const total = toPaise(opts.total) + toPaise(opts.adjustments);
   const today = opts.asOf ?? todayIST();
   const payments = [...opts.payments].sort((a, b) => a.installment_no - b.installment_no || (a.paid_date ?? "").localeCompare(b.paid_date ?? ""));
 
@@ -191,8 +199,48 @@ export function buildLedger(opts: {
     dueDaysSum += dueDays;
   });
 
+  // Rescheduled: what was left is paid in new EMIs from the new next due date; only receipts after the reschedule count.
+  const rs = opts.reschedule;
+  if (rs) {
+    const newEmi = toPaise(rs.emi);
+    const before = (p: PaymentRow) => (p.created_at ? p.created_at < rs.createdAt : !p.paid_date || p.paid_date < rs.date);
+    const paidBefore = payments.filter(before).reduce((t, p) => t + toPaise(p.paid_amount), 0n);
+    const paidAfter = paid - paidBefore;
+    const owedAtReschedule = total - paidBefore;
+    const n = newEmi > 0n && owedAtReschedule > 0n ? Number((owedAtReschedule + newEmi - 1n) / newEmi) : 0;
+    const covered = newEmi > 0n ? Math.min(n, Math.max(0, Number(paidAfter / newEmi))) : n;
+    const left = opts.settled || total - paid <= 0n ? 0 : n - covered;
+    let overdueR = 0;
+    let dueLe = 0;
+    for (let k = 1; k <= n; k++) if (addMonths(rs.nextDue, (k - 1) * interval) <= today) dueLe++;
+    for (let k = 1; k <= left; k++) {
+      const dueDate = addMonths(rs.nextDue, (covered + k - 1) * interval);
+      const isOverdue = dueDate < today;
+      if (isOverdue) overdueR++;
+      rows.push({ kind: "due", sno: used + k, dueDate, dueAmount: rs.emi, status: isOverdue ? "overdue" : "upcoming" });
+    }
+    const balanceR = total - paid;
+    let arrearsR = newEmi * BigInt(dueLe) - paidAfter;
+    if (arrearsR > balanceR) arrearsR = balanceR;
+    if (arrearsR < 0n || opts.settled) arrearsR = 0n;
+    return {
+      rows,
+      summary: {
+        emis: used + left,
+        emisPaid: used,
+        emisLeft: left,
+        overdue: overdueR,
+        arrears: fromPaise(arrearsR),
+        totalPaid: fromPaise(paid),
+        totalPrincipal: fromPaise(principalSum),
+        totalInterest: fromPaise(interestSum),
+        totalDueDays: dueDaysSum,
+      },
+    };
+  }
+
   const emis = Math.max(opts.installments ?? 0, used);
-  const remaining = opts.settled ? 0 : Math.max(0, emis - used);
+  const remaining = opts.settled || total - paid <= 0n ? 0 : Math.max(0, emis - used);
   let overdue = 0;
   for (let k = 1; k <= remaining; k++) {
     const dueDate: string | null = lastDue

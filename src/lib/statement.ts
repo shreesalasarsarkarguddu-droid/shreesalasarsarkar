@@ -2,13 +2,18 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildLedger, toPaise, type LedgerRow, type LedgerSummary, type PaymentRow } from "@/lib/schedule";
 import { LEGACY_PAYMENT_COLUMNS, NEW_PAYMENT_COLUMNS, byInstallment, mapNewPayment, type NewPaymentRecord } from "@/lib/ledger";
+import { ADJ_COLUMNS, summarizeAdjustments, type Adjustment } from "@/lib/adjustments";
 
 export type StatementData = {
   folio: string;
   borrower: { name: string; father: string | null; address: string | null; mobile: string | null };
   guarantor: { name: string | null; father: string | null; address: string | null; mobile: string | null };
   vehicle: { condition: string | null; model: string | null; color: string | null; chassis: string | null; engine: string | null; make: string | null; number: string | null };
-  finance: { agreementDate: string | null; insuranceExpiry: string | null; months: number | null; finance: string; interest: string; agreement: string; hp: string; total: string };
+  finance: {
+    agreementDate: string | null; insuranceExpiry: string | null; months: number | null; finance: string; interest: string; agreement: string; hp: string; total: string;
+    /** late fees / charges (+) and discounts / write-off (-) added in this app */
+    charges: string; discounts: string;
+  };
   rows: LedgerRow[];
   summary: LedgerSummary;
 };
@@ -26,7 +31,7 @@ export async function getStatement(supabase: SupabaseClient, source: "old" | "ne
           " vehicle_condition, vehicle_model, vehicle_variant, chassis_no, engine_no, model_year, registration_no," +
           " agreement_date, tenure_months, interval_months," +
           " finance_amount::text, interest_amount::text, agreement_amount::text, hp_amount::text, total_amount::text, emi_amount::text," +
-          ` legacy_paid::text, legacy_payments(${LEGACY_PAYMENT_COLUMNS}), payments(${NEW_PAYMENT_COLUMNS})`,
+          ` legacy_paid::text, legacy_payments(${LEGACY_PAYMENT_COLUMNS}), payments(${NEW_PAYMENT_COLUMNS}), adjustments(${ADJ_COLUMNS})`,
       )
       .eq("sno", refId)
       .maybeSingle();
@@ -35,15 +40,17 @@ export async function getStatement(supabase: SupabaseClient, source: "old" | "ne
     const a = data as unknown as Record<string, string | number | null> & {
       ledger: string; legacy_paid: string; legacy_payments: (PaymentRow & { ledger: string })[]; payments: NewPaymentRecord[];
       total_amount: string; finance_amount: string; interest_amount: string; agreement_amount: string; hp_amount: string; emi_amount: string;
-      tenure_months: number | null; interval_months: number | null; agreement_date: string | null;
+      tenure_months: number | null; interval_months: number | null; agreement_date: string | null; adjustments: Adjustment[];
     };
+    const adj = summarizeAdjustments(a.adjustments);
     const fresh = a.payments.map(mapNewPayment);
     const payments = [...a.legacy_payments.filter((p) => p.ledger === a.ledger), ...fresh].sort(byInstallment);
     const paid = toPaise(a.legacy_paid) + fresh.reduce((t, p) => t + toPaise(p.paid_amount), 0n);
     const { rows, summary } = buildLedger({
       installments: a.tenure_months, intervalMonths: a.interval_months, agreementDate: a.agreement_date,
       emi: a.emi_amount, total: a.total_amount, finance: a.finance_amount, interest: a.interest_amount,
-      payments, settled: a.ledger === "closed" || toPaise(a.total_amount) - paid <= 0n,
+      payments, settled: a.ledger === "closed" || adj.settled || toPaise(a.total_amount) + toPaise(adj.net) - paid <= 0n,
+      adjustments: adj.net, reschedule: adj.reschedule,
     });
     const s = (k: string) => (a[k] == null ? null : String(a[k]));
     return {
@@ -54,6 +61,7 @@ export async function getStatement(supabase: SupabaseClient, source: "old" | "ne
       finance: {
         agreementDate: a.agreement_date, insuranceExpiry: null, months: a.tenure_months,
         finance: a.finance_amount, interest: a.interest_amount, agreement: a.agreement_amount, hp: a.hp_amount, total: a.total_amount,
+        charges: adj.charges, discounts: adj.discounts,
       },
       rows, summary,
     };
@@ -66,7 +74,7 @@ export async function getStatement(supabase: SupabaseClient, source: "old" | "ne
         " vehicle_condition, vehicle_model, vehicle_color, chassis_no, engine_no, make_year, vehicle_no, insurance_expiry," +
         " agreement_date, installments, interval_months," +
         " finance_amount::text, interest_amount::text, agreement_amount::text, hp_amount::text, total_amount::text, emi_amount::text," +
-        ` borrowers(full_name, father_name, mobile, address), payments(${NEW_PAYMENT_COLUMNS})`,
+        ` borrowers(full_name, father_name, mobile, address), payments(${NEW_PAYMENT_COLUMNS}), adjustments(${ADJ_COLUMNS})`,
     )
     .eq("id", refId)
     .maybeSingle();
@@ -79,13 +87,16 @@ export async function getStatement(supabase: SupabaseClient, source: "old" | "ne
     finance_amount: string; interest_amount: string; agreement_amount: string; hp_amount: string; total_amount: string; emi_amount: string;
     borrowers: { full_name: string; father_name: string | null; mobile: string | null; address: string | null };
     payments: NewPaymentRecord[];
+    adjustments: Adjustment[];
   };
+  const adj = summarizeAdjustments(l.adjustments);
   const payments = l.payments.map(mapNewPayment).sort(byInstallment);
   const paid = payments.reduce((t, p) => t + toPaise(p.paid_amount), 0n);
   const { rows, summary } = buildLedger({
     installments: l.installments, intervalMonths: l.interval_months, agreementDate: l.agreement_date,
     emi: l.emi_amount, total: l.total_amount, finance: l.finance_amount, interest: l.interest_amount,
-    payments, settled: l.status === "closed" || toPaise(l.total_amount) - paid <= 0n,
+    payments, settled: l.status === "closed" || toPaise(l.total_amount) + toPaise(adj.net) - paid <= 0n,
+    adjustments: adj.net, reschedule: adj.reschedule,
   });
   return {
     folio: l.folio_no,
@@ -98,6 +109,7 @@ export async function getStatement(supabase: SupabaseClient, source: "old" | "ne
     finance: {
       agreementDate: l.agreement_date, insuranceExpiry: l.insurance_expiry, months: l.installments,
       finance: l.finance_amount, interest: l.interest_amount, agreement: l.agreement_amount, hp: l.hp_amount, total: l.total_amount,
+      charges: adj.charges, discounts: adj.discounts,
     },
     rows, summary,
   };

@@ -12,6 +12,10 @@ import { SeizeControl, type SeizureEvent } from "../../seize-control";
 import { SeizureInfo } from "../../seizure-history";
 import { PaymentFixes } from "../../payment-fixes";
 import { DeleteLoan } from "./delete-loan";
+import { MoneyActions } from "../../money-actions";
+import { ADJ_COLUMNS, adjText, suggestLateFee, summarizeAdjustments, type Adjustment } from "@/lib/adjustments";
+import { todayIST } from "@/lib/schedule";
+import { BUSINESS } from "@/lib/business";
 
 type Loan = {
   id: number;
@@ -66,7 +70,8 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
         " vehicle_condition, sold_by, vehicle_model, vehicle_color, chassis_no, engine_no, make_year, vehicle_no, insurance_expiry," +
         " agreement_date, installments, interval_months, status, created_at, interest_rate::text," +
         " finance_amount::text, agreement_amount::text, hp_amount::text, interest_amount::text, total_amount::text, emi_amount::text," +
-        ` borrowers(full_name, father_name, mobile, date_of_birth, address), payments(${NEW_PAYMENT_COLUMNS}), seizures(id, action, action_date, remarks, created_at, staff(full_name))`,
+        ` borrowers(full_name, father_name, mobile, date_of_birth, address), payments(${NEW_PAYMENT_COLUMNS}), seizures(id, action, action_date, remarks, created_at, staff(full_name)),` +
+        ` adjustments(${ADJ_COLUMNS})`,
     )
     .eq("id", id)
     .maybeSingle();
@@ -75,9 +80,11 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
     throw new Error("Could not load this loan.");
   }
   if (!data) notFound();
-  const l = data as unknown as Loan & { payments: NewPaymentRecord[]; seizures: SeizureEvent[] };
+  const l = data as unknown as Loan & { payments: NewPaymentRecord[]; seizures: SeizureEvent[]; adjustments: Adjustment[] };
   const seizedNow = l.status === "seized";
   const b = l.borrowers;
+  const adj = summarizeAdjustments(l.adjustments);
+  const owedTotal = fromPaise(toPaise(l.total_amount) + toPaise(adj.net));
   const payments = l.payments.map(mapNewPayment).sort(byInstallment);
   const paidPaise = payments.reduce((t, p) => t + toPaise(p.paid_amount), 0n);
   const { rows: schedule, summary } = buildLedger({
@@ -89,11 +96,14 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
     finance: l.finance_amount,
     interest: l.interest_amount,
     payments,
-    settled: l.status === "closed" || toPaise(l.total_amount) - paidPaise <= 0n,
+    settled: l.status === "closed" || toPaise(owedTotal) - paidPaise <= 0n,
+    adjustments: adj.net,
+    reschedule: adj.reschedule,
   });
+  const fee = suggestLateFee(schedule, todayIST(), BUSINESS.lateFeePerDay);
 
   const paid = fromPaise(paidPaise);
-  const balance = fromPaise(toPaise(l.total_amount) - paidPaise);
+  const balance = fromPaise(toPaise(owedTotal) - paidPaise);
 
   return (
     <div className="space-y-4">
@@ -129,7 +139,7 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
                   seizedNow ? "bg-red-100 text-red-800" : l.status === "closed" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
                 }`}
               >
-                {seizedNow ? "Seized" : l.status === "closed" ? "Fully paid" : "Pending"}
+                {seizedNow ? "Seized" : l.status === "closed" ? (adj.settled && isPositive(fromPaise(-toPaise(adj.discounts))) ? "Closed" : "Fully paid") : "Pending"}
               </span>
             </span>
             <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
@@ -157,17 +167,21 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
         </div>
 
         <dl className="num mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Total payable" value={inr(l.total_amount)} />
+          <Stat label="Total payable" value={inr(owedTotal)} sub={adjText(l.total_amount, adj)} />
           <Stat label="Paid" value={inr(paid)} tone="green" />
           <Stat label={isNegative(balance) ? "Overpaid" : "Balance"} value={inr(balance)} tone={isPositive(balance) ? "red" : "plain"} />
           <Stat
             label="EMI"
-            value={inr(l.emi_amount)}
-            sub={`× ${l.installments} EMIs${l.interval_months > 1 ? `, every ${l.interval_months} months` : ""}`}
+            value={inr(adj.reschedule?.emi ?? l.emi_amount)}
+            sub={
+              adj.reschedule
+                ? `rescheduled from ${dmy(adj.reschedule.nextDue)}`
+                : `× ${l.installments} EMIs${l.interval_months > 1 ? `, every ${l.interval_months} months` : ""}`
+            }
           />
         </dl>
         <div className="mt-3">
-          <EmiSummary summary={summary} emi={l.emi_amount} intervalMonths={l.interval_months} />
+          <EmiSummary summary={summary} emi={adj.reschedule?.emi ?? l.emi_amount} intervalMonths={l.interval_months} />
         </div>
       </section>
 
@@ -211,6 +225,20 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
         </h2>
         <InstallmentTable rows={schedule} />
       </section>
+
+      <MoneyActions
+        source="new"
+        refId={l.id}
+        path={`/loans/${l.id}`}
+        adjustments={l.adjustments}
+        balance={balance}
+        emi={adj.reschedule?.emi ?? l.emi_amount}
+        intervalMonths={l.interval_months}
+        suggestedFee={fee.amount}
+        feeNote={fee.note}
+        canAct={staff.role === "admin"}
+        closed={l.status === "closed" && !adj.settled}
+      />
 
       {staff.role === "admin" && <PaymentFixes payments={l.payments} path={`/loans/${l.id}`} />}
       {staff.role === "admin" && l.payments.length === 0 && <DeleteLoan id={l.id} folio={l.folio_no} />}

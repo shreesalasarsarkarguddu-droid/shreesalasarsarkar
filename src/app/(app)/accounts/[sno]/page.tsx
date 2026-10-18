@@ -12,6 +12,10 @@ import { buildLedger } from "@/lib/schedule";
 import { LEGACY_PAYMENT_COLUMNS, NEW_PAYMENT_COLUMNS, addMoney, byInstallment, mapNewPayment, subMoney, type NewPaymentRecord } from "@/lib/ledger";
 import { Delay, EmiSummary, InstallmentTable, RowFlags } from "../../installments";
 import { PaymentFixes } from "../../payment-fixes";
+import { MoneyActions } from "../../money-actions";
+import { ADJ_COLUMNS, adjText, suggestLateFee, summarizeAdjustments, type Adjustment } from "@/lib/adjustments";
+import { todayIST } from "@/lib/schedule";
+import { BUSINESS } from "@/lib/business";
 
 type Account = {
   id: number;
@@ -88,7 +92,8 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
         " vehicle_condition, vehicle_model, vehicle_variant, chassis_no, engine_no, model_year, registration_no," +
         " agreement_date, tenure_months, interval_months, seized, data_flags," +
         " finance_amount::text, interest_amount::text, agreement_amount::text, hp_amount::text, total_amount::text, emi_amount::text," +
-        ` legacy_paid::text, legacy_payments(${LEGACY_PAYMENT_COLUMNS}), payments(${NEW_PAYMENT_COLUMNS}), seizures(id, action, action_date, remarks, created_at, staff(full_name))`,
+        ` legacy_paid::text, legacy_payments(${LEGACY_PAYMENT_COLUMNS}), payments(${NEW_PAYMENT_COLUMNS}), seizures(id, action, action_date, remarks, created_at, staff(full_name)),` +
+        ` adjustments(${ADJ_COLUMNS})`,
     )
     .eq("sno", sno)
     .maybeSingle();
@@ -102,7 +107,11 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
     legacy_payments: Payment[];
     payments: NewPaymentRecord[];
     seizures: SeizureEvent[];
+    adjustments: Adjustment[];
   };
+  const adj = summarizeAdjustments(a.adjustments);
+  const closedHere = adj.settled; // closed in this app (the old software may still say pending)
+  const isPending = a.ledger === "pending" && !closedHere;
   // Seized right now = latest seize/release event, else the old software's flag
   const lastEvent = [...a.seizures].sort((x, y) => y.created_at.localeCompare(x.created_at) || y.id - x.id)[0];
   const seizedNow = lastEvent ? lastEvent.action === "seize" : a.seized === true;
@@ -110,11 +119,12 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
   const all = [...a.legacy_payments].sort(byInstallment);
   const newPayments = a.payments.map(mapNewPayment);
   const totalPaid = addMoney(a.legacy_paid, newPayments.map((p) => p.paid_amount));
-  const s = { total_paid: totalPaid, balance: subMoney(a.total_amount, totalPaid) };
+  const owedTotal = addMoney(a.total_amount, [adj.net]);
+  const s = { total_paid: totalPaid, balance: subMoney(owedTotal, totalPaid) };
   const payments = [...all.filter((p) => p.ledger === a.ledger), ...newPayments.map((p) => ({ ...p, ledger: a.ledger }))].sort(byInstallment);
   const otherFile = all.filter((p) => p.ledger !== a.ledger);
-  // Fully-paid accounts (or nothing left to pay) show only the payments made, never "overdue" slots.
-  const settled = a.ledger === "closed" || !isPositive(s?.balance);
+  // Fully-paid / closed accounts (or nothing left to pay) show only the payments made, never "overdue" slots.
+  const settled = !isPending || !isPositive(s?.balance);
   const { rows: schedule, summary } = buildLedger({
     installments: a.tenure_months,
     intervalMonths: a.interval_months,
@@ -125,7 +135,10 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
     interest: a.interest_amount,
     payments,
     settled,
+    adjustments: adj.net,
+    reschedule: adj.reschedule,
   });
+  const fee = suggestLateFee(schedule, todayIST(), BUSINESS.lateFeePerDay);
 
   return (
     <div className="space-y-4">
@@ -144,7 +157,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-            <StatusBadge ledger={a.ledger} seized={seizedNow} />
+            <StatusBadge ledger={isPending ? "pending" : "closed"} seized={seizedNow} />
             <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
               <Link
                 href={`/accounts/${a.sno}/statement`}
@@ -153,25 +166,29 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
                 <span className="sm:hidden">Statement</span>
                 <span className="hidden sm:inline">Print statement</span>
               </Link>
-              {a.ledger === "pending" && can(staff, "collect") && (
+              {isPending && can(staff, "collect") && (
                 <CollectButton
                   row={{ source: "old", ref_id: a.sno, folio: String(a.fno), borrower_name: a.borrower_name, borrower_mobile: a.borrower_mobile }}
                 />
               )}
-              {(a.ledger === "pending" || seizedNow) && can(staff, "seize") && <SeizeControl source="old" refId={a.sno} seized={seizedNow} />}
+              {(isPending || seizedNow) && can(staff, "seize") && <SeizeControl source="old" refId={a.sno} seized={seizedNow} />}
             </div>
           </div>
         </div>
 
         <dl className="num mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Total payable" value={inr(a.total_amount)} />
+          <Stat label="Total payable" value={inr(owedTotal)} sub={adjText(a.total_amount, adj)} />
           <Stat label="Paid" value={inr(s?.total_paid)} tone="green" />
           <Stat
             label={isNegative(s?.balance) ? "Overpaid" : "Balance"}
             value={inr(s?.balance)}
             tone={isPositive(s?.balance) ? "red" : "plain"}
           />
-          <Stat label="EMI" value={inr(a.emi_amount)} sub={`× ${a.tenure_months ?? "—"} EMIs`} />
+          <Stat
+            label="EMI"
+            value={inr(adj.reschedule?.emi ?? a.emi_amount)}
+            sub={adj.reschedule ? `rescheduled from ${dmy(adj.reschedule.nextDue)}` : `× ${a.tenure_months ?? "—"} EMIs`}
+          />
         </dl>
         <div className="mt-3">
           {settled ? (
@@ -181,9 +198,10 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
               </span>{" "}
               · {payments.length} payment{payments.length === 1 ? "" : "s"} made
               {a.ledger === "closed" && " · fully paid"}
+              {closedHere && " · closed in this app"}
             </p>
           ) : (
-            <EmiSummary summary={summary} emi={a.emi_amount} intervalMonths={a.interval_months} />
+            <EmiSummary summary={summary} emi={adj.reschedule?.emi ?? a.emi_amount} intervalMonths={a.interval_months} />
           )}
         </div>
       </section>
@@ -246,6 +264,20 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
           <InstallmentTable rows={schedule} />
         )}
       </section>
+
+      <MoneyActions
+        source="old"
+        refId={a.sno}
+        path={`/accounts/${a.sno}`}
+        adjustments={a.adjustments}
+        balance={s.balance}
+        emi={adj.reschedule?.emi ?? a.emi_amount}
+        intervalMonths={Math.max(1, a.interval_months ?? 1)}
+        suggestedFee={fee.amount}
+        feeNote={fee.note}
+        canAct={staff.role === "admin"}
+        closed={a.ledger === "closed" && !closedHere}
+      />
 
       {staff.role === "admin" && <PaymentFixes payments={a.payments} path={`/accounts/${a.sno}`} />}
 

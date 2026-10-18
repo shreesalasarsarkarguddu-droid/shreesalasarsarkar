@@ -17,6 +17,12 @@ export const ACTIONS: { key: string; label: string; group: string }[] = [
   { key: "new_loan", label: "New loan", group: "Loans" },
   { key: "loan_edited", label: "Loan edited", group: "Fixes" },
   { key: "loan_deleted", label: "Loan deleted", group: "Fixes" },
+  { key: "adjust_penalty", label: "Late fee added", group: "Money" },
+  { key: "adjust_discount", label: "Discount given", group: "Money" },
+  { key: "adjust_reschedule", label: "Rescheduled", group: "Money" },
+  { key: "adjust_settle", label: "Account closed", group: "Money" },
+  { key: "reopened", label: "Account reopened", group: "Fixes" },
+  { key: "adjust_cancelled", label: "Fee / discount cancelled", group: "Fixes" },
   { key: "seize", label: "Vehicle seized", group: "Loans" },
   { key: "release", label: "Vehicle released", group: "Loans" },
   { key: "user_added", label: "User added", group: "Admin" },
@@ -68,6 +74,16 @@ export function describe(a: AuditRow): string {
       return `${changesText(d.changes)} · Reason: ${val(d.reason)}`;
     case "loan_deleted":
       return `Reason: ${val(d.reason)}`;
+    case "adjust_penalty":
+    case "adjust_discount":
+      return `${rs(Math.abs(Number(d.amount)))} · balance ${rs(d.owed_before)} → ${rs(d.owed_after)} · Reason: ${val(d.reason)}`;
+    case "adjust_reschedule":
+      return `New EMI ${rs(d.new_emi)} from ${val(d.next_due)} · balance ${rs(d.owed_after)} · Reason: ${val(d.reason)}`;
+    case "adjust_settle":
+      return `${Number(d.amount) < 0 ? `written off ${rs(-Number(d.amount))}` : "nothing left to pay"} · Reason: ${val(d.reason)}`;
+    case "reopened":
+    case "adjust_cancelled":
+      return `${val(d.kind)} ${Number(d.amount) ? rs(Math.abs(Number(d.amount))) : ""} · balance now ${rs(d.owed_after)} · Reason: ${val(d.reason)}`;
     case "seize":
     case "release":
       return `${val(d.date)}${d.remarks ? ` · ${d.remarks}` : ""}`;

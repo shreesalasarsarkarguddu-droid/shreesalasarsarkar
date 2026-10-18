@@ -93,6 +93,8 @@ export function StatementView({ s, backHref }: { s: StatementData; backHref: str
             <Line label="Agreement Amt." value={amt(s.finance.agreement)} />
             <Line label="Hire Purchase" value={amt(s.finance.hp)} />
             <Line label="Total Amt." value={amt(s.finance.total)} />
+            {Number(s.finance.charges) !== 0 && <Line label="Late Fee/Charges" value={amt(s.finance.charges)} />}
+            {Number(s.finance.discounts) !== 0 && <Line label="Discount" value={amt(s.finance.discounts)} />}
           </div>
         </section>
 

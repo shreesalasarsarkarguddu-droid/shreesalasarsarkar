@@ -89,6 +89,51 @@ export async function cancelPayment(id: number, path: string, why: string): Prom
   return { ok: true, message: "Payment cancelled. It is kept in the activity log." };
 }
 
+// ---------------------------------------------------------------- late fee / discount / close / reschedule
+const moneyStr = z.string().trim().regex(/^\d{1,9}(\.\d{1,2})?$/, { error: "Enter the amount" }).refine((v) => Number(v) > 0, { error: "Must be more than 0" });
+const adjustInput = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("penalty"), amount: moneyStr, reason }),
+  z.object({ kind: z.literal("discount"), amount: moneyStr, reason }),
+  z.object({ kind: z.literal("settle"), reason }),
+  z.object({
+    kind: z.literal("reschedule"),
+    new_emi: moneyStr,
+    next_due: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Enter the next due date" }),
+    reason,
+  }),
+]);
+export type AdjustInput = z.input<typeof adjustInput>;
+
+export async function addAdjustment(source: "old" | "new", refId: number, path: string, input: AdjustInput): Promise<FixResult> {
+  const denied = await adminOnly();
+  if (denied) return denied;
+  const parsed = adjustInput.safeParse(input);
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const i of parsed.error.issues) fieldErrors[String(i.path[0])] ??= i.message;
+    return { ok: false, error: "Please fix the highlighted fields.", fieldErrors };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_adjust", { p: { source, ref_id: refId, ...parsed.data } });
+  if (error) return dbError(error, "Could not save.");
+  refresh(path);
+  const owed = Number((data as { owed: number }).owed).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  const done = { penalty: "Late fee added", discount: "Discount given", settle: "Account closed", reschedule: "Rescheduled" }[parsed.data.kind];
+  return { ok: true, message: `${done}. Balance now ₹${owed}.` };
+}
+
+export async function cancelAdjustment(id: number, path: string, why: string): Promise<FixResult> {
+  const denied = await adminOnly();
+  if (denied) return denied;
+  const r = reason.safeParse(why);
+  if (!r.success) return { ok: false, error: r.error.issues[0].message, fieldErrors: { reason: r.error.issues[0].message } };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_cancel_adjustment", { p_id: id, p_reason: r.data });
+  if (error) return dbError(error, "Could not cancel.");
+  refresh(path);
+  return { ok: true, message: "Cancelled. It stays in the history and the activity log." };
+}
+
 // ---------------------------------------------------------------- loans
 export type LoanFixResult = { ok: true; id: number } | { ok: false; error: string; fieldErrors?: Partial<Record<LoanFields | "reason", string>> };
 

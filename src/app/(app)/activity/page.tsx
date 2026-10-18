@@ -21,6 +21,12 @@ const TONE: Record<string, string> = {
   loan_edited: "bg-amber-50 text-amber-800",
   payment_cancelled: "bg-red-50 text-red-800",
   loan_deleted: "bg-red-50 text-red-800",
+  adjust_penalty: "bg-red-50 text-red-800",
+  adjust_discount: "bg-emerald-50 text-emerald-800",
+  adjust_settle: "bg-slate-800 text-white",
+  adjust_reschedule: "bg-blue-50 text-blue-800",
+  reopened: "bg-amber-50 text-amber-800",
+  adjust_cancelled: "bg-amber-50 text-amber-800",
   delete: "bg-red-50 text-red-800",
 };
 
