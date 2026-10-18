@@ -289,6 +289,11 @@ type Preview = {
   };
   receipts: { in_files: number; now_for_these_accounts: number; added: number; removed: number };
   double_entry_risk: { sno: number; name: string; app_first: string; file_receipts_after: number }[];
+  double_entry_likely?: {
+    sno: number; borrower_name: string; why: string;
+    app_receipt: number; app_date: string; app_amount: number;
+    file_receipt: number | null; file_date: string | null; file_amount: number | null;
+  }[];
 };
 
 const FILE_LABEL: Record<string, string> = {
@@ -439,6 +444,41 @@ function ImportCard() {
                 The files contain the same SNO twice ({pv.duplicate_snos.slice(0, 10).join(", ")}). Fix the files; this cannot be
                 imported.
               </p>
+            )}
+            {(pv.double_entry_likely?.length ?? 0) > 0 && (
+              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+                <p className="font-semibold">⚠ {pv.double_entry_likely!.length} receipt(s) look entered in both programs</p>
+                <p className="text-xs">
+                  Each line is a receipt in the files that matches a payment taken in this app. If it is the same money, it will be
+                  counted twice: delete it in the old software (then copy the files again) or delete the app payment, before importing.
+                </p>
+                <div className="mt-2 overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-red-700">
+                        <th className="py-1 pr-3">Account</th>
+                        <th className="py-1 pr-3">In this app</th>
+                        <th className="py-1 pr-3">In the files</th>
+                        <th className="py-1">Why</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pv.double_entry_likely!.slice(0, 50).map((x, i) => (
+                        <tr key={i} className="border-t border-red-100">
+                          <td className="py-1 pr-3">SNO {x.sno} {x.borrower_name}</td>
+                          <td className="num py-1 pr-3">
+                            Rcpt {x.app_receipt} · {x.app_date} · ₹{Number(x.app_amount).toLocaleString("en-IN")}
+                          </td>
+                          <td className="num py-1 pr-3">
+                            Rcpt {x.file_receipt ?? "—"} · {x.file_date ?? "—"} · ₹{Number(x.file_amount ?? 0).toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-1">{x.why}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
             {pv.double_entry_risk.length > 0 && (
               <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
