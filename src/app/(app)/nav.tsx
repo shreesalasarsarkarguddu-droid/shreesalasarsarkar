@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { can, type Access, type Permission } from "@/lib/permissions";
+import { can, controlLinks, type Access, type Permission } from "@/lib/permissions";
 
 // Top bar on computers: drop-down groups. Bottom bar on phones keeps one-tap buttons.
 const FINANCE = {
@@ -82,12 +82,12 @@ function isActive(pathname: string, href: string) {
 
 /** Links shown in the top bar on tablet/desktop. */
 export function TopNav({ access }: { access: Access }) {
-  const isAdmin = access.role === "admin";
   const pathname = usePathname();
   const finance = FINANCE.children.filter((c) => can(access, c.perm));
   const financeActive = finance.some((c) => isActive(pathname, c.href));
   const reports = ITEMS.find((i) => i.href === "/reports")!;
   const profile = ITEMS.find((i) => i.href === "/profile")!;
+  const control = controlLinks(access);
   return (
     <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
       {finance.length > 0 && <Dropdown label={FINANCE.label} active={financeActive} items={finance} pathname={pathname} />}
@@ -101,38 +101,8 @@ export function TopNav({ access }: { access: Access }) {
       >
         {profile.label}
       </Link>
-      {isAdmin && (
-        <Link
-          href="/users"
-          aria-current={isActive(pathname, "/users") ? "page" : undefined}
-          className={`flex h-10 items-center rounded-lg px-3 text-sm font-medium ${
-            isActive(pathname, "/users") ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          Users
-        </Link>
-      )}
-      {isAdmin && (
-        <Link
-          href="/activity"
-          aria-current={isActive(pathname, "/activity") ? "page" : undefined}
-          className={`flex h-10 items-center rounded-lg px-3 text-sm font-medium ${
-            isActive(pathname, "/activity") ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          Activity
-        </Link>
-      )}
-      {isAdmin && (
-        <Link
-          href="/settings"
-          aria-current={isActive(pathname, "/settings") ? "page" : undefined}
-          className={`flex h-10 items-center rounded-lg px-3 text-sm font-medium ${
-            isActive(pathname, "/settings") ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          Settings
-        </Link>
+      {control.length > 0 && (
+        <Dropdown label="Control" active={control.some((c) => isActive(pathname, c.href))} items={control} pathname={pathname} />
       )}
     </nav>
   );

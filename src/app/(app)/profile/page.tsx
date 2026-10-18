@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getStaff } from "@/lib/staff";
 import { signOut } from "@/app/login/actions";
 import { PasswordForm } from "./password-form";
+import { can, controlLinks } from "@/lib/permissions";
 
 export const metadata: Metadata = { title: "Profile · Shree Salasar Sarkar" };
 
@@ -30,34 +31,25 @@ export default async function ProfilePage() {
         </div>
       </section>
 
-      {staff?.role === "admin" && (
-        <Link href="/users" className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
-          <span>
-            <span className="block font-semibold text-blue-700">Users</span>
-            <span className="block text-sm text-slate-500">Add staff logins and choose what each person can do</span>
-          </span>
-          <span aria-hidden className="text-slate-400">›</span>
-        </Link>
-      )}
+      {staff &&
+        controlLinks(staff).map((l) => (
+          <Link key={l.href} href={l.href} className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
+            <span>
+              <span className="block font-semibold text-blue-700">{l.label}</span>
+              <span className="block text-sm text-slate-500">{l.text}</span>
+            </span>
+            <span aria-hidden className="text-slate-400">›</span>
+          </Link>
+        ))}
 
-      {staff?.role === "admin" && (
-        <Link href="/activity" className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
+      {staff && staff.role !== "admin" && can(staff, "backup") && (
+        <a href="/settings/backup" className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
           <span>
-            <span className="block font-semibold text-blue-700">Activity</span>
-            <span className="block text-sm text-slate-500">Who took payments, made loans, seized, edited or cancelled — and when</span>
+            <span className="block font-semibold text-blue-700">Download backup</span>
+            <span className="block text-sm text-slate-500">Every account and payment as a zip. Keep it private.</span>
           </span>
-          <span aria-hidden className="text-slate-400">›</span>
-        </Link>
-      )}
-
-      {staff?.role === "admin" && (
-        <Link href="/settings" className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
-          <span>
-            <span className="block font-semibold text-blue-700">Settings</span>
-            <span className="block text-sm text-slate-500">Telegram group alerts, WhatsApp receipts and reminders</span>
-          </span>
-          <span aria-hidden className="text-slate-400">›</span>
-        </Link>
+          <span aria-hidden className="text-slate-400">↓</span>
+        </a>
       )}
 
       <section className="rounded-xl bg-white p-4 ring-1 ring-slate-200">

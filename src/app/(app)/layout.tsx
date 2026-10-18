@@ -39,8 +39,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           children
         ) : (
           <div className="mt-10 rounded-xl bg-white p-6 text-center ring-1 ring-slate-200">
-            <p className="font-semibold">Your login does not have access yet.</p>
-            <p className="mt-1 text-sm text-slate-500">Ask the admin to add you or switch your login back on.</p>
+            <p className="font-semibold">Your login does not have access right now.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              The admin may have signed you out or switched your login off. Sign out, then sign in again — or ask the admin.
+            </p>
             <form action={signOut} className="mt-4">
               <button className="h-11 rounded-lg px-4 text-sm font-medium text-blue-700 ring-1 ring-slate-300">
                 Sign out

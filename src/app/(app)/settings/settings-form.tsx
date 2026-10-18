@@ -23,6 +23,9 @@ export type Settings = {
   wa_reminder_days_before: number;
   wa_reminder_hour: number;
   wa_reminder_template: string;
+  review_backdate_days: number;
+  review_above: number | string;
+  require_receipt_books: boolean;
   updated_at: string | null;
 };
 
@@ -201,6 +204,40 @@ export function SettingsForm({ initial }: { initial: Settings }) {
         >
           Data: restore points, delete, import →
         </a>
+      </Section>
+
+      {/* ---------------- Staff controls */}
+      <Section title="Staff controls" hint="Which payments wait for approval, and whether receipt books are required.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Back-dated payments need approval when older than (days)"
+            hint="0 = any date before today needs approval. People with “Back-dated payments” never need it."
+          >
+            <input
+              className={input + " num"}
+              inputMode="numeric"
+              value={String(s.review_backdate_days)}
+              onChange={(e) => set("review_backdate_days", Math.min(365, Number(e.target.value.replace(/\D/g, "") || 0)))}
+            />
+          </Field>
+          <Field label="Payments above this amount need approval (₹)" hint="0 = never. People with “Approve payments” never need it.">
+            <input
+              className={input + " num"}
+              inputMode="decimal"
+              value={String(s.review_above)}
+              onChange={(e) => set("review_above", e.target.value.replace(/[^\d.]/g, "").replace(/^0+(?=\d)/, "") || "0")}
+            />
+          </Field>
+        </div>
+        <Check
+          checked={s.require_receipt_books}
+          onChange={(v) => set("require_receipt_books", v)}
+          label="Staff must have a receipt book to take payments (receipt numbers only from their own book)"
+        />
+        <p className="text-xs text-slate-500">
+          Even when this is off, anyone who has a receipt book can only use numbers from their own book. Manage books under Receipt
+          books.
+        </p>
       </Section>
 
       {/* ---------------- General */}

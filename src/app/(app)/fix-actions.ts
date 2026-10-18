@@ -7,6 +7,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getStaff } from "@/lib/staff";
+import { can, type Permission } from "@/lib/permissions";
 import { loanSchema, type LoanFields } from "@/lib/loan";
 import { PAYMENT_MODES } from "@/lib/payment";
 import { todayIST } from "@/lib/schedule";
@@ -16,7 +17,7 @@ export type FixResult = { ok: true; message: string } | { ok: false; error: stri
 const reason = z.string().trim().min(3, { error: "Write the reason (at least 3 letters)" }).max(300, { error: "Reason is too long" });
 
 function dbError(e: { code?: string; message: string }, fallback: string): FixResult {
-  if (e.code === "42501") return { ok: false, error: "Only an admin can do this." };
+  if (e.code === "42501") return { ok: false, error: "Your login is not allowed to do this." };
   if (e.code === "P0002") return { ok: false, error: "Not found. It may have been changed already; reload the page." };
   if (e.code === "22023") return { ok: false, error: e.message.charAt(0).toUpperCase() + e.message.slice(1) + "." };
   if (e.code === "23505")
@@ -28,9 +29,9 @@ function dbError(e: { code?: string; message: string }, fallback: string): FixRe
   return { ok: false, error: `${fallback} Check your internet and try again.` };
 }
 
-async function adminOnly(): Promise<FixResult | null> {
+async function allowed(p: Permission): Promise<FixResult | null> {
   const staff = await getStaff();
-  return staff?.role === "admin" ? null : { ok: false, error: "Only an admin can do this." };
+  return can(staff, p) ? null : { ok: false, error: "Your login is not allowed to do this." };
 }
 
 function refresh(path: string) {
@@ -57,7 +58,7 @@ const paymentFix = z
 export type PaymentFixInput = z.input<typeof paymentFix>;
 
 export async function editPayment(id: number, path: string, input: PaymentFixInput): Promise<FixResult> {
-  const denied = await adminOnly();
+  const denied = await allowed("fix_entries");
   if (denied) return denied;
   const parsed = paymentFix.safeParse(input);
   if (!parsed.success) {
@@ -78,7 +79,7 @@ export async function editPayment(id: number, path: string, input: PaymentFixInp
 }
 
 export async function cancelPayment(id: number, path: string, why: string): Promise<FixResult> {
-  const denied = await adminOnly();
+  const denied = await allowed("fix_entries");
   if (denied) return denied;
   const r = reason.safeParse(why);
   if (!r.success) return { ok: false, error: r.error.issues[0].message, fieldErrors: { reason: r.error.issues[0].message } };
@@ -105,7 +106,7 @@ const adjustInput = z.discriminatedUnion("kind", [
 export type AdjustInput = z.input<typeof adjustInput>;
 
 export async function addAdjustment(source: "old" | "new", refId: number, path: string, input: AdjustInput): Promise<FixResult> {
-  const denied = await adminOnly();
+  const denied = await allowed("money");
   if (denied) return denied;
   const parsed = adjustInput.safeParse(input);
   if (!parsed.success) {
@@ -119,11 +120,11 @@ export async function addAdjustment(source: "old" | "new", refId: number, path: 
   refresh(path);
   const owed = Number((data as { owed: number }).owed).toLocaleString("en-IN", { maximumFractionDigits: 2 });
   const done = { penalty: "Late fee added", discount: "Discount given", settle: "Account closed", reschedule: "Rescheduled" }[parsed.data.kind];
-  return { ok: true, message: `${done}. Balance now ₹${owed}.` };
+  return { ok: true, message: `${done}. Balance now â‚¹${owed}.` };
 }
 
 export async function cancelAdjustment(id: number, path: string, why: string): Promise<FixResult> {
-  const denied = await adminOnly();
+  const denied = await allowed("money");
   if (denied) return denied;
   const r = reason.safeParse(why);
   if (!r.success) return { ok: false, error: r.error.issues[0].message, fieldErrors: { reason: r.error.issues[0].message } };
@@ -138,7 +139,7 @@ export async function cancelAdjustment(id: number, path: string, why: string): P
 export type LoanFixResult = { ok: true; id: number } | { ok: false; error: string; fieldErrors?: Partial<Record<LoanFields | "reason", string>> };
 
 export async function editLoan(id: number, values: Record<string, string>, why: string): Promise<LoanFixResult> {
-  const denied = await adminOnly();
+  const denied = await allowed("fix_entries");
   if (denied) return denied as LoanFixResult;
   const parsed = loanSchema.safeParse(values);
   const r = reason.safeParse(why);
@@ -156,7 +157,7 @@ export async function editLoan(id: number, values: Record<string, string>, why: 
 }
 
 export async function deleteLoan(id: number, why: string, confirm: string): Promise<FixResult> {
-  const denied = await adminOnly();
+  const denied = await allowed("fix_entries");
   if (denied) return denied;
   const r = reason.safeParse(why);
   if (!r.success) return { ok: false, error: r.error.issues[0].message };

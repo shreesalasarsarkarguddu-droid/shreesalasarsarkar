@@ -25,6 +25,14 @@ export const ACTIONS: { key: string; label: string; group: string }[] = [
   { key: "adjust_cancelled", label: "Fee / discount cancelled", group: "Fixes" },
   { key: "seize", label: "Vehicle seized", group: "Loans" },
   { key: "release", label: "Vehicle released", group: "Loans" },
+  { key: "payment_approved", label: "Payment approved", group: "Control" },
+  { key: "payment_rejected", label: "Payment rejected", group: "Fixes" },
+  { key: "cash_received", label: "Cash received", group: "Control" },
+  { key: "book_add", label: "Receipt book given", group: "Control" },
+  { key: "book_close", label: "Receipt book closed", group: "Control" },
+  { key: "book_reopen", label: "Receipt book reopened", group: "Control" },
+  { key: "book_delete", label: "Receipt book deleted", group: "Control" },
+  { key: "signed_out", label: "Signed out by admin", group: "Admin" },
   { key: "user_added", label: "User added", group: "Admin" },
   { key: "user_changed", label: "User changed", group: "Admin" },
   { key: "password_reset", label: "Password reset", group: "Admin" },
@@ -66,6 +74,18 @@ export function describe(a: AuditRow): string {
       return `${rs(d.amount)} · Rcpt ${val(d.receipt_no)} · ${val(d.mode)}${Number(d.emis) > 1 ? ` · ${d.emis} EMIs` : ""}`;
     case "payment_edited":
       return `Rcpt ${val(d.receipt_no)}: ${changesText(d.changes)} · Reason: ${val(d.reason)}`;
+    case "payment_approved":
+      return `Rcpt ${val(d.receipt_no)} · ${rs(d.amount)} · was ${val(d.why)}${d.note ? ` · ${d.note}` : ""}`;
+    case "cash_received":
+      return `${val(d.day)} · cash collected ${rs(d.expected_cash)} · received ${rs(d.received)}${Number(d.short) > 0 ? ` · SHORT ${rs(d.short)}` : Number(d.short) < 0 ? ` · extra ${rs(-Number(d.short))}` : " · matches"}${d.note ? ` · ${d.note}` : ""}`;
+    case "book_add":
+    case "book_close":
+    case "book_reopen":
+    case "book_delete":
+      return `Receipts ${val(d.from_no)}–${val(d.to_no)}${d.note ? ` · ${d.note}` : ""}`;
+    case "signed_out":
+      return "signed out on every device";
+    case "payment_rejected":
     case "payment_cancelled":
       return `Rcpt ${val(d.receipt_no)} · ${rs(d.amount)} on ${val(d.paid_date)} · Reason: ${val(d.reason)}`;
     case "new_loan":

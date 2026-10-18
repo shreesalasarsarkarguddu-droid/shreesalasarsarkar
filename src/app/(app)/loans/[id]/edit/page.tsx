@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/staff";
+import { requirePerm } from "@/lib/staff";
 import { createClient } from "@/lib/supabase/server";
 import { EMPTY_LOAN, type LoanFields } from "@/lib/loan";
 import { LoanForm } from "../../new/loan-form";
@@ -18,7 +18,7 @@ const money = (v: string | null, blankZero = false) => {
 const s = (v: unknown) => (v == null ? "" : String(v));
 
 export default async function EditLoanPage({ params }: PageProps<"/loans/[id]/edit">) {
-  await requireAdmin();
+  await requirePerm("fix_entries");
   const { id: idParam } = await params;
   const id = Number.parseInt(idParam, 10);
   if (!Number.isInteger(id) || String(id) !== idParam) notFound();

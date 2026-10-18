@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdmin } from "@/lib/staff";
+import { requirePerm } from "@/lib/staff";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIONS, actionLabel, describe, refHref, type AuditRow } from "@/lib/activity";
 
@@ -21,6 +21,10 @@ const TONE: Record<string, string> = {
   loan_edited: "bg-amber-50 text-amber-800",
   payment_cancelled: "bg-red-50 text-red-800",
   loan_deleted: "bg-red-50 text-red-800",
+  payment_rejected: "bg-red-50 text-red-800",
+  payment_approved: "bg-emerald-50 text-emerald-800",
+  cash_received: "bg-emerald-50 text-emerald-800",
+  signed_out: "bg-red-50 text-red-800",
   adjust_penalty: "bg-red-50 text-red-800",
   adjust_discount: "bg-emerald-50 text-emerald-800",
   adjust_settle: "bg-slate-800 text-white",
@@ -31,7 +35,7 @@ const TONE: Record<string, string> = {
 };
 
 export default async function ActivityPage({ searchParams }: PageProps<"/activity">) {
-  await requireAdmin();
+  await requirePerm("activity");
   const sp = await searchParams;
   const who = one(sp.who) ?? "";
   const what = ACTIONS.some((a) => a.key === one(sp.what)) ? one(sp.what)! : one(sp.what) === "fixes" ? "fixes" : "";
@@ -53,7 +57,7 @@ export default async function ActivityPage({ searchParams }: PageProps<"/activit
   if (to) query = query.lt("at", `${nextDay(to)}T00:00:00+05:30`);
   if (q) query = query.ilike("subject", `%${escapeLike(q)}%`);
 
-  const [{ data, count, error }, { data: users }] = await Promise.all([query, supabase.rpc("admin_list_users")]);
+  const [{ data, count, error }, { data: users }] = await Promise.all([query, supabase.rpc("staff_names")]);
   if (error) {
     console.error("activity query failed:", error);
     throw new Error("Could not load the activity log.");

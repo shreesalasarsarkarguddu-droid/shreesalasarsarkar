@@ -275,11 +275,11 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
         intervalMonths={Math.max(1, a.interval_months ?? 1)}
         suggestedFee={fee.amount}
         feeNote={fee.note}
-        canAct={staff.role === "admin"}
+        canAct={can(staff, "money")}
         closed={a.ledger === "closed" && !closedHere}
       />
 
-      {staff.role === "admin" && <PaymentFixes payments={a.payments} path={`/accounts/${a.sno}`} />}
+      {can(staff, "fix_entries") && <PaymentFixes payments={a.payments} path={`/accounts/${a.sno}`} />}
 
       {otherFile.length > 0 && (
         <section className="rounded-xl bg-white ring-1 ring-amber-200">

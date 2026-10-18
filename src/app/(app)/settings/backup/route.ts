@@ -1,12 +1,16 @@
 import { zipSync, strToU8 } from "fflate";
 import { createClient } from "@/lib/supabase/server";
 import { getStaff } from "@/lib/staff";
+import { can } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 // Tables included in the manual backup (app_settings is left out on purpose: it holds the bot / gateway keys).
-const TABLES = ["legacy_accounts", "legacy_payments", "borrowers", "loans", "payments", "seizures", "staff", "import_batches"] as const;
+const TABLES = [
+  "legacy_accounts", "legacy_payments", "borrowers", "loans", "payments", "seizures", "adjustments",
+  "receipt_books", "cash_closings", "staff", "import_batches",
+] as const;
 const PAGE = 1000;
 
 function cell(v: unknown): string {
@@ -24,7 +28,7 @@ function toCsv(rows: Record<string, unknown>[]): string {
 /** Admin-only: every table as CSV, zipped. */
 export async function GET() {
   const staff = await getStaff();
-  if (staff?.role !== "admin") return new Response("Only an admin can download backups.", { status: 403 });
+  if (!can(staff, "backup")) return new Response("Your login is not allowed to download backups.", { status: 403 });
 
   const supabase = await createClient();
   const files: Record<string, Uint8Array> = {};

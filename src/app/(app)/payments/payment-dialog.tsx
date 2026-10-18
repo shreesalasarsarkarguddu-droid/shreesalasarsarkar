@@ -148,7 +148,8 @@ export function CollectPanel({
         savedAny.current = true;
         setSaved(
           `Saved ${inr(fromPaise(toPaise(form.paid_amount)))} · receipt ${res.receiptNo} · ${form.installments_covered} EMI(s)` +
-            (res.ledger ? ` · new balance ${inr(res.ledger.balance)}` : ""),
+            (res.ledger ? ` · new balance ${inr(res.ledger.balance)}` : "") +
+            (res.review ? ` · ⚠ waits for approval (${res.review})` : ""),
         );
         if (res.ledger) setLedger(res.ledger);
         else void load();

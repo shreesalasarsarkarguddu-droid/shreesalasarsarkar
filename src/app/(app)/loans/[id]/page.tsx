@@ -154,7 +154,7 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
                 <CollectButton row={{ source: "new", ref_id: l.id, folio: l.folio_no, borrower_name: b.full_name, borrower_mobile: b.mobile }} />
               )}
               {l.status !== "closed" && can(staff, "seize") && <SeizeControl source="new" refId={l.id} seized={seizedNow} />}
-              {staff.role === "admin" && (
+              {can(staff, "fix_entries") && (
                 <Link
                   href={`/loans/${l.id}/edit`}
                   className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50"
@@ -236,12 +236,12 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
         intervalMonths={l.interval_months}
         suggestedFee={fee.amount}
         feeNote={fee.note}
-        canAct={staff.role === "admin"}
+        canAct={can(staff, "money")}
         closed={l.status === "closed" && !adj.settled}
       />
 
-      {staff.role === "admin" && <PaymentFixes payments={l.payments} path={`/loans/${l.id}`} />}
-      {staff.role === "admin" && l.payments.length === 0 && <DeleteLoan id={l.id} folio={l.folio_no} />}
+      {can(staff, "fix_entries") && <PaymentFixes payments={l.payments} path={`/loans/${l.id}`} />}
+      {can(staff, "fix_entries") && l.payments.length === 0 && <DeleteLoan id={l.id} folio={l.folio_no} />}
     </div>
   );
 }

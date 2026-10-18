@@ -43,6 +43,13 @@ export async function updateUser(userId: string, v: Input & { active: boolean })
   return { ok: true, message: "Saved." };
 }
 
+export async function signOutUser(userId: string): Promise<Result> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_sign_out_user", { p_user: userId });
+  if (error) return { ok: false, message: explain(error) };
+  return { ok: true, message: "Signed out everywhere. They must sign in again." };
+}
+
 export async function setPassword(userId: string, password: string): Promise<Result> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("admin_set_password", { p_user: userId, p_password: password });

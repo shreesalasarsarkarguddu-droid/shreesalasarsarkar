@@ -57,7 +57,7 @@ export type PaymentInput = {
 };
 export type PaymentField = "paid_amount" | "paid_date" | "payment_mode" | "receipt_no" | "reference_no" | "bank_name" | "installments_covered";
 export type RecordResult =
-  | { ok: true; receiptNo: number; installmentNo: number; ledger: Ledger | null }
+  | { ok: true; receiptNo: number; installmentNo: number; ledger: Ledger | null; review: string | null }
   | { ok: false; error: string; fieldErrors?: Partial<Record<PaymentField, string>> };
 
 export async function recordPayment(input: PaymentInput): Promise<RecordResult> {
@@ -101,7 +101,7 @@ export async function recordPayment(input: PaymentInput): Promise<RecordResult> 
     console.error("record_payment failed:", error);
     return { ok: false, error: "Could not save. Check your internet and press Save again." };
   }
-  const r = data as { receipt_no: number; installment_no: number };
+  const r = data as { receipt_no: number; installment_no: number; review: string | null };
   const ledger = await getLedger(supabase, v.source, v.refId).catch(() => null);
-  return { ok: true, receiptNo: r.receipt_no, installmentNo: r.installment_no, ledger };
+  return { ok: true, receiptNo: r.receipt_no, installmentNo: r.installment_no, ledger, review: r.review ?? null };
 }

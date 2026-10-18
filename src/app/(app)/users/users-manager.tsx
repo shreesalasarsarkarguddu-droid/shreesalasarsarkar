@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { PERMISSIONS, PRESETS } from "@/lib/permissions";
-import { createUser, setPassword, updateUser, type Result } from "./actions";
+import { createUser, setPassword, signOutUser, updateUser, type Result } from "./actions";
 
 export type UserRow = {
   user_id: string;
@@ -86,22 +86,27 @@ function Access({
       </div>
       {role === "admin" ? (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Admins can do everything: all accounts, payments, loans, reports, plus Users, Settings and Backup.
+          Admins can do everything: all daily work and every extra power, plus Users, Settings and the Data page.
         </p>
       ) : (
         <fieldset>
           <legend className="mb-1 text-sm font-medium text-slate-700">Can do</legend>
-          <div className="space-y-1">
-            {PERMISSIONS.map((p) => (
-              <label key={p.key} className="flex min-h-11 items-start gap-3 rounded-lg px-1 py-1.5 hover:bg-slate-50">
-                <input type="checkbox" className="mt-0.5 h-5 w-5 accent-blue-700" checked={perms.includes(p.key)} onChange={() => toggle(p.key)} />
-                <span>
-                  <span className="block text-sm font-medium text-slate-800">{p.label}</span>
-                  <span className="block text-xs text-slate-500">{p.text}</span>
-                </span>
-              </label>
-            ))}
-          </div>
+          {(["Daily work", "Extra powers"] as const).map((g) => (
+            <div key={g} className="mb-2">
+              <p className="mt-2 px-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{g}</p>
+              <div className="space-y-1">
+                {PERMISSIONS.filter((p) => p.group === g).map((p) => (
+                  <label key={p.key} className="flex min-h-11 items-start gap-3 rounded-lg px-1 py-1.5 hover:bg-slate-50">
+                    <input type="checkbox" className="mt-0.5 h-5 w-5 accent-blue-700" checked={perms.includes(p.key)} onChange={() => toggle(p.key)} />
+                    <span>
+                      <span className="block text-sm font-medium text-slate-800">{p.label}</span>
+                      <span className="block text-xs text-slate-500">{p.text}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
           {perms.length === 0 && <p className="mt-1 text-xs text-red-600">Nothing ticked: this person can sign in but cannot open anything.</p>}
         </fieldset>
       )}
@@ -166,6 +171,46 @@ function NewUser({ onDone }: { onDone: () => void }) {
         </button>
       </div>
     </form>
+  );
+}
+
+function SignOutNow({ userId, name }: { userId: string; name: string }) {
+  const [sure, setSure] = useState(false);
+  const [r, setR] = useState<Result | null>(null);
+  const [pending, start] = useTransition();
+  return (
+    <div className="space-y-2 border-t border-slate-200 pt-4">
+      <span className="block text-sm font-medium text-slate-700">Sign out now</span>
+      <p className="text-xs text-slate-500">
+        Lost phone, or someone left? This signs {name} out on every phone and computer straight away. They can sign in again with
+        their password — change the password too if needed.
+      </p>
+      {!sure ? (
+        <button type="button" onClick={() => setSure(true)} className={`${btn} bg-white text-red-700 ring-1 ring-slate-300 hover:bg-red-50`}>
+          Sign out everywhere…
+        </button>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() =>
+              start(async () => {
+                setR(await signOutUser(userId));
+                setSure(false);
+              })
+            }
+            className={`${btn} bg-red-700 text-white hover:bg-red-800`}
+          >
+            {pending ? "Signing out…" : `Yes, sign ${name} out now`}
+          </button>
+          <button type="button" onClick={() => setSure(false)} className={`${btn} bg-white text-slate-700 ring-1 ring-slate-300`}>
+            Keep
+          </button>
+        </div>
+      )}
+      <Msg r={r} />
+    </div>
   );
 }
 
@@ -243,6 +288,7 @@ function UserCard({ u }: { u: UserRow }) {
             </div>
             <Msg r={pwR} />
           </div>
+          <SignOutNow userId={u.user_id} name={u.full_name} />
           <p className="text-xs text-slate-400">
             Last sign-in: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) : "never"}
           </p>
