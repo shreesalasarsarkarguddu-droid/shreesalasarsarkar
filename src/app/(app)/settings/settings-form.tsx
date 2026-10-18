@@ -197,6 +197,12 @@ export function SettingsForm({ initial }: { initial: Settings }) {
         >
           Download backup (.zip)
         </a>
+        <a
+          href="/settings/data"
+          className="ml-2 inline-flex h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50"
+        >
+          Data: restore points, delete, import →
+        </a>
       </section>
 
       {/* ---------------- General */}
