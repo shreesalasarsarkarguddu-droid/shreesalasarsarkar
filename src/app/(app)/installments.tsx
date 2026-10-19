@@ -1,6 +1,8 @@
 import { dmy, flagLabel, inr, isPositive, rcpt } from "@/lib/format";
 import type { LedgerRow, LedgerSummary } from "@/lib/schedule";
 import { paymentModeText, type PaymentPart } from "@/lib/payment";
+import { remarksFor, type Remark } from "@/lib/remarks";
+import { RemarkLines } from "./remark-lines";
 
 /** "30 EMIs of ₹3,631 monthly · 15 paid · 15 left · 3 overdue · Arrears ₹10,893" */
 export function EmiSummary({ summary, emi, intervalMonths }: { summary: LedgerSummary; emi: string; intervalMonths: number | null }) {
@@ -23,7 +25,7 @@ export function EmiSummary({ summary, emi, intervalMonths }: { summary: LedgerSu
   );
 }
 
-export function InstallmentTable({ rows }: { rows: LedgerRow[] }) {
+export function InstallmentTable({ rows, remarks }: { rows: LedgerRow[]; remarks?: Remark[] }) {
   if (rows.length === 0) return <p className="p-6 text-center text-sm text-slate-500">No installments.</p>;
   return (
     <>
@@ -67,6 +69,7 @@ export function InstallmentTable({ rows }: { rows: LedgerRow[] }) {
                 <Status status={r.status} />
               </div>
               <p className="mt-0.5 text-sm text-slate-500">Due {dmy(r.dueDate)}</p>
+              <RemarkLines items={remarksFor(remarks, r.sno)} className="mt-1" />
             </li>
           ),
         )}
@@ -134,7 +137,7 @@ export function InstallmentTable({ rows }: { rows: LedgerRow[] }) {
                   <td className={`px-4 py-2.5 ${r.status === "overdue" ? "font-medium text-red-800" : ""}`}>{dmy(r.dueDate)}</td>
                   <td className="px-4 py-2.5 text-right">{inr(r.dueAmount)}</td>
                   <td className="px-4 py-2.5" colSpan={7}>
-                    —
+                    {remarksFor(remarks, r.sno).length > 0 ? <RemarkLines items={remarksFor(remarks, r.sno)} /> : "—"}
                   </td>
                   <td className="px-4 py-2.5">
                     <Status status={r.status} />

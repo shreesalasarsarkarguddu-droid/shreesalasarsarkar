@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { getStaff } from "@/lib/staff";
 import { can, homeFor } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { dmy, inr, weekday } from "@/lib/format";
+import { dateTimeIST, dmy, inr, weekday } from "@/lib/format";
 import { todayIST } from "@/lib/schedule";
 import { CollectButton } from "../payments/collect-button";
 import { getReceiptHint } from "@/lib/ledger";
@@ -16,6 +16,11 @@ type Item = {
   mobile: string | null; address: string | null; vehicle: string | null; emi: number | null; balance: number | null; arrears: number | null;
   overdue_emis: number | null; next_due: string | null; seized: boolean; closed: boolean; collected: number; receipts: number; note: string | null;
   waiting: number;
+};
+
+type Promised = {
+  id: number; source: "old" | "new"; ref_id: number; subject: string | null; folio: string | null; mobile: string | null;
+  remark: string; created_at: string; by_name: string;
 };
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -38,11 +43,14 @@ export default async function MyCollectionsPage({ searchParams }: PageProps<"/my
   const me = String(claims?.claims?.sub ?? "");
   // collection men: their own list; anyone who assigns: everyone, or one person
   const target = manager ? (/^[0-9a-f-]{36}$/.test(who) ? who : null) : me;
-  const [{ data, error }, { data: people }, hint] = await Promise.all([
+  const [{ data, error }, { data: people }, hint, { data: promisedData }] = await Promise.all([
     supabase.rpc("collection_list", { p_day: day, p_user: target }),
     manager ? supabase.rpc("staff_names") : Promise.resolve({ data: null }),
     can(staff, "collect") ? getReceiptHint(supabase) : Promise.resolve(null),
+    // customers who promised to pay on this day and have not paid since
+    supabase.rpc("remarks_list", { p_from: null, p_to: null, p_user: target, p_q: null, p_status: "open", p_promise: day, p_limit: 200, p_offset: 0 }),
   ]);
+  const promised = (promisedData ?? []) as Promised[];
   if (error) {
     console.error("collection_list failed:", error);
     throw new Error("Could not load the collection list.");
@@ -115,6 +123,44 @@ export default async function MyCollectionsPage({ searchParams }: PageProps<"/my
             {!can(staff, "approve") && " Payments you take wait for the admin's approval after the cash count."}
           </span>
         </p>
+      )}
+
+      {promised.length > 0 && (
+        <section className="rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200">
+          <h2 className="text-sm font-semibold text-amber-900">
+            🗒 Promised to pay {day === today ? "today" : `on ${dmy(day)}`} ({promised.length})
+          </h2>
+          <ul className="mt-2 space-y-2">
+            {promised.map((p) => (
+              <li key={p.id} className="rounded-lg bg-white p-3 text-sm ring-1 ring-amber-100">
+                <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                  <Link href={p.source === "old" ? `/accounts/${p.ref_id}` : `/loans/${p.ref_id}`} className="min-w-0 flex-1 font-semibold text-blue-700">
+                    {p.subject}
+                  </Link>
+                  <span className="text-xs text-slate-500">Folio {p.folio}</span>
+                </div>
+                <p className="mt-0.5 text-slate-700">“{p.remark}”</p>
+                <p className="num text-xs text-slate-500">
+                  {p.by_name} · {dateTimeIST(p.created_at)}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {day === today && can(staff, "collect") && (
+                    <CollectButton row={{ source: p.source, ref_id: p.ref_id, folio: p.folio ?? "", borrower_name: p.subject ?? "", borrower_mobile: p.mobile }} />
+                  )}
+                  {p.mobile &&
+                    p.mobile
+                      .split(", ")
+                      .filter((m) => /^\d{10}$/.test(m))
+                      .map((m) => (
+                        <a key={m} href={`tel:${m}`} className="inline-flex h-11 items-center rounded-lg bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300">
+                          📞 {m}
+                        </a>
+                      ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {items.length > 0 && (

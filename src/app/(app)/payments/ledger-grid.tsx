@@ -1,6 +1,8 @@
 import { dmy, inr, rcpt } from "@/lib/format";
 import type { LedgerRow, LedgerSummary } from "@/lib/schedule";
 import { modeText } from "../installments";
+import { remarksFor, type Remark } from "@/lib/remarks";
+import { RemarkLines } from "../remark-lines";
 
 /** ₹ with 2 decimals: 3630 -> ₹3,630.00 */
 const inr2 = (v: string | null | undefined) => (v == null ? "—" : inr(v).replace(/^(-?₹[\d,]+)$/, "$1.00"));
@@ -10,7 +12,7 @@ const td = "whitespace-nowrap px-2.5 py-1.5";
 const foot = "sticky bottom-0 border-t-2 border-slate-300 bg-white px-2.5 py-2";
 
 /** Phone version of the grid: totals first, then one card per installment. */
-export function LedgerCards({ rows, summary }: { rows: LedgerRow[]; summary: LedgerSummary }) {
+export function LedgerCards({ rows, summary, remarks }: { rows: LedgerRow[]; summary: LedgerSummary; remarks?: Remark[] }) {
   const receipts = rows.filter((r) => r.kind === "receipt").length;
   return (
     <div className="num">
@@ -56,13 +58,16 @@ export function LedgerCards({ rows, summary }: { rows: LedgerRow[]; summary: Led
               </p>
             </li>
           ) : (
-            <li key={`d${r.sno}`} className={`flex items-center justify-between gap-2 px-3 py-2 text-sm ${r.status === "overdue" ? "bg-red-50 text-red-900" : "text-slate-500"}`}>
-              <span>
-                #{r.sno} · {inr2(r.dueAmount)}
-              </span>
-              <span className={r.status === "overdue" ? "font-semibold" : ""}>
-                {dmy(r.dueDate)} · {r.status === "overdue" ? "Overdue" : "Upcoming"}
-              </span>
+            <li key={`d${r.sno}`} className={`px-3 py-2 text-sm ${r.status === "overdue" ? "bg-red-50 text-red-900" : "text-slate-500"}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span>
+                  #{r.sno} · {inr2(r.dueAmount)}
+                </span>
+                <span className={r.status === "overdue" ? "font-semibold" : ""}>
+                  {dmy(r.dueDate)} · {r.status === "overdue" ? "Overdue" : "Upcoming"}
+                </span>
+              </div>
+              <RemarkLines items={remarksFor(remarks, r.sno)} className="mt-1" />
             </li>
           ),
         )}
@@ -71,7 +76,7 @@ export function LedgerCards({ rows, summary }: { rows: LedgerRow[]; summary: Led
   );
 }
 
-export function LedgerGrid({ rows, summary }: { rows: LedgerRow[]; summary: LedgerSummary }) {
+export function LedgerGrid({ rows, summary, remarks }: { rows: LedgerRow[]; summary: LedgerSummary; remarks?: Remark[] }) {
   const receipts = rows.filter((r) => r.kind === "receipt").length;
   return (
     <table className="num w-full border-separate border-spacing-0 text-[13px]">
@@ -124,8 +129,9 @@ export function LedgerGrid({ rows, summary }: { rows: LedgerRow[]; summary: Ledg
               <td className={td}>{r.sno}</td>
               <td className={`${td} text-right`}>{inr2(r.dueAmount)}</td>
               <td className={`${td} ${r.status === "overdue" ? "font-semibold" : ""}`}>{dmy(r.dueDate)}</td>
-              <td className={td} colSpan={10}>
+              <td className={`${td} whitespace-normal`} colSpan={10}>
                 {r.status === "overdue" ? "Overdue — not paid" : "Upcoming"}
+                <RemarkLines items={remarksFor(remarks, r.sno)} className="mt-1" />
               </td>
             </tr>
           ),

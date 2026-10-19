@@ -5,13 +5,14 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { dmy, inr, isNegative, isPositive } from "@/lib/format";
 import { buildLedger, fromPaise, toPaise } from "@/lib/schedule";
-import { NEW_PAYMENT_COLUMNS, byInstallment, getWaiting, mapNewPayment, type NewPaymentRecord } from "@/lib/ledger";
+import { NEW_PAYMENT_COLUMNS, byInstallment, getRemarks, getWaiting, mapNewPayment, type NewPaymentRecord } from "@/lib/ledger";
 import { WaitingBanner } from "../../waiting-banner";
 import { EmiSummary, InstallmentTable } from "../../installments";
 import { CollectButton } from "../../payments/collect-button";
 import { SeizeControl, type SeizureEvent } from "../../seize-control";
 import { SeizureInfo } from "../../seizure-history";
 import { PaymentFixes } from "../../payment-fixes";
+import { RemarkHistory, RemarkPanel } from "../../remark-panel";
 import { DeleteLoan } from "./delete-loan";
 import { MoneyActions } from "../../money-actions";
 import { ADJ_COLUMNS, adjText, suggestLateFee, summarizeAdjustments, type Adjustment } from "@/lib/adjustments";
@@ -81,7 +82,7 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
     throw new Error("Could not load this loan.");
   }
   if (!data) notFound();
-  const waiting = await getWaiting(supabase, "new", id);
+  const [waiting, remarks] = await Promise.all([getWaiting(supabase, "new", id), getRemarks(supabase, "new", id)]);
   const l = data as unknown as Loan & { payments: NewPaymentRecord[]; seizures: SeizureEvent[]; adjustments: Adjustment[] };
   const seizedNow = l.status === "seized";
   const b = l.borrowers;
@@ -227,7 +228,19 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
         <h2 className="border-b border-slate-100 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Installments ({schedule.length})
         </h2>
-        <InstallmentTable rows={schedule} />
+        <InstallmentTable rows={schedule} remarks={remarks} />
+      </section>
+
+      <section className="rounded-xl bg-white ring-1 ring-slate-200">
+        <h2 className="border-b border-slate-100 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Visit remarks ({remarks.length})
+        </h2>
+        <RemarkHistory remarks={remarks} path={`/loans/${l.id}`} canFix={can(staff, "fix_entries")} />
+        {can(staff, "collect") && !(l.status === "closed") && (
+          <div className="border-t border-slate-100 p-3">
+            <RemarkPanel source="new" refId={l.id} installmentNo={schedule.find((r) => r.kind === "due")?.sno ?? null} />
+          </div>
+        )}
       </section>
 
       <MoneyActions

@@ -42,6 +42,7 @@ export function controlLinks(access: Access): { href: string; label: string; tex
     { href: "/cash", label: "Daily cash", text: "Each person's collection and the cash handed in", ok: can(access, "cash") || can(access, "collect") },
     { href: "/approvals", label: "Approvals", text: "Back-dated or big payments waiting for approval", ok: can(access, "approve") },
     { href: "/receipt-books", label: "Receipt books", text: "Receipt number ranges for each person, skipped numbers", ok: can(access, "cash") },
+    { href: "/remarks", label: "Remarks", text: "What customers said when they did not pay; promised dates", ok: can(access, "collect") || can(access, "view_accounts") },
     { href: "/zones", label: "Zones", text: "Areas, each with its own receipt books", ok: isAdmin },
     { href: "/activity", label: "Activity", text: "Who did what and when", ok: can(access, "activity") },
     { href: "/users", label: "Users", text: "Staff logins and what each person can do", ok: isAdmin },

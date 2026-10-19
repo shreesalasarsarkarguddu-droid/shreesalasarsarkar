@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildLedger, fromPaise, toPaise, type LedgerRow, type LedgerSummary, type PaymentRow } from "@/lib/schedule";
 import { ADJ_COLUMNS, summarizeAdjustments, type Adjustment } from "@/lib/adjustments";
 import type { PaymentPart } from "@/lib/payment";
+import type { Remark } from "@/lib/remarks";
 
 export const NEW_PAYMENT_COLUMNS =
   "id, installment_no, due_date, paid_date, delay_days, payment_mode, reference_no, bank_name, receipt_no, installments_covered," +
@@ -93,8 +94,15 @@ export async function getReceiptHint(supabase: SupabaseClient, source?: "old" | 
   return (data as ReceiptHint | null) ?? null;
 }
 
+/** Visit remarks on one account, newest first. */
+export async function getRemarks(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<Remark[]> {
+  const { data } = await supabase.rpc("account_remarks", { p_source: source, p_ref: refId });
+  return (data ?? []) as Remark[];
+}
+
 export type Ledger = {
   waiting: WaitingPayment[];
+  remarks: Remark[];
   receiptHint: ReceiptHint | null;
   source: "old" | "new";
   refId: number;
@@ -115,15 +123,16 @@ export type Ledger = {
 
 /** Everything the Collect Payment window needs for one pending account. RLS applies. */
 export async function getLedger(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<Ledger | null> {
-  const [ledger, waiting, receiptHint] = await Promise.all([
+  const [ledger, waiting, receiptHint, remarks] = await Promise.all([
     ledgerOnly(supabase, source, refId),
     getWaiting(supabase, source, refId),
     getReceiptHint(supabase, source, refId),
+    getRemarks(supabase, source, refId),
   ]);
-  return ledger ? { ...ledger, waiting, receiptHint } : null;
+  return ledger ? { ...ledger, waiting, receiptHint, remarks } : null;
 }
 
-async function ledgerOnly(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<Omit<Ledger, "waiting" | "receiptHint"> | null> {
+async function ledgerOnly(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<Omit<Ledger, "waiting" | "receiptHint" | "remarks"> | null> {
   if (source === "old") {
     // One request: account + its legacy payments + its new-system payments.
     const { data: a, error } = await supabase

@@ -8,6 +8,7 @@ import { PAYMENT_MODES } from "@/lib/payment";
 import { DateInput } from "@/components/date-input";
 import type { Ledger, ReceiptHint } from "@/lib/ledger";
 import { EmiSummary } from "../installments";
+import { RemarkPanel } from "../remark-panel";
 import { LedgerCards, LedgerGrid } from "./ledger-grid";
 import { loadLedger, recordPayment, type PaymentField } from "./actions";
 import type { PendingRow } from "./collect-list";
@@ -266,23 +267,20 @@ export function CollectPanel({
                   </div>
                 </section>
                 <section className="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200 md:hidden">
-                  <LedgerCards rows={ledger.rows} summary={ledger.summary} />
+                  <LedgerCards rows={ledger.rows} summary={ledger.summary} remarks={ledger.remarks} />
                 </section>
                 <section
                   className={`hidden min-h-0 overflow-auto rounded-xl bg-white ring-1 ring-slate-200 md:block ${
                     variant === "dialog" ? "md:h-[65dvh] lg:h-auto lg:flex-1" : "md:max-h-[75dvh]"
                   }`}
                 >
-                  <LedgerGrid rows={ledger.rows} summary={ledger.summary} />
+                  <LedgerGrid rows={ledger.rows} summary={ledger.summary} remarks={ledger.remarks} />
                 </section>
               </div>
 
               {/* right: take payment (first on phones) */}
-              <form
-                onSubmit={save}
-                noValidate
-                className="order-1 space-y-4 self-start rounded-xl bg-white p-4 ring-1 ring-slate-200 lg:order-2 lg:max-h-full lg:overflow-y-auto"
-              >
+              <div className="order-1 space-y-3 self-start lg:order-2 lg:max-h-full lg:overflow-y-auto">
+              <form onSubmit={save} noValidate className="space-y-4 rounded-xl bg-white p-4 ring-1 ring-slate-200">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Take payment</h3>
 
                 {saved && (
@@ -497,6 +495,8 @@ export function CollectPanel({
                   {saving ? "Saving…" : isAmount(form.paid_amount) ? `Save ${inr(fromPaise(toPaise(form.paid_amount)))}` : "Save payment"}
                 </button>
               </form>
+              <RemarkPanel source={ledger.source} refId={ledger.refId} installmentNo={dueRows[0]?.sno ?? null} onSaved={() => void load()} />
+              </div>
             </div>
           )}
         </div>
