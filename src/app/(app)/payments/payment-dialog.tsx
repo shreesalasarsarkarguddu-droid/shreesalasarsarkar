@@ -10,6 +10,7 @@ import type { Ledger, ReceiptHint } from "@/lib/ledger";
 import { EmiSummary } from "../installments";
 import { RemarkPanel } from "../remark-panel";
 import { ZonePicker } from "../zone-picker";
+import { PaymentFixes } from "../payment-fixes";
 import { LedgerCards, LedgerGrid } from "./ledger-grid";
 import { loadLedger, recordPayment, type PaymentField } from "./actions";
 import type { PendingRow } from "./collect-list";
@@ -282,6 +283,18 @@ export function CollectPanel({
                 >
                   <LedgerGrid rows={ledger.rows} summary={ledger.summary} remarks={ledger.remarks} />
                 </section>
+                {ledger.canFix && ledger.appPayments.length > 0 && (
+                  <div className="shrink-0 lg:max-h-[40%] lg:overflow-y-auto">
+                  <PaymentFixes
+                    payments={ledger.appPayments}
+                    path={ledger.source === "old" ? `/accounts/${ledger.refId}` : `/loans/${ledger.refId}`}
+                    onChanged={() => {
+                      savedAny.current = true;
+                      void load();
+                    }}
+                  />
+                  </div>
+                )}
               </div>
 
               {/* right: take payment (first on phones) */}

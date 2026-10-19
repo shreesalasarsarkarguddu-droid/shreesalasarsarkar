@@ -13,7 +13,7 @@ const input =
   "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20";
 
 /** Admin only: the payments taken in this app on one account, each with Edit and Cancel. */
-export function PaymentFixes({ payments, path }: { payments: NewPaymentRecord[]; path: string }) {
+export function PaymentFixes({ payments, path, onChanged }: { payments: NewPaymentRecord[]; path: string; onChanged?: () => void }) {
   const [open, setOpen] = useState<{ id: number; mode: "edit" | "cancel" } | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const sorted = [...payments].sort((a, b) => a.installment_no - b.installment_no);
@@ -69,6 +69,7 @@ export function PaymentFixes({ payments, path }: { payments: NewPaymentRecord[];
                 onDone={(m) => {
                   setOpen(null);
                   setDone(m);
+                  onChanged?.();
                 }}
               />
             )}
@@ -79,6 +80,7 @@ export function PaymentFixes({ payments, path }: { payments: NewPaymentRecord[];
                 onDone={(m) => {
                   setOpen(null);
                   setDone(m);
+                  onChanged?.();
                 }}
               />
             )}

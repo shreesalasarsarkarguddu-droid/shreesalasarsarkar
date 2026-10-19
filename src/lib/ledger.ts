@@ -5,6 +5,7 @@ import { ADJ_COLUMNS, summarizeAdjustments, type Adjustment } from "@/lib/adjust
 import type { PaymentPart } from "@/lib/payment";
 import type { Remark } from "@/lib/remarks";
 import type { ZoneInfo } from "@/lib/zones";
+import { getStaff } from "@/lib/staff";
 
 export const NEW_PAYMENT_COLUMNS =
   "id, installment_no, due_date, paid_date, delay_days, payment_mode, reference_no, bank_name, receipt_no, installments_covered," +
@@ -108,6 +109,10 @@ export async function getZoneInfo(supabase: SupabaseClient, source: "old" | "new
 }
 
 export type Ledger = {
+  /** admin only: edit / cancel the payments taken in this app from the Collect window */
+  canFix: boolean;
+  /** payments taken in this app on this account (for edit / cancel) */
+  appPayments: NewPaymentRecord[];
   zoneInfo: ZoneInfo | null;
   waiting: WaitingPayment[];
   remarks: Remark[];
@@ -131,17 +136,18 @@ export type Ledger = {
 
 /** Everything the Collect Payment window needs for one pending account. RLS applies. */
 export async function getLedger(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<Ledger | null> {
-  const [ledger, waiting, receiptHint, remarks, zoneInfo] = await Promise.all([
+  const [ledger, waiting, receiptHint, remarks, zoneInfo, staff] = await Promise.all([
     ledgerOnly(supabase, source, refId),
     getWaiting(supabase, source, refId),
     getReceiptHint(supabase, source, refId),
     getRemarks(supabase, source, refId),
     getZoneInfo(supabase, source, refId),
+    getStaff(),
   ]);
-  return ledger ? { ...ledger, waiting, receiptHint, remarks, zoneInfo } : null;
+  return ledger ? { ...ledger, waiting, receiptHint, remarks, zoneInfo, canFix: staff?.role === "admin" } : null;
 }
 
-async function ledgerOnly(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<Omit<Ledger, "waiting" | "receiptHint" | "remarks" | "zoneInfo"> | null> {
+async function ledgerOnly(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<Omit<Ledger, "waiting" | "receiptHint" | "remarks" | "zoneInfo" | "canFix"> | null> {
   if (source === "old") {
     // One request: account + its legacy payments + its new-system payments.
     const { data: a, error } = await supabase
@@ -177,7 +183,7 @@ async function ledgerOnly(supabase: SupabaseClient, source: "old" | "new", refId
       payments, settled: toPaise(balance) <= 0n, adjustments: adj.net, reschedule: adj.reschedule,
     });
     return {
-      source, refId, folio: String(acc.fno), name: acc.borrower_name, father: acc.borrower_father, mobile: acc.borrower_mobile,
+      appPayments: acc.payments, source, refId, folio: String(acc.fno), name: acc.borrower_name, father: acc.borrower_father, mobile: acc.borrower_mobile,
       address: acc.borrower_address, vehicle: [acc.vehicle_model, acc.registration_no].filter(Boolean).join(" · ") || null,
       total, emi: adj.reschedule?.emi ?? acc.emi_amount, intervalMonths: acc.interval_months, paid, balance, rows, summary,
     };
@@ -213,7 +219,7 @@ async function ledgerOnly(supabase: SupabaseClient, source: "old" | "new", refId
     payments, settled: toPaise(balance) <= 0n, adjustments: adj.net, reschedule: adj.reschedule,
   });
   return {
-    source, refId, folio: loan.folio_no, name: loan.borrowers.full_name, father: loan.borrowers.father_name,
+    appPayments: loan.payments, source, refId, folio: loan.folio_no, name: loan.borrowers.full_name, father: loan.borrowers.father_name,
     mobile: loan.borrowers.mobile, address: loan.borrowers.address,
     vehicle: [loan.vehicle_model, loan.vehicle_no].filter(Boolean).join(" · ") || null,
     total, emi: adj.reschedule?.emi ?? loan.emi_amount, intervalMonths: loan.interval_months, paid, balance, rows, summary,
