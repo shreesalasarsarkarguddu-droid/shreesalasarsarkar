@@ -29,6 +29,11 @@ const emptyForm = (): Form => ({
   bank_name: "",
   installments_covered: "1",
 });
+type SplitPart = { mode: string; amount: string; bank_name: string; reference_no: string };
+const emptyParts = (): SplitPart[] => [
+  { mode: "CASH", amount: "", bank_name: "", reference_no: "" },
+  { mode: "BANK", amount: "", bank_name: "", reference_no: "" },
+];
 const plain = (p: bigint) => (p % 100n === 0n ? String(p / 100n) : fromPaise(p));
 const isAmount = (v: string) => /^\d{1,9}(\.\d{1,2})?$/.test(v);
 
@@ -51,6 +56,7 @@ export function CollectPanel({
   const [ledger, setLedger] = useState<Ledger | null>(initialLedger);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm);
+  const [parts, setParts] = useState<SplitPart[]>(emptyParts);
   const [imTouched, setImTouched] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<PaymentField, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -114,11 +120,32 @@ export function CollectPanel({
     onClose?.(savedAny.current);
   }
 
+  // split payment: part 1 typed, part 2 = the rest of the amount
+  const total = isAmount(form.paid_amount) ? toPaise(form.paid_amount) : 0n;
+  const firstPaise = isAmount(parts[0].amount) ? toPaise(parts[0].amount) : 0n;
+  const restPaise = total - firstPaise;
+  const splitParts = [
+    { ...parts[0], amount: fromPaise(firstPaise) },
+    { ...parts[1], amount: fromPaise(restPaise > 0n ? restPaise : 0n) },
+  ];
+  function setPart(i: number, k: keyof SplitPart, v: string) {
+    setParts((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
+    setErrors((e) => ({ ...e, parts: undefined }));
+    setSaved(null);
+  }
+
   function save(e: React.FormEvent) {
     e.preventDefault();
     if (!ledger || saving) return;
     setFormError(null);
     const errs: Partial<Record<PaymentField, string>> = {};
+    if (form.payment_mode === "SPLIT") {
+      if (firstPaise <= 0n) errs.parts = `Enter the ${parts[0].mode.toLowerCase()} amount`;
+      else if (restPaise <= 0n) errs.parts = "The first part must be less than the total amount";
+      else if (splitParts.some((p) => p.mode === "BANK" && !p.bank_name.trim())) errs.parts = "Enter the bank name for the bank part";
+      else if (splitParts.some((p) => p.mode === "CHEQUE" && !p.reference_no.trim())) errs.parts = "Enter the cheque number for the cheque part";
+      else if (parts[0].mode === parts[1].mode) errs.parts = "Choose two different modes";
+    }
     if (!isAmount(form.paid_amount) || toPaise(form.paid_amount) <= 0n) errs.paid_amount = "Enter the amount";
     if (!form.paid_date) errs.paid_date = "Enter the paid date";
     else if (form.paid_date > todayIST()) errs.paid_date = "Paid date cannot be in the future";
@@ -139,6 +166,7 @@ export function CollectPanel({
           idempotencyKey: key,
           ...form,
           installments_covered: Number(form.installments_covered) || 1,
+          ...(form.payment_mode === "SPLIT" ? { parts: splitParts, reference_no: "", bank_name: "" } : {}),
         });
         if (!res.ok) {
           setFormError(res.error);
@@ -155,6 +183,7 @@ export function CollectPanel({
         if (res.ledger) setLedger(res.ledger);
         else void load();
         setForm(emptyForm());
+        setParts(emptyParts());
         setImTouched(false);
         setKey(crypto.randomUUID());
       } catch {
@@ -337,8 +366,8 @@ export function CollectPanel({
                   <span className="mb-1 block text-sm font-medium text-slate-700">
                     Mode <span className="text-red-600">*</span>
                   </span>
-                  <div role="radiogroup" aria-label="Payment mode" className="grid grid-cols-4 gap-1.5">
-                    {PAYMENT_MODES.map((m, i) => (
+                  <div role="radiogroup" aria-label="Payment mode" className="grid grid-cols-5 gap-1.5">
+                    {[...PAYMENT_MODES, "SPLIT" as const].map((m, i) => (
                       <button
                         key={m}
                         id={i === 0 ? "pay-payment_mode" : undefined}
@@ -359,7 +388,61 @@ export function CollectPanel({
                     ))}
                   </div>
                   <Err msg={errors.payment_mode} />
+                  {form.payment_mode !== "SPLIT" && <p className="mt-1 text-xs text-slate-500">Paid partly in cash and partly online? Choose SPLIT.</p>}
                 </div>
+
+                {form.payment_mode === "SPLIT" && (
+                  <div id="pay-parts" tabIndex={-1} className="space-y-2 rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
+                    <p className="text-xs font-medium text-slate-600">One receipt, paid in two ways. The second part is the rest of the amount.</p>
+                    {splitParts.map((p, i) => (
+                      <div key={i} className="space-y-2 rounded-lg bg-white p-2 ring-1 ring-slate-200">
+                        <div className="flex items-center gap-2">
+                          <select
+                            aria-label={`Part ${i + 1} mode`}
+                            value={parts[i].mode}
+                            onChange={(e) => setPart(i, "mode", e.target.value)}
+                            className="h-11 rounded-lg border border-slate-300 bg-white px-2 text-sm font-semibold"
+                          >
+                            {PAYMENT_MODES.map((m) => (
+                              <option key={m}>{m}</option>
+                            ))}
+                          </select>
+                          {i === 0 ? (
+                            <input
+                              aria-label="Part 1 amount"
+                              inputMode="decimal"
+                              placeholder="Amount"
+                              value={parts[0].amount}
+                              onChange={(e) => setPart(0, "amount", e.target.value.replace(/[^\d.]/g, ""))}
+                              className="num h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-base font-semibold"
+                            />
+                          ) : (
+                            <span className="num flex h-11 min-w-0 flex-1 items-center rounded-lg bg-slate-100 px-3 text-base font-semibold text-slate-700">
+                              {total > 0n ? inr(p.amount) : "—"}
+                            </span>
+                          )}
+                        </div>
+                        {p.mode === "BANK" && (
+                          <input
+                            placeholder="Bank name *"
+                            value={parts[i].bank_name}
+                            onChange={(e) => setPart(i, "bank_name", e.target.value.toUpperCase())}
+                            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+                          />
+                        )}
+                        {p.mode !== "CASH" && (
+                          <input
+                            placeholder={p.mode === "CHEQUE" ? "Cheque no. *" : "UTR / reference no. (optional)"}
+                            value={parts[i].reference_no}
+                            onChange={(e) => setPart(i, "reference_no", e.target.value.toUpperCase())}
+                            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+                          />
+                        )}
+                      </div>
+                    ))}
+                    <Err msg={errors.parts} />
+                  </div>
+                )}
 
                 {form.payment_mode === "BANK" && (
                   <TextField id="bank_name" label="Bank name" required value={form.bank_name} error={errors.bank_name} onChange={(v) => set("bank_name", v.toUpperCase())} />

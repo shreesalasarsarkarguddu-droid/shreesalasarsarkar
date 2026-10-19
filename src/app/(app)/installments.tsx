@@ -1,5 +1,6 @@
 import { dmy, flagLabel, inr, isPositive } from "@/lib/format";
 import type { LedgerRow, LedgerSummary } from "@/lib/schedule";
+import { paymentModeText, type PaymentPart } from "@/lib/payment";
 
 /** "30 EMIs of ₹3,631 monthly · 15 paid · 15 left · 3 overdue · Arrears ₹10,893" */
 export function EmiSummary({ summary, emi, intervalMonths }: { summary: LedgerSummary; emi: string; intervalMonths: number | null }) {
@@ -148,9 +149,8 @@ export function InstallmentTable({ rows }: { rows: LedgerRow[] }) {
   );
 }
 
-export function modeText(p: { payment_mode: string | null; bank_name?: string | null }) {
-  if (!p.payment_mode) return "—";
-  return p.payment_mode === "BANK" && p.bank_name ? `BANK · ${p.bank_name}` : p.payment_mode;
+export function modeText(p: { payment_mode: string | null; bank_name?: string | null; parts?: PaymentPart[] | null }) {
+  return paymentModeText(p.payment_mode, p.bank_name, p.parts);
 }
 
 function Status({ status }: { status: "paid" | "overdue" | "upcoming" }) {

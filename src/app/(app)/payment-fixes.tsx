@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { dmy, inr } from "@/lib/format";
-import { PAYMENT_MODES } from "@/lib/payment";
+import { PAYMENT_MODES, paymentModeText } from "@/lib/payment";
 import { todayIST } from "@/lib/schedule";
 import type { NewPaymentRecord } from "@/lib/ledger";
 import { cancelPayment, editPayment, type FixResult, type PaymentFixInput } from "./fix-actions";
@@ -37,8 +37,7 @@ export function PaymentFixes({ payments, path }: { payments: NewPaymentRecord[];
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <p className="num min-w-0 flex-1 text-sm">
                 <b>#{p.installment_no}</b> · <span className="font-semibold text-emerald-700">{inr(p.paid_amount)}</span> · {dmy(p.paid_date)} ·{" "}
-                {p.payment_mode}
-                {p.bank_name ? ` · ${p.bank_name}` : ""} · Rcpt {p.receipt_no}
+                {paymentModeText(p.payment_mode, p.bank_name, p.parts)} · Rcpt {p.receipt_no}
                 {p.installments_covered > 1 && ` · ${p.installments_covered} EMIs`}
               </p>
               <button
@@ -105,6 +104,7 @@ function EditForm({ p, path, onDone }: { p: NewPaymentRecord; path: string; onDo
   const [pending, start] = useTransition();
   const err = (k: string) => (r && !r.ok ? r.fieldErrors?.[k] : undefined);
   const set = (k: keyof PaymentFixInput, v: string) => setF((o) => ({ ...o, [k]: v }));
+  const split = p.payment_mode === "SPLIT";
 
   return (
     <form
@@ -122,25 +122,37 @@ function EditForm({ p, path, onDone }: { p: NewPaymentRecord; path: string; onDo
       }}
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <L label="Amount (₹)" error={err("paid_amount")}>
-          <input className={input} inputMode="decimal" value={f.paid_amount} onChange={(e) => set("paid_amount", e.target.value.replace(/[^\d.]/g, ""))} />
-        </L>
+        {split ? (
+          <div className="sm:col-span-2">
+            <span className="mb-1 block text-sm font-medium text-slate-700">Amount / mode (split)</span>
+            <p className="num rounded-lg bg-slate-100 px-3 py-2.5 text-sm">{paymentModeText(p.payment_mode, p.bank_name, p.parts)}</p>
+            <span className="mt-1 block text-xs text-slate-500">To change a split payment&apos;s amounts, cancel it and enter it again.</span>
+          </div>
+        ) : (
+          <>
+            <L label="Amount (₹)" error={err("paid_amount")}>
+              <input className={input} inputMode="decimal" value={f.paid_amount} onChange={(e) => set("paid_amount", e.target.value.replace(/[^\d.]/g, ""))} />
+            </L>
+            <L label="Mode" error={err("payment_mode")}>
+              <select className={input} value={f.payment_mode} onChange={(e) => set("payment_mode", e.target.value)}>
+                {PAYMENT_MODES.map((m) => (
+                  <option key={m}>{m}</option>
+                ))}
+              </select>
+            </L>
+          </>
+        )}
         <L label="Paid date" error={err("paid_date")}>
           <input className={input} type="date" max={todayIST()} value={f.paid_date} onChange={(e) => set("paid_date", e.target.value)} />
-        </L>
-        <L label="Mode" error={err("payment_mode")}>
-          <select className={input} value={f.payment_mode} onChange={(e) => set("payment_mode", e.target.value)}>
-            {PAYMENT_MODES.map((m) => (
-              <option key={m}>{m}</option>
-            ))}
-          </select>
         </L>
         <L label="Receipt no." error={err("receipt_no")}>
           <input className={input} inputMode="numeric" value={f.receipt_no} onChange={(e) => set("receipt_no", e.target.value.replace(/\D/g, ""))} />
         </L>
-        <L label="Cheque / ref no." error={err("reference_no")}>
-          <input className={input} value={f.reference_no} onChange={(e) => set("reference_no", e.target.value)} />
-        </L>
+        {!split && (
+          <L label="Cheque / ref no." error={err("reference_no")}>
+            <input className={input} value={f.reference_no} onChange={(e) => set("reference_no", e.target.value)} />
+          </L>
+        )}
         {f.payment_mode === "BANK" && (
           <L label="Bank name" error={err("bank_name")}>
             <input className={input} value={f.bank_name} onChange={(e) => set("bank_name", e.target.value)} />

@@ -1,6 +1,7 @@
 import { dmy, inr } from "@/lib/format";
 import { fromPaise, toPaise } from "@/lib/schedule";
 import type { WaitingPayment } from "@/lib/ledger";
+import { paymentModeText } from "@/lib/payment";
 
 /** Money collected by a collection man that is not counted yet (waits for the night cash count). */
 export function WaitingBanner({ waiting, canApprove }: { waiting: WaitingPayment[]; canApprove: boolean }) {
@@ -14,7 +15,7 @@ export function WaitingBanner({ waiting, canApprove }: { waiting: WaitingPayment
       <ul className="num mt-1 space-y-0.5 text-xs">
         {waiting.map((w) => (
           <li key={w.receipt_no}>
-            Rcpt {w.receipt_no} · {inr(w.paid_amount)} · {w.payment_mode} · paid {dmy(w.paid_date)}
+            Rcpt {w.receipt_no} · {inr(w.paid_amount)} · {paymentModeText(w.payment_mode, w.bank_name, w.parts)} · paid {dmy(w.paid_date)}
           </li>
         ))}
       </ul>

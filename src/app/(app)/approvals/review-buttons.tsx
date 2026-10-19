@@ -8,6 +8,8 @@ import { reviewPending, type CtlResult } from "../control-actions";
 export type Waiting = {
   id: number; user_id: string; subject: string | null; source: "old" | "new"; ref_id: number; paid_amount: number; paid_date: string;
   receipt_no: number; payment_mode: string; reason: string | null; by_name: string; created_at: string;
+  /** cash in this payment (all of it for CASH, the cash part of a split payment) */
+  cash_part: number;
 };
 
 const rs = (v: number) => inr(String(v));
@@ -21,9 +23,9 @@ export function ApproveGroup({ rows }: { rows: Waiting[] }) {
   const [r, setR] = useState<CtlResult | null>(null);
   const [pending, start] = useTransition();
 
-  const sum = (pred: (w: Waiting) => boolean) => rows.filter((w) => picked.has(w.id) && pred(w)).reduce((t, w) => t + Number(w.paid_amount), 0);
-  const cash = sum((w) => w.payment_mode === "CASH");
-  const other = sum((w) => w.payment_mode !== "CASH");
+  const ticked = rows.filter((w) => picked.has(w.id));
+  const cash = ticked.reduce((t, w) => t + Number(w.cash_part), 0);
+  const other = ticked.reduce((t, w) => t + Number(w.paid_amount) - Number(w.cash_part), 0);
   const allOn = rows.every((w) => picked.has(w.id));
   const go = (approve: boolean) =>
     start(async () => {

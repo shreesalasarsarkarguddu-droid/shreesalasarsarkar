@@ -33,14 +33,33 @@ const paymentSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Enter the paid date" })
     .refine((v) => v <= todayIST(), { error: "Paid date cannot be in the future" }),
-  payment_mode: z.enum(PAYMENT_MODES, { error: "Choose payment mode" }),
+  payment_mode: z.enum([...PAYMENT_MODES, "SPLIT"], { error: "Choose payment mode" }),
   receipt_no: z.string().trim().regex(/^\d{1,12}$/, { error: "Enter the receipt number" }),
   reference_no: z.string().trim().max(30, { error: "Too long" }),
   bank_name: z.string().trim().max(60, { error: "Too long" }),
   installments_covered: z.number().int().min(1, { error: "At least 1 EMI" }).max(360),
+  // split payment: e.g. cash + bank on one receipt
+  parts: z
+    .array(
+      z.object({
+        mode: z.enum(PAYMENT_MODES),
+        amount: z.string().trim().regex(/^\d{1,9}(\.\d{1,2})?$/, { error: "Enter each part's amount" }).refine((v) => Number(v) > 0, { error: "Each part must be more than 0" }),
+        bank_name: z.string().trim().max(60),
+        reference_no: z.string().trim().max(30),
+      }),
+    )
+    .max(4)
+    .optional(),
 })
   .refine((v) => v.payment_mode !== "CHEQUE" || v.reference_no !== "", { error: "Enter the cheque number", path: ["reference_no"] })
-  .refine((v) => v.payment_mode !== "BANK" || v.bank_name !== "", { error: "Enter the bank name", path: ["bank_name"] });
+  .refine((v) => v.payment_mode !== "BANK" || v.bank_name !== "", { error: "Enter the bank name", path: ["bank_name"] })
+  .refine((v) => v.payment_mode !== "SPLIT" || (v.parts?.length ?? 0) >= 2, { error: "A split payment needs 2 parts", path: ["parts"] })
+  .refine(
+    (v) => v.payment_mode !== "SPLIT" || !v.parts || Math.round(v.parts.reduce((t, p) => t + Number(p.amount), 0) * 100) === Math.round(Number(v.paid_amount) * 100),
+    { error: "The parts must add up to the amount", path: ["parts"] },
+  )
+  .refine((v) => v.payment_mode !== "SPLIT" || !v.parts?.some((p) => p.mode === "BANK" && !p.bank_name), { error: "Enter the bank name for the bank part", path: ["parts"] })
+  .refine((v) => v.payment_mode !== "SPLIT" || !v.parts?.some((p) => p.mode === "CHEQUE" && !p.reference_no), { error: "Enter the cheque number for the cheque part", path: ["parts"] });
 
 // Plain strings from the form; everything is validated on the server below.
 export type PaymentInput = {
@@ -54,8 +73,9 @@ export type PaymentInput = {
   reference_no: string;
   bank_name: string;
   installments_covered: number;
+  parts?: { mode: string; amount: string; bank_name: string; reference_no: string }[];
 };
-export type PaymentField = "paid_amount" | "paid_date" | "payment_mode" | "receipt_no" | "reference_no" | "bank_name" | "installments_covered";
+export type PaymentField = "paid_amount" | "paid_date" | "payment_mode" | "receipt_no" | "reference_no" | "bank_name" | "installments_covered" | "parts";
 export type RecordResult =
   | { ok: true; receiptNo: number; installmentNo: number; ledger: Ledger | null; review: string | null; pending: boolean }
   | { ok: false; error: string; fieldErrors?: Partial<Record<PaymentField, string>> };
@@ -91,6 +111,16 @@ export async function recordPayment(input: PaymentInput): Promise<RecordResult> 
       reference_no: v.reference_no,
       bank_name: v.payment_mode === "BANK" ? v.bank_name : "",
       installments_covered: v.installments_covered,
+      ...(v.payment_mode === "SPLIT"
+        ? {
+            parts: v.parts!.map((p) => ({
+              mode: p.mode,
+              amount: p.amount,
+              bank_name: p.mode === "BANK" ? p.bank_name : "",
+              reference_no: p.mode === "CASH" ? "" : p.reference_no,
+            })),
+          }
+        : {}),
     },
   });
   if (error) {

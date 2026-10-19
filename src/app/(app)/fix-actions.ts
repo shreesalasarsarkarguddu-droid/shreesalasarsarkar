@@ -45,7 +45,7 @@ const paymentFix = z
   .object({
     paid_amount: z.string().trim().regex(/^\d{1,9}(\.\d{1,2})?$/, { error: "Enter the amount" }).refine((v) => Number(v) > 0, { error: "Must be more than 0" }),
     paid_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Enter the date" }).refine((v) => v <= todayIST(), { error: "Cannot be in the future" }),
-    payment_mode: z.enum(PAYMENT_MODES, { error: "Choose the mode" }),
+    payment_mode: z.enum([...PAYMENT_MODES, "SPLIT"], { error: "Choose the mode" }),
     receipt_no: z.string().trim().regex(/^\d{1,12}$/, { error: "Enter the receipt number" }).refine((v) => Number(v) > 0, { error: "Enter the receipt number" }),
     reference_no: z.string().trim().max(30, { error: "Too long" }),
     bank_name: z.string().trim().max(60, { error: "Too long" }),

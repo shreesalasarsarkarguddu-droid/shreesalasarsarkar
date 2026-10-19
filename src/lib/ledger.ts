@@ -2,10 +2,11 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildLedger, fromPaise, toPaise, type LedgerRow, type LedgerSummary, type PaymentRow } from "@/lib/schedule";
 import { ADJ_COLUMNS, summarizeAdjustments, type Adjustment } from "@/lib/adjustments";
+import type { PaymentPart } from "@/lib/payment";
 
 export const NEW_PAYMENT_COLUMNS =
   "id, installment_no, due_date, paid_date, delay_days, payment_mode, reference_no, bank_name, receipt_no, installments_covered," +
-  " due_amount::text, paid_amount::text, balance_after::text, created_at";
+  " due_amount::text, paid_amount::text, balance_after::text, created_at, parts";
 
 export type NewPaymentRecord = {
   id: number;
@@ -22,6 +23,7 @@ export type NewPaymentRecord = {
   paid_amount: string;
   balance_after: string;
   created_at: string;
+  parts: PaymentPart[] | null;
 };
 
 /** A new-system payment in the same shape as legacy payment rows. */
@@ -42,6 +44,7 @@ export function mapNewPayment(p: NewPaymentRecord): PaymentRow {
     installments_covered: p.installments_covered,
     data_flags: [],
     created_at: p.created_at,
+    parts: p.parts,
   };
 }
 
@@ -59,14 +62,16 @@ export function subMoney(a: string, b: string): string {
 export const byInstallment = <T extends { installment_no: number }>(a: T, b: T) => a.installment_no - b.installment_no;
 
 /** A payment taken by a collection man that waits for the night cash count (not counted yet). */
-export type WaitingPayment = { receipt_no: number; paid_amount: string; paid_date: string; payment_mode: string; created_at: string };
+export type WaitingPayment = {
+  receipt_no: number; paid_amount: string; paid_date: string; payment_mode: string; bank_name: string | null; parts: PaymentPart[] | null; created_at: string;
+};
 /** Receipt numbers for the payment window: last used (app / you / old software) and the next free number in your books. */
 export type ReceiptHint = { last_app: number | null; last_mine: number | null; last_old: number | null; books: { from: number; to: number; next: number | null }[] };
 
 export async function getWaiting(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<WaitingPayment[]> {
   const { data } = await supabase
     .from("pending_payments")
-    .select("receipt_no, paid_amount::text, paid_date, payment_mode, created_at")
+    .select("receipt_no, paid_amount::text, paid_date, payment_mode, bank_name, parts, created_at")
     .eq("source", source)
     .eq("ref_id", refId)
     .order("created_at");
