@@ -553,6 +553,19 @@ function ReceiptHintLine({ h, onUse }: { h: ReceiptHint; onUse: (n: number) => v
         {h.last_mine != null && h.last_mine !== h.last_app && <> (yours {h.last_mine})</>}
         {h.last_old != null && <> · old software {h.last_old}</>}
       </p>
+      {h.zone && (
+        <p className="flex flex-wrap items-center gap-2">
+          Zone {h.zone.name}: receipts {h.zone.start}–{h.zone.end ?? "onwards"}
+          {h.zone.last != null && <> · last {h.zone.last}</>}
+          {h.zone.next != null ? (
+            <button type="button" onClick={() => onUse(h.zone!.next!)} className="rounded-md bg-white px-2 py-0.5 font-semibold text-blue-700 ring-1 ring-slate-300">
+              Use next: {h.zone.next}
+            </button>
+          ) : (
+            <span className="font-semibold text-red-700">zone series full — ask the admin</span>
+          )}
+        </p>
+      )}
       {h.books.length > 0 && (
         <p className="flex flex-wrap items-center gap-2">
           Your book{h.books.length > 1 ? "s" : ""}: {h.books.map((b) => `${b.from}–${b.to}`).join(", ")}

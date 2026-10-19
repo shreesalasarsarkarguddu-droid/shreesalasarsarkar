@@ -66,7 +66,11 @@ export type WaitingPayment = {
   receipt_no: number; paid_amount: string; paid_date: string; payment_mode: string; bank_name: string | null; parts: PaymentPart[] | null; created_at: string;
 };
 /** Receipt numbers for the payment window: last used (app / you / old software) and the next free number in your books. */
-export type ReceiptHint = { last_app: number | null; last_mine: number | null; last_old: number | null; books: { from: number; to: number; next: number | null }[] };
+export type ReceiptHint = {
+  last_app: number | null; last_mine: number | null; last_old: number | null; books: { from: number; to: number; next: number | null }[];
+  /** the account's zone series, when the account is in a zone */
+  zone?: { name: string; start: number; end: number | null; last: number | null; next: number | null } | null;
+};
 
 export async function getWaiting(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<WaitingPayment[]> {
   const { data } = await supabase
@@ -78,8 +82,8 @@ export async function getWaiting(supabase: SupabaseClient, source: "old" | "new"
   return (data ?? []) as unknown as WaitingPayment[];
 }
 
-export async function getReceiptHint(supabase: SupabaseClient): Promise<ReceiptHint | null> {
-  const { data } = await supabase.rpc("receipt_hint");
+export async function getReceiptHint(supabase: SupabaseClient, source?: "old" | "new", refId?: number): Promise<ReceiptHint | null> {
+  const { data } = await supabase.rpc("receipt_hint", source ? { p_source: source, p_ref: refId } : {});
   return (data as ReceiptHint | null) ?? null;
 }
 
@@ -108,7 +112,7 @@ export async function getLedger(supabase: SupabaseClient, source: "old" | "new",
   const [ledger, waiting, receiptHint] = await Promise.all([
     ledgerOnly(supabase, source, refId),
     getWaiting(supabase, source, refId),
-    getReceiptHint(supabase),
+    getReceiptHint(supabase, source, refId),
   ]);
   return ledger ? { ...ledger, waiting, receiptHint } : null;
 }

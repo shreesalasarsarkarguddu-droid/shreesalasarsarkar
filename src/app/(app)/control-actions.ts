@@ -114,3 +114,26 @@ export async function receiptBook(input: BookInput): Promise<CtlResult> {
   revalidatePath("/receipt-books");
   return { ok: true, message: { add: "Receipt book given.", close: "Book closed.", reopen: "Book reopened.", delete: "Book deleted." }[p.action] };
 }
+
+// ---------------------------------------------------------------- zones (admin)
+const zone = z.discriminatedUnion("action", [
+  z.object({
+    action: z.enum(["add", "edit"]),
+    id: z.number().int().positive().optional(),
+    name: z.string().trim().min(1, { error: "Enter the zone name" }).max(60, { error: "Name is too long" }),
+    receipt_start: z.string().trim().regex(/^\d{1,12}$/, { error: "Enter the first receipt no. of the zone" }).refine((v) => Number(v) > 0, { error: "Enter the first receipt no. of the zone" }),
+  }),
+  z.object({ action: z.enum(["hide", "show", "delete"]), id: z.number().int().positive() }),
+]);
+export type ZoneInput = z.input<typeof zone>;
+
+export async function saveZone(input: ZoneInput): Promise<CtlResult> {
+  const parsed = zone.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const p = parsed.data;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_zone", { p: "receipt_start" in p ? { ...p, receipt_start: Number(p.receipt_start) } : p });
+  if (error) return fail(error, "Could not save.");
+  revalidatePath("/zones");
+  return { ok: true, message: { add: "Zone added.", edit: "Zone saved.", hide: "Zone hidden.", show: "Zone shown again.", delete: "Zone deleted." }[p.action] };
+}

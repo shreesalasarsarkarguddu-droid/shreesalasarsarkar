@@ -28,7 +28,7 @@ function validate(step: number, values: Values): Errors {
 }
 
 /** New loan, or (admin) edit an existing one: `edit` gives the loan id and its current values. */
-export function LoanForm({ edit }: { edit?: { id: number; initial: Values; payments: number } }) {
+export function LoanForm({ edit, zones = [] }: { edit?: { id: number; initial: Values; payments: number }; zones?: string[] }) {
   const router = useRouter();
   const start = edit?.initial ?? EMPTY_LOAN;
   const [values, setValues] = useState<Values>(start);
@@ -180,7 +180,28 @@ export function LoanForm({ edit }: { edit?: { id: number; initial: Values; payme
             <>
               <Section title="Folio">
                 {field("folio_no", "Folio no.", { autoCapitalize: "characters" })}
-                {field("zone", "Zone")}
+                {zones.length > 0 ? (
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-medium text-slate-700 lg:mb-0.5">Zone</span>
+                    <select
+                      id="zone"
+                      name="zone"
+                      value={values.zone}
+                      onChange={(e) => set("zone", e.target.value)}
+                      className="h-12 w-full rounded-lg border border-slate-300 bg-white px-3 text-base outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 lg:h-10"
+                    >
+                      <option value="">— No zone —</option>
+                      {(values.zone && !zones.includes(values.zone.trim().toUpperCase()) ? [values.zone, ...zones] : zones).map((z) => (
+                        <option key={z} value={z}>
+                          {z}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.zone && <span className="mt-1 block text-sm text-red-700">{errors.zone}</span>}
+                  </label>
+                ) : (
+                  field("zone", "Zone", { hint: "Add zones in Control → Zones" })
+                )}
                 {field("dealer", "Dealer / financer")}
                 <Choice
                   name="loan_type"

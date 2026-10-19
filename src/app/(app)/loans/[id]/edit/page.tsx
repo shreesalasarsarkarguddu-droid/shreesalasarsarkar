@@ -78,5 +78,6 @@ export default async function EditLoanPage({ params }: PageProps<"/loans/[id]/ed
     hp_amount: money(l.hp_amount as string, true),
   };
 
-  return <LoanForm edit={{ id, initial, payments: l.payments[0]?.count ?? 0 }} />;
+  const { data: zones } = await supabase.from("zones").select("name").eq("active", true).order("name");
+  return <LoanForm edit={{ id, initial, payments: l.payments[0]?.count ?? 0 }} zones={(zones ?? []).map((z) => z.name as string)} />;
 }

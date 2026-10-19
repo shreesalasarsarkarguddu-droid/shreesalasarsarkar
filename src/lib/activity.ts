@@ -38,6 +38,11 @@ export const ACTIONS: { key: string; label: string; group: string }[] = [
   { key: "book_close", label: "Receipt book closed", group: "Control" },
   { key: "book_reopen", label: "Receipt book reopened", group: "Control" },
   { key: "book_delete", label: "Receipt book deleted", group: "Control" },
+  { key: "zone_add", label: "Zone added", group: "Control" },
+  { key: "zone_edit", label: "Zone changed", group: "Control" },
+  { key: "zone_hide", label: "Zone hidden", group: "Control" },
+  { key: "zone_show", label: "Zone shown again", group: "Control" },
+  { key: "zone_delete", label: "Zone deleted", group: "Control" },
   { key: "signed_out", label: "Signed out by admin", group: "Admin" },
   { key: "user_archived", label: "User removed", group: "Admin" },
   { key: "user_restored", label: "User restored", group: "Admin" },
@@ -106,6 +111,15 @@ export function describe(a: AuditRow): string {
     case "book_reopen":
     case "book_delete":
       return `Receipts ${val(d.from_no)}–${val(d.to_no)}${d.note ? ` · ${d.note}` : ""}`;
+    case "zone_add":
+    case "zone_delete":
+      return `receipts start at ${val(d.receipt_start)}`;
+    case "zone_edit":
+      return changesText(d.changes);
+    case "zone_hide":
+      return "hidden from the zone list in the loan form";
+    case "zone_show":
+      return "back in the zone list";
     case "assigned":
       return `${val(d.accounts)} account(s) for ${val(d.day)}${Number(d.moved_from_others) > 0 ? ` (${d.moved_from_others} moved from someone else)` : ""}`;
     case "unassigned":
