@@ -41,6 +41,7 @@ function refresh(path: string) {
 }
 
 // ---------------------------------------------------------------- payments
+const moneyPart = z.string().trim().regex(/^\d{1,9}(\.\d{1,2})?$/, { error: "Enter each part's amount" }).refine((v) => Number(v) > 0, { error: "Each part must be more than 0" });
 const paymentFix = z
   .object({
     paid_amount: z.string().trim().regex(/^\d{1,9}(\.\d{1,2})?$/, { error: "Enter the amount" }).refine((v) => Number(v) > 0, { error: "Must be more than 0" }),
@@ -51,9 +52,28 @@ const paymentFix = z
     bank_name: z.string().trim().max(60, { error: "Too long" }),
     installments_covered: z.string().trim().regex(/^\d{1,3}$/, { error: "1 or more" }).refine((v) => Number(v) >= 1 && Number(v) <= 360, { error: "1 or more" }),
     reason,
+    // split payment: e.g. cash + bank on one receipt
+    parts: z
+      .array(
+        z.object({
+          mode: z.enum(PAYMENT_MODES),
+          amount: moneyPart,
+          bank_name: z.string().trim().max(60),
+          reference_no: z.string().trim().max(30),
+        }),
+      )
+      .max(4)
+      .optional(),
   })
   .refine((v) => v.payment_mode !== "CHEQUE" || v.reference_no !== "", { error: "Enter the cheque number", path: ["reference_no"] })
-  .refine((v) => v.payment_mode !== "BANK" || v.bank_name !== "", { error: "Enter the bank name", path: ["bank_name"] });
+  .refine((v) => v.payment_mode !== "BANK" || v.bank_name !== "", { error: "Enter the bank name", path: ["bank_name"] })
+  .refine((v) => v.payment_mode !== "SPLIT" || (v.parts?.length ?? 0) >= 2, { error: "A split payment needs 2 parts", path: ["parts"] })
+  .refine(
+    (v) => v.payment_mode !== "SPLIT" || !v.parts || Math.round(v.parts.reduce((t, p) => t + Number(p.amount), 0) * 100) === Math.round(Number(v.paid_amount) * 100),
+    { error: "The parts must add up to the amount", path: ["parts"] },
+  )
+  .refine((v) => v.payment_mode !== "SPLIT" || !v.parts?.some((p) => p.mode === "BANK" && !p.bank_name), { error: "Enter the bank name for the bank part", path: ["parts"] })
+  .refine((v) => v.payment_mode !== "SPLIT" || !v.parts?.some((p) => p.mode === "CHEQUE" && !p.reference_no), { error: "Enter the cheque number for the cheque part", path: ["parts"] });
 
 export type PaymentFixInput = z.input<typeof paymentFix>;
 
@@ -66,11 +86,18 @@ export async function editPayment(id: number, path: string, input: PaymentFixInp
     for (const i of parsed.error.issues) fieldErrors[String(i.path[0])] ??= i.message;
     return { ok: false, error: "Please fix the highlighted fields.", fieldErrors };
   }
-  const { reason: why, ...p } = parsed.data;
+  const { reason: why, parts, ...p } = parsed.data;
   const supabase = await createClient();
   const { error } = await supabase.rpc("admin_edit_payment", {
     p_id: id,
-    p: { ...p, receipt_no: Number(p.receipt_no), installments_covered: Number(p.installments_covered) },
+    p: {
+      ...p,
+      receipt_no: Number(p.receipt_no),
+      installments_covered: Number(p.installments_covered),
+      ...(p.payment_mode === "SPLIT"
+        ? { parts: parts!.map((x) => ({ ...x, bank_name: x.mode === "BANK" ? x.bank_name : "", reference_no: x.mode === "CASH" ? "" : x.reference_no })) }
+        : {}),
+    },
     p_reason: why,
   });
   if (error) return dbError(error, "Could not save the change.");

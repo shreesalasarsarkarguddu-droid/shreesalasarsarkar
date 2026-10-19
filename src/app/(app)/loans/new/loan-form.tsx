@@ -190,7 +190,7 @@ export function LoanForm({ edit, zones = [] }: { edit?: { id: number; initial: V
                       onChange={(e) => set("zone", e.target.value)}
                       className="h-12 w-full rounded-lg border border-slate-300 bg-white px-3 text-base outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 lg:h-10"
                     >
-                      <option value="">— No zone —</option>
+                      <option value="">DHAMTARI (main)</option>
                       {(values.zone && !zones.includes(values.zone.trim().toUpperCase()) ? [values.zone, ...zones] : zones).map((z) => (
                         <option key={z} value={z}>
                           {z}
