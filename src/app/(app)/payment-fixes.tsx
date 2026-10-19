@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { dmy, inr } from "@/lib/format";
+import { dmy, inr, rcpt } from "@/lib/format";
 import { PAYMENT_MODES, paymentModeText } from "@/lib/payment";
 import { todayIST } from "@/lib/schedule";
 import { DateInput } from "@/components/date-input";
@@ -38,7 +38,7 @@ export function PaymentFixes({ payments, path }: { payments: NewPaymentRecord[];
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <p className="num min-w-0 flex-1 text-sm">
                 <b>#{p.installment_no}</b> · <span className="font-semibold text-emerald-700">{inr(p.paid_amount)}</span> · {dmy(p.paid_date)} ·{" "}
-                {paymentModeText(p.payment_mode, p.bank_name, p.parts)} · Rcpt {p.receipt_no}
+                {paymentModeText(p.payment_mode, p.bank_name, p.parts)} · Rcpt {rcpt(p.receipt_no, p.receipt_book)}
                 {p.installments_covered > 1 && ` · ${p.installments_covered} EMIs`}
               </p>
               <button
@@ -190,7 +190,7 @@ function CancelForm({ p, path, onDone }: { p: NewPaymentRecord; path: string; on
   return (
     <div className="mt-3 space-y-3 rounded-lg bg-red-50 p-3">
       <p className="text-sm text-red-800">
-        Cancel receipt <b>{p.receipt_no}</b> of <b>{inr(p.paid_amount)}</b> on {dmy(p.paid_date)}? The balance goes back up by this amount.
+        Cancel receipt <b>{rcpt(p.receipt_no, p.receipt_book)}</b> of <b>{inr(p.paid_amount)}</b> on {dmy(p.paid_date)}? The balance goes back up by this amount.
       </p>
       <L label="Reason *" error={r && !r.ok ? r.fieldErrors?.reason : undefined}>
         <input className={input} value={why} onChange={(e) => setWhy(e.target.value)} placeholder="e.g. entered twice" />

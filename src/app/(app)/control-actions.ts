@@ -97,6 +97,7 @@ const book = z.discriminatedUnion("action", [
     from_no: z.string().trim().regex(/^\d{1,12}$/, { error: "Enter the first receipt no." }),
     to_no: z.string().trim().regex(/^\d{1,12}$/, { error: "Enter the last receipt no." }),
     note: z.string().max(200),
+    series_id: z.number().int().positive().optional(),
   }),
   z.object({ action: z.enum(["close", "reopen", "delete"]), id: z.number().int().positive() }),
 ]);
@@ -115,14 +116,13 @@ export async function receiptBook(input: BookInput): Promise<CtlResult> {
   return { ok: true, message: { add: "Receipt book given.", close: "Book closed.", reopen: "Book reopened.", delete: "Book deleted." }[p.action] };
 }
 
-// ---------------------------------------------------------------- zones (admin)
+// ---------------------------------------------------------------- zones and their receipt books (admin)
+const startNo = z.string().trim().regex(/^\d{1,12}$/, { error: "Enter the first receipt no. of the book" }).refine((v) => Number(v) > 0, { error: "Enter the first receipt no. of the book" });
+const zoneName = z.string().trim().min(1, { error: "Enter the zone name" }).max(60, { error: "Name is too long" });
 const zone = z.discriminatedUnion("action", [
-  z.object({
-    action: z.enum(["add", "edit"]),
-    id: z.number().int().positive().optional(),
-    name: z.string().trim().min(1, { error: "Enter the zone name" }).max(60, { error: "Name is too long" }),
-    receipt_start: z.string().trim().regex(/^\d{1,12}$/, { error: "Enter the first receipt no. of the zone" }).refine((v) => Number(v) > 0, { error: "Enter the first receipt no. of the zone" }),
-  }),
+  z.object({ action: z.literal("add"), name: zoneName, receipt_start: startNo }),
+  z.object({ action: z.literal("rename"), id: z.number().int().positive(), name: zoneName }),
+  z.object({ action: z.literal("new_book"), id: z.number().int().positive(), receipt_start: startNo }),
   z.object({ action: z.enum(["hide", "show", "delete"]), id: z.number().int().positive() }),
 ]);
 export type ZoneInput = z.input<typeof zone>;
@@ -135,5 +135,7 @@ export async function saveZone(input: ZoneInput): Promise<CtlResult> {
   const { error } = await supabase.rpc("admin_zone", { p: "receipt_start" in p ? { ...p, receipt_start: Number(p.receipt_start) } : p });
   if (error) return fail(error, "Could not save.");
   revalidatePath("/zones");
-  return { ok: true, message: { add: "Zone added.", edit: "Zone saved.", hide: "Zone hidden.", show: "Zone shown again.", delete: "Zone deleted." }[p.action] };
+  revalidatePath("/receipt-books");
+  const done = { add: "Zone added.", rename: "Zone renamed.", new_book: "New receipt book opened.", hide: "Zone hidden.", show: "Zone shown again.", delete: "Zone deleted." };
+  return { ok: true, message: done[p.action] };
 }

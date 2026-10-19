@@ -3,7 +3,7 @@ import { can } from "@/lib/permissions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { dmy, flagLabel, inr, isNegative, isPositive } from "@/lib/format";
+import { dmy, flagLabel, inr, isNegative, isPositive, rcpt } from "@/lib/format";
 import { StatusBadge } from "../status-badge";
 import { CollectButton } from "../../payments/collect-button";
 import { SeizeControl, type SeizureEvent } from "../../seize-control";
@@ -69,6 +69,7 @@ type Payment = {
   payment_mode: string | null;
   cheque_no: string | null;
   receipt_no: number | null;
+  receipt_book: string | null;
   data_flags: string[];
 };
 
@@ -317,7 +318,7 @@ function PaymentList({ payments }: { payments: Payment[] }) {
             <p className="mt-0.5 text-sm text-slate-500">
               Balance <span className="font-medium text-slate-700">{inr(p.balance_after)}</span>
               {p.payment_mode && <> · {p.payment_mode}</>}
-              {p.receipt_no != null && <> · Rcpt {p.receipt_no}</>}
+              {p.receipt_no != null && <> · Rcpt {rcpt(p.receipt_no, p.receipt_book)}</>}
             </p>
             <RowFlags flags={p.data_flags} />
           </li>
@@ -359,7 +360,7 @@ function PaymentList({ payments }: { payments: Payment[] }) {
                   {p.payment_mode ?? "—"}
                   {p.cheque_no && <span className="block text-xs text-slate-500">{p.cheque_no}</span>}
                 </td>
-                <td className="px-4 py-2.5 text-slate-600">{p.receipt_no ?? "—"}</td>
+                <td className="px-4 py-2.5 text-slate-600">{rcpt(p.receipt_no, p.receipt_book)}</td>
               </tr>
             ))}
           </tbody>

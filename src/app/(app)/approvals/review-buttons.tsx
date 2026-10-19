@@ -2,12 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { dmy, inr, timeIST } from "@/lib/format";
+import { dmy, inr, rcpt, timeIST } from "@/lib/format";
 import { reviewPending, type CtlResult } from "../control-actions";
 
 export type Waiting = {
   id: number; user_id: string; subject: string | null; source: "old" | "new"; ref_id: number; paid_amount: number; paid_date: string;
-  receipt_no: number; payment_mode: string; reason: string | null; by_name: string; created_at: string;
+  receipt_no: number; receipt_book: string | null; payment_mode: string; reason: string | null; by_name: string; created_at: string;
   /** cash in this payment (all of it for CASH, the cash part of a split payment) */
   cash_part: number;
 };
@@ -80,7 +80,7 @@ export function ApproveGroup({ rows }: { rows: Waiting[] }) {
                   {w.subject ?? `${w.source} ${w.ref_id}`}
                 </a>
                 <span className="num block text-xs text-slate-500">
-                  Rcpt {w.receipt_no} · {w.payment_mode} · paid {dmy(w.paid_date)} ·{" "}
+                  Rcpt {rcpt(w.receipt_no, w.receipt_book)} · {w.payment_mode} · paid {dmy(w.paid_date)} ·{" "}
                   {timeIST(w.created_at)}
                   {w.reason && w.reason !== "waiting for cash count" && <span className="text-amber-700"> · {w.reason.replace("waiting for cash count · ", "")}</span>}
                 </span>

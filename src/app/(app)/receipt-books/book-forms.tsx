@@ -6,13 +6,14 @@ import { receiptBook, type CtlResult } from "../control-actions";
 
 const input = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20";
 
-export function NewBook({ staff }: { staff: { id: string; name: string }[] }) {
+export function NewBook({ staff, series }: { staff: { id: string; name: string }[]; series: { id: number; code: string }[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [userId, setUserId] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [note, setNote] = useState("");
+  const [seriesId, setSeriesId] = useState(series[0]?.id ?? 0);
   const [r, setR] = useState<CtlResult | null>(null);
   const [pending, start] = useTransition();
 
@@ -32,7 +33,7 @@ export function NewBook({ staff }: { staff: { id: string; name: string }[] }) {
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {
-          const res = await receiptBook({ action: "add", user_id: userId, from_no: from, to_no: to, note });
+          const res = await receiptBook({ action: "add", user_id: userId, from_no: from, to_no: to, note, series_id: seriesId || undefined });
           setR(res);
           if (res.ok) {
             setOpen(false);
@@ -65,6 +66,18 @@ export function NewBook({ staff }: { staff: { id: string; name: string }[] }) {
           <input className={`${input} num`} inputMode="numeric" value={to} onChange={(e) => setTo(e.target.value.replace(/\D/g, ""))} />
         </label>
       </div>
+      {series.length > 1 && (
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Which receipt book (zone)</span>
+          <select className={input} value={seriesId} onChange={(e) => setSeriesId(Number(e.target.value))}>
+            {series.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.code}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label className="block">
         <span className="mb-1 block text-sm font-medium text-slate-700">Note (optional)</span>
         <input className={input} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Book no. 12" />

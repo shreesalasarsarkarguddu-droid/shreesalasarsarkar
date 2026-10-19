@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BUSINESS } from "@/lib/business";
 import type { StatementData } from "@/lib/statement";
+import { rcpt } from "@/lib/format";
 import { PrintButton } from "./reports/day-book/print-button";
 
 /** "2025-03-25" -> "25/03/2025" */
@@ -130,7 +131,7 @@ export function StatementView({ s, backHref }: { s: StatementData; backHref: str
                   <td className={`${cell} text-right`}>{r.sno}.</td>
                   <td className={`${cell} text-right`}>{amt(r.payment.due_amount)}</td>
                   <td className={`${cell} text-center`}>{d(r.payment.due_date)}</td>
-                  <td className={`${cell} text-right`}>{r.payment.receipt_no ?? ""}</td>
+                  <td className={`${cell} text-right`}>{r.payment.receipt_no != null ? rcpt(r.payment.receipt_no, r.payment.receipt_book) : ""}</td>
                   <td className={`${cell} text-right`}>{amt(r.payment.paid_amount)}</td>
                   <td className={`${cell} text-right`}>{r.im}</td>
                   <td className={`${cell} text-center`}>{d(r.payment.paid_date)}</td>

@@ -1,4 +1,4 @@
-import { dmy, inr } from "@/lib/format";
+import { dmy, inr, rcpt } from "@/lib/format";
 import type { LedgerRow, LedgerSummary } from "@/lib/schedule";
 import { modeText } from "../installments";
 
@@ -48,7 +48,7 @@ export function LedgerCards({ rows, summary }: { rows: LedgerRow[]; summary: Led
                 {r.dueDays > 0 && <span className="font-semibold text-red-700"> · {r.dueDays} d late</span>}
               </p>
               <p className="text-xs text-slate-500">
-                Rcpt {r.payment.receipt_no ?? "—"} · {modeText(r.payment)}
+                Rcpt {rcpt(r.payment.receipt_no, r.payment.receipt_book)} · {modeText(r.payment)}
                 {r.payment.cheque_no && <> · {r.payment.cheque_no}</>}
               </p>
               <p className="text-xs text-slate-500">
@@ -108,7 +108,7 @@ export function LedgerGrid({ rows, summary }: { rows: LedgerRow[]; summary: Ledg
               <td className={`${td} text-slate-500`}>{r.sno}</td>
               <td className={`${td} text-right`}>{inr2(r.payment.due_amount)}</td>
               <td className={td}>{dmy(r.payment.due_date)}</td>
-              <td className={td}>{r.payment.receipt_no ?? "—"}</td>
+              <td className={td}>{rcpt(r.payment.receipt_no, r.payment.receipt_book)}</td>
               <td className={td}>{modeText(r.payment)}</td>
               <td className={td}>{r.payment.cheque_no ?? ""}</td>
               <td className={`${td} text-right font-semibold text-emerald-700`}>{inr2(r.payment.paid_amount)}</td>

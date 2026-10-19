@@ -40,6 +40,7 @@ export const ACTIONS: { key: string; label: string; group: string }[] = [
   { key: "book_delete", label: "Receipt book deleted", group: "Control" },
   { key: "zone_add", label: "Zone added", group: "Control" },
   { key: "zone_edit", label: "Zone changed", group: "Control" },
+  { key: "zone_book", label: "New zone receipt book", group: "Control" },
   { key: "zone_hide", label: "Zone hidden", group: "Control" },
   { key: "zone_show", label: "Zone shown again", group: "Control" },
   { key: "zone_delete", label: "Zone deleted", group: "Control" },
@@ -110,10 +111,13 @@ export function describe(a: AuditRow): string {
     case "book_close":
     case "book_reopen":
     case "book_delete":
-      return `Receipts ${val(d.from_no)}–${val(d.to_no)}${d.note ? ` · ${d.note}` : ""}`;
+      return `Receipts ${d.book && d.book !== "MAIN" ? `${d.book}/` : ""}${val(d.from_no)}–${val(d.to_no)}${d.note ? ` · ${d.note}` : ""}`;
     case "zone_add":
+      return `book ${val(d.book)} from receipt ${val(d.start_no)}`;
+    case "zone_book":
+      return `${val(d.closed)} closed · ${val(d.book)} starts at ${val(d.start_no)}`;
     case "zone_delete":
-      return `receipts start at ${val(d.receipt_start)}`;
+      return "removed";
     case "zone_edit":
       return changesText(d.changes);
     case "zone_hide":

@@ -20,8 +20,9 @@ export default async function ZonesPage() {
       <div>
         <h1 className="text-xl font-bold">Zones</h1>
         <p className="text-sm text-slate-500">
-          Each zone has its own receipt numbers. A zone&apos;s receipts start at its number and go up to just before the next
-          zone&apos;s start. When you collect from an account in a zone, the next free number of that zone is suggested.
+          Each zone has its own receipt book. A receipt no. only has to be unique inside its book, so two zones can use the same
+          numbers. When a new printed book starts, press <b>Open new receipt book</b>: the old book closes (its receipts stay as they
+          are) and the new one starts from the number you give. Accounts with no zone use the main book.
         </p>
       </div>
 

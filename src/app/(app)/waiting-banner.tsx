@@ -1,4 +1,4 @@
-import { dmy, inr } from "@/lib/format";
+import { dmy, inr, rcpt } from "@/lib/format";
 import { fromPaise, toPaise } from "@/lib/schedule";
 import type { WaitingPayment } from "@/lib/ledger";
 import { paymentModeText } from "@/lib/payment";
@@ -15,7 +15,7 @@ export function WaitingBanner({ waiting, canApprove }: { waiting: WaitingPayment
       <ul className="num mt-1 space-y-0.5 text-xs">
         {waiting.map((w) => (
           <li key={w.receipt_no}>
-            Rcpt {w.receipt_no} · {inr(w.paid_amount)} · {paymentModeText(w.payment_mode, w.bank_name, w.parts)} · paid {dmy(w.paid_date)}
+            Rcpt {rcpt(w.receipt_no, w.receipt_book)} · {inr(w.paid_amount)} · {paymentModeText(w.payment_mode, w.bank_name, w.parts)} · paid {dmy(w.paid_date)}
           </li>
         ))}
       </ul>

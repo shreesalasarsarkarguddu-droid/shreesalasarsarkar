@@ -1,4 +1,4 @@
-import { dmy, flagLabel, inr, isPositive } from "@/lib/format";
+import { dmy, flagLabel, inr, isPositive, rcpt } from "@/lib/format";
 import type { LedgerRow, LedgerSummary } from "@/lib/schedule";
 import { paymentModeText, type PaymentPart } from "@/lib/payment";
 
@@ -54,7 +54,7 @@ export function InstallmentTable({ rows }: { rows: LedgerRow[] }) {
               <p className="mt-0.5 text-sm text-slate-500">
                 Balance <span className="font-medium text-slate-700">{inr(r.payment.balance_after)}</span>
                 {r.payment.payment_mode && <> · {modeText(r.payment)}</>}
-                {r.payment.receipt_no != null && <> · Rcpt {r.payment.receipt_no}</>}
+                {r.payment.receipt_no != null && <> · Rcpt {rcpt(r.payment.receipt_no, r.payment.receipt_book)}</>}
               </p>
               <RowFlags flags={r.payment.data_flags} />
             </li>
@@ -123,7 +123,7 @@ export function InstallmentTable({ rows }: { rows: LedgerRow[] }) {
                     {modeText(r.payment)}
                     {r.payment.cheque_no && <span className="block text-xs text-slate-500">{r.payment.cheque_no}</span>}
                   </td>
-                  <td className="px-4 py-2.5 text-slate-600">{r.payment.receipt_no ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-slate-600">{rcpt(r.payment.receipt_no, r.payment.receipt_book)}</td>
                   <td className="px-4 py-2.5">
                     <Status status="paid" />
                   </td>

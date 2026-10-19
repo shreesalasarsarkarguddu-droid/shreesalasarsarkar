@@ -25,6 +25,8 @@ export type PaymentRow = {
   cheque_no: string | null;
   bank_name?: string | null;
   receipt_no: number | null;
+  /** zone receipt book ("NARHARPUR-2"); null = main book */
+  receipt_book?: string | null;
   installments_covered?: number | null;
   data_flags: string[];
   /** set for payments taken in this app (decides before / after a reschedule) */

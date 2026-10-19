@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { dmy, inr, isPositive } from "@/lib/format";
+import { dmy, inr, isPositive, rcpt } from "@/lib/format";
 import { fromPaise, toPaise, todayIST, type DueRow } from "@/lib/schedule";
 import { PAYMENT_MODES } from "@/lib/payment";
 import { DateInput } from "@/components/date-input";
@@ -301,7 +301,7 @@ export function CollectPanel({
                       ⏳ {inr(fromPaise(ledger.waiting.reduce((t, w) => t + toPaise(w.paid_amount), 0n)))} already collected, waiting for approval
                     </p>
                     <p className="num text-xs">
-                      {ledger.waiting.map((w) => `Rcpt ${w.receipt_no} · ${inr(w.paid_amount)} · ${dmy(w.paid_date)}`).join(" | ")}
+                      {ledger.waiting.map((w) => `Rcpt ${rcpt(w.receipt_no, w.receipt_book)} · ${inr(w.paid_amount)} · ${dmy(w.paid_date)}`).join(" | ")}
                     </p>
                     <p className="text-xs">Not in the balance yet — do not collect it again.</p>
                   </div>
@@ -543,29 +543,29 @@ const inputCls = (bad: boolean) =>
     bad ? "border-red-500 focus:ring-red-500/20" : "border-slate-300 focus:border-blue-600 focus:ring-blue-600/20"
   }`;
 
-/** "Last receipt no.: 12345 (yours 12340) · old software 446496 · next in your book: 12341 [Use]" */
+/** Receipt numbers inside this account's receipt book: the zone book (with "Use next"), last used, your own book. */
 function ReceiptHintLine({ h, onUse }: { h: ReceiptHint; onUse: (n: number) => void }) {
   const next = h.books.find((b) => b.next != null)?.next ?? null;
+  const z = h.series;
   return (
     <div className="num space-y-1 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
-      <p>
-        Last receipt no. used: <b className="text-slate-800">{h.last_app ?? "—"}</b>
-        {h.last_mine != null && h.last_mine !== h.last_app && <> (yours {h.last_mine})</>}
-        {h.last_old != null && <> · old software {h.last_old}</>}
-      </p>
-      {h.zone && (
+      {z && (
         <p className="flex flex-wrap items-center gap-2">
-          Zone {h.zone.name}: receipts {h.zone.start}–{h.zone.end ?? "onwards"}
-          {h.zone.last != null && <> · last {h.zone.last}</>}
-          {h.zone.next != null ? (
-            <button type="button" onClick={() => onUse(h.zone!.next!)} className="rounded-md bg-white px-2 py-0.5 font-semibold text-blue-700 ring-1 ring-slate-300">
-              Use next: {h.zone.next}
+          <span>
+            Zone <b className="text-slate-800">{z.zone}</b> · receipt book <b className="text-slate-800">{z.code}</b> (from {z.start})
+          </span>
+          {!next && (
+            <button type="button" onClick={() => onUse(z.next)} className="rounded-md bg-white px-2 py-0.5 font-semibold text-blue-700 ring-1 ring-slate-300">
+              Use next: {z.next}
             </button>
-          ) : (
-            <span className="font-semibold text-red-700">zone series full — ask the admin</span>
           )}
         </p>
       )}
+      <p>
+        Last receipt no. used{z ? " in this book" : ""}: <b className="text-slate-800">{h.last_app ?? "—"}</b>
+        {h.last_mine != null && h.last_mine !== h.last_app && <> (yours {h.last_mine})</>}
+        {h.last_old != null && <> · old software {h.last_old}</>}
+      </p>
       {h.books.length > 0 && (
         <p className="flex flex-wrap items-center gap-2">
           Your book{h.books.length > 1 ? "s" : ""}: {h.books.map((b) => `${b.from}–${b.to}`).join(", ")}
@@ -578,7 +578,7 @@ function ReceiptHintLine({ h, onUse }: { h: ReceiptHint; onUse: (n: number) => v
           )}
         </p>
       )}
-      <p>A receipt no. already used (here or in the old software) is refused.</p>
+      <p>A receipt no. already used in {z ? `book ${z.code}` : "the main book"} (here or in the old software) is refused.</p>
     </div>
   );
 }

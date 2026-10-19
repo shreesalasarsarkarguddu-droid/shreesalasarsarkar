@@ -90,15 +90,7 @@ export async function recordPayment(input: PaymentInput): Promise<RecordResult> 
   const v = parsed.data;
   const supabase = await createClient();
 
-  // Receipt numbers also must not repeat ones issued by the old software.
-  const { count } = await supabase
-    .from("legacy_payments")
-    .select("id", { count: "exact", head: true })
-    .eq("receipt_no", Number(v.receipt_no));
-  if (count) {
-    return { ok: false, error: "Receipt number already used.", fieldErrors: { receipt_no: "This receipt no. was already used in the old software" } };
-  }
-
+  // The database refuses a receipt no. already used in this account's receipt book (app, waiting or old software).
   const { data, error } = await supabase.rpc("record_payment", {
     p: {
       source: v.source,
@@ -124,7 +116,11 @@ export async function recordPayment(input: PaymentInput): Promise<RecordResult> 
     },
   });
   if (error) {
-    if (error.code === "23505") return { ok: false, error: "Receipt number already used.", fieldErrors: { receipt_no: "This receipt no. is already used" } };
+    if (error.code === "23505") {
+      const book = /in book (\S+)/.exec(error.message)?.[1];
+      const where = book && book !== "MAIN" ? ` in book ${book}` : "";
+      return { ok: false, error: `Receipt number already used${where}.`, fieldErrors: { receipt_no: `This receipt no. is already used${where}` } };
+    }
     if (error.code === "P0002") return { ok: false, error: "This account is no longer pending." };
     if (error.code === "42501") return { ok: false, error: "Your login is not allowed to take payments." };
     if (error.code === "22023") return { ok: false, error: error.message };

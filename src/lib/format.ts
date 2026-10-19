@@ -23,6 +23,12 @@ export function isNegative(value: string | null | undefined): boolean {
   return value != null && value.startsWith("-") && /[1-9]/.test(value);
 }
 
+/** Receipt no. with its zone book: "NARHARPUR-2/188"; plain "188" for the main book. */
+export function rcpt(no: number | string | null | undefined, book?: string | null): string {
+  if (no == null || no === "") return "—";
+  return book ? `${book}/${no}` : String(no);
+}
+
 // Dates: one format everywhere, DD/MM/YYYY (21/12/1993). Never month names.
 
 /** "2022-03-03" -> "03/03/2022" */

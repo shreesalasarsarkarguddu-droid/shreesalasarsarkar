@@ -2,7 +2,7 @@ import { requirePerm } from "@/lib/staff";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { dmy } from "@/lib/format";
+import { dmy, rcpt } from "@/lib/format";
 import { todayIST } from "@/lib/schedule";
 import { PrintButton } from "./print-button";
 import { DateInput } from "@/components/date-input";
@@ -23,6 +23,7 @@ type Entry = {
   im: number | null;
   mode: string | null;
   receipt_no: number | null;
+  receipt_book: string | null;
   debit: string;
   credit: string;
   source: "old" | "new";
@@ -78,7 +79,7 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
       for (let start = 0; ; start += CHUNK) {
         const { data, error } = await supabase
           .from("day_book_entries")
-          .select("entry_date, kind, particulars, folio, due_date, delay_days, im, mode, receipt_no, source, ref_id, due_amount::text, debit::text, credit::text")
+          .select("entry_date, kind, particulars, folio, due_date, delay_days, im, mode, receipt_no, receipt_book, source, ref_id, due_amount::text, debit::text, credit::text")
           .gte("entry_date", from)
           .lte("entry_date", to)
           .order("entry_date")
@@ -220,7 +221,7 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
                                   e.due_date && `Due ${dmy(e.due_date)}`,
                                   e.im != null && `IM ${e.im}`,
                                   e.delay_days != null && `Late days ${e.delay_days}`,
-                                  e.receipt_no != null && `Rcpt ${e.receipt_no}`,
+                                  e.receipt_no != null && `Rcpt ${rcpt(e.receipt_no, e.receipt_book)}`,
                                 ]
                                   .filter(Boolean)
                                   .join(" · ")
