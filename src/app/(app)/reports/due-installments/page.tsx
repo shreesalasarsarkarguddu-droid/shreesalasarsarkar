@@ -1,6 +1,7 @@
 import { requirePerm } from "@/lib/staff";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 import { dmy, inr } from "@/lib/format";
@@ -12,7 +13,7 @@ import { AllButton, AllCheck, AssignSelect, RowCheck } from "./assign-select";
 
 export const metadata: Metadata = { title: "Due Installments · Shree Salasar Sarkar" };
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 50;
 
 type DueLine = {
   source: "old" | "new";
@@ -103,6 +104,9 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
   const min = Math.max(0, Number.parseFloat(one(sp.min) ?? "0") || 0);
   const sort = SORTS.some((s) => s.key === one(sp.sort)) ? one(sp.sort)! : "due";
   const showAll = one(sp.all) === "1";
+  // send only one layout: cards to phones, the table to computers (and always the table for "Show all" / printing)
+  const ua = (await headers()).get("user-agent") ?? "";
+  const phone = /Mobi|iPhone/i.test(ua) && !showAll;
   const page = Math.max(1, Number.parseInt(one(sp.page) ?? "1", 10) || 1);
 
   const [all, assignInfo] = await Promise.all([loadLines(asOf), canAssign ? loadAssigned(today) : Promise.resolve(null)]);
@@ -235,14 +239,14 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
       ) : (
         <>
           {/* phone: cards */}
-          {!showAll && canAssign && (
-            <div className="flex items-center gap-2 md:hidden">
+          {phone && canAssign && (
+            <div className="flex items-center gap-2">
               <AllButton />
               <span className="text-xs text-slate-500">Tick accounts, then Assign them to a collection man.</span>
             </div>
           )}
-          {!showAll && (
-          <ul className="space-y-2 md:hidden print:hidden">
+          {phone && (
+          <ul className="space-y-2 print:hidden">
             {shown.map((l) => (
               <li key={`${l.source}-${l.refId}`} className={`rounded-xl bg-white p-3 ring-1 ${l.seized ? "ring-red-300" : "ring-slate-200"}`}>
                 <div className="flex items-start justify-between gap-2">
@@ -302,7 +306,8 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
           )}
 
           {/* tablet / desktop / print: table (always shown when "Show all" is used for printing) */}
-          <div className={`overflow-x-auto rounded-xl bg-white ring-1 ring-slate-200 print:block print:overflow-visible print:ring-0 ${showAll ? "" : "hidden md:block"}`}>
+          {!phone && (
+          <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-slate-200 print:block print:overflow-visible print:ring-0">
             <table className="num w-full text-sm print:text-[11px]">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
                 <tr>
@@ -382,6 +387,7 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
               </tfoot>
             </table>
           </div>
+          )}
 
           <nav className="flex flex-wrap items-center justify-between gap-3 print:hidden" aria-label="Pages">
             <span className="text-sm text-slate-500">
@@ -390,7 +396,7 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
             <div className="flex gap-2">
               {!showAll && page > 1 && <Pager href={pageLink({ page: String(page - 1) })}>← Previous</Pager>}
               {!showAll && page < pages && <Pager href={pageLink({ page: String(page + 1) })}>Next →</Pager>}
-              {showAll ? <Pager href={pageLink({})}>Show 100 per page</Pager> : pages > 1 && <Pager href={pageLink({ all: "1" })}>Show all (for printing)</Pager>}
+              {showAll ? <Pager href={pageLink({})}>Show 50 per page</Pager> : pages > 1 && <Pager href={pageLink({ all: "1" })}>Show all (for printing)</Pager>}
             </div>
           </nav>
         </>

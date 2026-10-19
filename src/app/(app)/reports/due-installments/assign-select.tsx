@@ -82,7 +82,7 @@ export function AllButton() {
     <button
       type="button"
       onClick={() => s.setAll(!on)}
-      className="h-10 rounded-lg bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 md:hidden print:hidden"
+      className="h-10 rounded-lg bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 print:hidden"
     >
       {on ? "Clear ticks" : `Select all ${n}`}
     </button>
