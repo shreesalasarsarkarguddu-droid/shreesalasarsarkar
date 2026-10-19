@@ -12,9 +12,9 @@ export const metadata: Metadata = { title: "Accounts · Shree Salasar Sarkar" };
 
 const PAGE_SIZE = 20;
 const LEDGERS = [
-  { key: "all", label: "All" },
   { key: "pending", label: "Pending" },
   { key: "closed", label: "Fully paid" },
+  { key: "all", label: "All" },
 ] as const;
 const SOURCES = [
   { key: "new", label: "New" },
@@ -55,7 +55,9 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
   const staff = await requirePerm("view_accounts");
   const sp = await searchParams;
   const q = (one(sp.q) ?? "").trim().toLowerCase().slice(0, 60);
-  const ledger = LEDGERS.some((l) => l.key === one(sp.ledger)) ? one(sp.ledger)! : "all";
+  // Pending only by default (fully paid accounts load only when chosen); a search without a chosen filter looks in all
+  const ledgerChosen = LEDGERS.some((l) => l.key === one(sp.ledger));
+  const ledger = ledgerChosen ? one(sp.ledger)! : q ? "all" : "pending";
   // New loans by default; a search without a chosen filter looks in old + new (so old customers are still found)
   const sourceChosen = SOURCES.some((s) => s.key === one(sp.source));
   const source = sourceChosen ? one(sp.source)! : q ? "all" : "new";
@@ -87,7 +89,7 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
   const href = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams();
     if (q) next.set("q", q);
-    if (ledger !== "all") next.set("ledger", ledger);
+    if (ledgerChosen) next.set("ledger", ledger);
     if (sourceChosen) next.set("source", source);
     for (const [k, v] of Object.entries(changes)) {
       if (v == null) next.delete(k);
@@ -125,7 +127,7 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
       </Suspense>
 
       <div className="flex flex-wrap gap-x-4 gap-y-2">
-        <Chips label="Filter by status" items={LEDGERS} active={ledger} param="ledger" href={href} />
+        <Chips label="Filter by status" items={LEDGERS} active={ledger} param="ledger" href={href} explicit />
         <Chips label="Filter by old or new" items={SOURCES} active={source} param="source" href={href} explicit />
       </div>
 
