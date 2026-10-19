@@ -38,7 +38,7 @@ export default async function ReceiptBooksPage() {
 
       <NewBook
         staff={staff.map((p) => ({ id: p.user_id, name: p.full_name }))}
-        series={((series ?? []) as { id: number; code: string }[]).map((s) => ({ id: s.id, code: s.code === "MAIN" ? "Main book (no zone)" : s.code }))}
+        series={((series ?? []) as { id: number; code: string }[]).map((s) => ({ id: s.id, code: s.code === "MAIN" ? "DHAMTARI (main book)" : s.code }))}
       />
 
       {books.length === 0 ? (

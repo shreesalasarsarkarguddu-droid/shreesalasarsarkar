@@ -127,6 +127,18 @@ const zone = z.discriminatedUnion("action", [
 ]);
 export type ZoneInput = z.input<typeof zone>;
 
+/** DHAMTARI (main book, accounts with no zone): open a new printed book from this number. */
+export async function openMainBook(receiptStart: string): Promise<CtlResult> {
+  const parsed = startNo.safeParse(receiptStart);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_main_book", { p_start: Number(parsed.data) });
+  if (error) return fail(error, "Could not open the book.");
+  revalidatePath("/zones");
+  revalidatePath("/receipt-books");
+  return { ok: true, message: "New Dhamtari receipt book opened." };
+}
+
 export async function saveZone(input: ZoneInput): Promise<CtlResult> {
   const parsed = zone.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };

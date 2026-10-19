@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/staff";
 import { createClient } from "@/lib/supabase/server";
-import { NewZone, ZoneRow, type Zone } from "./zone-forms";
+import { MainBookRow, NewZone, ZoneRow, type MainBook, type Zone } from "./zone-forms";
 
 export const metadata: Metadata = { title: "Zones · Shree Salasar Sarkar" };
 
 export default async function ZonesPage() {
   await requireAdmin();
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("zone_status");
+  const [{ data, error }, { data: main }] = await Promise.all([supabase.rpc("zone_status"), supabase.rpc("main_book_status")]);
   if (error) {
     console.error("zone_status failed:", error);
     throw new Error("Could not load zones.");
@@ -22,9 +22,11 @@ export default async function ZonesPage() {
         <p className="text-sm text-slate-500">
           Each zone has its own receipt book. A receipt no. only has to be unique inside its book, so two zones can use the same
           numbers. When a new printed book starts, press <b>Open new receipt book</b>: the old book closes (its receipts stay as they
-          are) and the new one starts from the number you give. Accounts with no zone use the main book.
+          are) and the new one starts from the number you give. Accounts with no zone use the DHAMTARI (main) book.
         </p>
       </div>
+
+      {main && <MainBookRow m={main as MainBook} />}
 
       <NewZone />
 
