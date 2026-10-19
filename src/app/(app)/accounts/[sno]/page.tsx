@@ -9,11 +9,12 @@ import { CollectButton } from "../../payments/collect-button";
 import { SeizeControl, type SeizureEvent } from "../../seize-control";
 import { SeizureInfo } from "../../seizure-history";
 import { buildLedger } from "@/lib/schedule";
-import { LEGACY_PAYMENT_COLUMNS, NEW_PAYMENT_COLUMNS, addMoney, byInstallment, getRemarks, getWaiting, mapNewPayment, subMoney, type NewPaymentRecord } from "@/lib/ledger";
+import { LEGACY_PAYMENT_COLUMNS, NEW_PAYMENT_COLUMNS, addMoney, byInstallment, getRemarks, getWaiting, getZoneInfo, mapNewPayment, subMoney, type NewPaymentRecord } from "@/lib/ledger";
 import { WaitingBanner } from "../../waiting-banner";
 import { Delay, EmiSummary, InstallmentTable, RowFlags } from "../../installments";
 import { PaymentFixes } from "../../payment-fixes";
 import { RemarkHistory, RemarkPanel } from "../../remark-panel";
+import { ZonePicker } from "../../zone-picker";
 import { MoneyActions } from "../../money-actions";
 import { ADJ_COLUMNS, adjText, suggestLateFee, summarizeAdjustments, type Adjustment } from "@/lib/adjustments";
 import { todayIST } from "@/lib/schedule";
@@ -105,7 +106,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
     throw new Error("Could not load this account.");
   }
   if (!accountData) notFound();
-  const [waiting, remarks] = await Promise.all([getWaiting(supabase, "old", sno), getRemarks(supabase, "old", sno)]);
+  const [waiting, remarks, zoneInfo] = await Promise.all([getWaiting(supabase, "old", sno), getRemarks(supabase, "old", sno), getZoneInfo(supabase, "old", sno)]);
   const a = accountData as unknown as Account & {
     legacy_paid: string;
     legacy_payments: Payment[];
@@ -236,7 +237,7 @@ export default async function AccountPage({ params }: PageProps<"/accounts/[sno]
           <Field label="Father / husband" value={a.borrower_father} />
           <Field label="Mobile" value={[a.borrower_mobile, a.borrower_mobile2].filter(Boolean).join(", ") || null} tel />
           <Field label="Address" value={a.borrower_address} />
-          <Field label="Zone" value={a.zone} />
+          {zoneInfo ? <ZonePicker source="old" refId={a.sno} info={zoneInfo} /> : <Field label="Zone" value={a.zone} />}
         </Card>
         <Card title="Guarantor / remarks">
           <Field label="Name" value={a.guarantor_name} />

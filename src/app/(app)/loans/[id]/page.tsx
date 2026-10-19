@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { dmy, inr, isNegative, isPositive } from "@/lib/format";
 import { buildLedger, fromPaise, toPaise } from "@/lib/schedule";
-import { NEW_PAYMENT_COLUMNS, byInstallment, getRemarks, getWaiting, mapNewPayment, type NewPaymentRecord } from "@/lib/ledger";
+import { NEW_PAYMENT_COLUMNS, byInstallment, getRemarks, getWaiting, getZoneInfo, mapNewPayment, type NewPaymentRecord } from "@/lib/ledger";
 import { WaitingBanner } from "../../waiting-banner";
 import { EmiSummary, InstallmentTable } from "../../installments";
 import { CollectButton } from "../../payments/collect-button";
@@ -13,6 +13,7 @@ import { SeizeControl, type SeizureEvent } from "../../seize-control";
 import { SeizureInfo } from "../../seizure-history";
 import { PaymentFixes } from "../../payment-fixes";
 import { RemarkHistory, RemarkPanel } from "../../remark-panel";
+import { ZonePicker } from "../../zone-picker";
 import { DeleteLoan } from "./delete-loan";
 import { MoneyActions } from "../../money-actions";
 import { ADJ_COLUMNS, adjText, suggestLateFee, summarizeAdjustments, type Adjustment } from "@/lib/adjustments";
@@ -82,7 +83,7 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
     throw new Error("Could not load this loan.");
   }
   if (!data) notFound();
-  const [waiting, remarks] = await Promise.all([getWaiting(supabase, "new", id), getRemarks(supabase, "new", id)]);
+  const [waiting, remarks, zoneInfo] = await Promise.all([getWaiting(supabase, "new", id), getRemarks(supabase, "new", id), getZoneInfo(supabase, "new", id)]);
   const l = data as unknown as Loan & { payments: NewPaymentRecord[]; seizures: SeizureEvent[]; adjustments: Adjustment[] };
   const seizedNow = l.status === "seized";
   const b = l.borrowers;
@@ -198,7 +199,7 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
           <Field label="Mobile" value={b.mobile} tel />
           <Field label="Date of birth" value={b.date_of_birth ? dmy(b.date_of_birth) : null} />
           <Field label="Address" value={b.address} />
-          <Field label="Zone" value={l.zone} />
+          {zoneInfo ? <ZonePicker source="new" refId={l.id} info={zoneInfo} /> : <Field label="Zone" value={l.zone} />}
         </Card>
         <Card title="Guarantor">
           <Field label="Name" value={l.guarantor_name} />

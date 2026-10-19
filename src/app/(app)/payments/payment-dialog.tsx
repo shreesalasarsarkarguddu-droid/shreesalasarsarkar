@@ -9,6 +9,7 @@ import { DateInput } from "@/components/date-input";
 import type { Ledger, ReceiptHint } from "@/lib/ledger";
 import { EmiSummary } from "../installments";
 import { RemarkPanel } from "../remark-panel";
+import { ZonePicker } from "../zone-picker";
 import { LedgerCards, LedgerGrid } from "./ledger-grid";
 import { loadLedger, recordPayment, type PaymentField } from "./actions";
 import type { PendingRow } from "./collect-list";
@@ -222,6 +223,11 @@ export function CollectPanel({
             </p>
             {ledger && (ledger.address || ledger.vehicle) && (
               <p className="truncate text-xs text-slate-500">{[ledger.address, ledger.vehicle].filter(Boolean).join(" · ")}</p>
+            )}
+            {ledger?.zoneInfo && (
+              <div className="mt-1">
+                <ZonePicker source={ledger.source} refId={ledger.refId} info={ledger.zoneInfo} onChanged={() => void load()} compact />
+              </div>
             )}
           </div>
           {variant === "dialog" && (

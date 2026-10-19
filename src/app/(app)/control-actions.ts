@@ -151,3 +151,18 @@ export async function saveZone(input: ZoneInput): Promise<CtlResult> {
   const done = { add: "Zone added.", rename: "Zone renamed.", new_book: "New receipt book opened.", hide: "Zone hidden.", show: "Zone shown again.", delete: "Zone deleted." };
   return { ok: true, message: done[p.action] };
 }
+
+// ---------------------------------------------------------------- an account's zone (collection screens)
+export async function setAccountZone(source: "old" | "new", refId: number, zoneName: string): Promise<CtlResult> {
+  if (!["old", "new"].includes(source) || !Number.isInteger(refId) || refId <= 0) return { ok: false, error: "Invalid request. Reload the page." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("set_account_zone", { p_source: source, p_ref: refId, p_zone: zoneName.slice(0, 60) });
+  if (error) {
+    if (error.code === "42501" && error.message.startsWith("only")) return { ok: false, error: "Only the admin can change a zone that is already set." };
+    return fail(error, "Could not change the zone.");
+  }
+  revalidatePath(source === "old" ? `/accounts/${refId}` : `/loans/${refId}`);
+  revalidatePath("/zones");
+  const z = (data as { zone: string | null }).zone;
+  return { ok: true, message: `Zone saved: ${z ?? "DHAMTARI"}.` };
+}

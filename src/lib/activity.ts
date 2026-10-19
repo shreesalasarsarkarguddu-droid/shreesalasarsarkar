@@ -39,6 +39,7 @@ export const ACTIONS: { key: string; label: string; group: string }[] = [
   { key: "book_reopen", label: "Receipt book reopened", group: "Control" },
   { key: "book_delete", label: "Receipt book deleted", group: "Control" },
   { key: "remark_deleted", label: "Remark deleted", group: "Control" },
+  { key: "zone_changed", label: "Account zone changed", group: "Control" },
   { key: "zone_add", label: "Zone added", group: "Control" },
   { key: "zone_edit", label: "Zone changed", group: "Control" },
   { key: "zone_book", label: "New zone receipt book", group: "Control" },
@@ -115,6 +116,8 @@ export function describe(a: AuditRow): string {
       return `Receipts ${d.book && d.book !== "MAIN" ? `${d.book}/` : ""}${val(d.from_no)}–${val(d.to_no)}${d.note ? ` · ${d.note}` : ""}`;
     case "remark_deleted":
       return `“${val(d.remark)}” by ${val(d.written_by)} on ${val(d.written_on)}`;
+    case "zone_changed":
+      return `${val(d.from)} → ${val(d.to)}`;
     case "zone_add":
       return `book ${val(d.book)} from receipt ${val(d.start_no)}`;
     case "zone_book":
