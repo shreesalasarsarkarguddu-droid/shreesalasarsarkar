@@ -37,6 +37,8 @@ export const ACTIONS: { key: string; label: string; group: string }[] = [
   { key: "book_reopen", label: "Receipt book reopened", group: "Control" },
   { key: "book_delete", label: "Receipt book deleted", group: "Control" },
   { key: "signed_out", label: "Signed out by admin", group: "Admin" },
+  { key: "user_archived", label: "User removed", group: "Admin" },
+  { key: "user_restored", label: "User restored", group: "Admin" },
   { key: "user_added", label: "User added", group: "Admin" },
   { key: "user_changed", label: "User changed", group: "Admin" },
   { key: "password_reset", label: "Password reset", group: "Admin" },
@@ -98,6 +100,10 @@ export function describe(a: AuditRow): string {
       return `${val(d.removed)} account(s) removed from collection lists`;
     case "signed_out":
       return "signed out on every device";
+    case "user_archived":
+      return `login off, signed out, hidden from lists${Number(d.books_closed) ? ` · ${d.books_closed} receipt book(s) closed` : ""}`;
+    case "user_restored":
+      return "back in the users list (login still off until switched on)";
     case "payment_rejected":
       return `Rcpt ${val(d.receipt_no)} · ${rs(d.amount)}${d.collected_by ? ` by ${d.collected_by}` : ""} · Reason: ${val(d.reason)}`;
     case "payment_cancelled":

@@ -57,7 +57,7 @@ export default async function ActivityPage({ searchParams }: PageProps<"/activit
   if (to) query = query.lt("at", `${nextDay(to)}T00:00:00+05:30`);
   if (q) query = query.ilike("subject", `%${escapeLike(q)}%`);
 
-  const [{ data, count, error }, { data: users }] = await Promise.all([query, supabase.rpc("staff_names")]);
+  const [{ data, count, error }, { data: users }] = await Promise.all([query, supabase.rpc("staff_names", { p_all: true })]);
   if (error) {
     console.error("activity query failed:", error);
     throw new Error("Could not load the activity log.");

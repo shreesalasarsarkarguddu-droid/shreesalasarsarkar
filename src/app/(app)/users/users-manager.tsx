@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { PERMISSIONS, PRESETS } from "@/lib/permissions";
-import { createUser, setPassword, signOutUser, updateUser, type Result } from "./actions";
+import { archiveUser, createUser, setPassword, signOutUser, updateUser, type Result } from "./actions";
 
 export type UserRow = {
   user_id: string;
@@ -13,6 +13,7 @@ export type UserRow = {
   permissions: string[];
   last_sign_in_at: string | null;
   created_at: string;
+  archived_at: string | null;
 };
 
 const input =
@@ -21,6 +22,9 @@ const btn = "h-10 rounded-lg px-4 text-sm font-semibold disabled:opacity-60";
 
 export function UsersManager({ users }: { users: UserRow[] }) {
   const [adding, setAdding] = useState(false);
+  const [showRemoved, setShowRemoved] = useState(false);
+  const current = users.filter((u) => !u.archived_at);
+  const removed = users.filter((u) => u.archived_at);
   return (
     <div className="space-y-4">
       {adding ? (
@@ -31,10 +35,88 @@ export function UsersManager({ users }: { users: UserRow[] }) {
         </button>
       )}
       <ul className="space-y-3">
-        {users.map((u) => (
+        {current.map((u) => (
           <UserCard key={u.user_id} u={u} />
         ))}
       </ul>
+      {removed.length > 0 && (
+        <div className="space-y-3">
+          <button type="button" onClick={() => setShowRemoved((s) => !s)} className="text-sm font-semibold text-slate-600">
+            {showRemoved ? "▾ Hide" : "▸ Show"} removed users ({removed.length})
+          </button>
+          {showRemoved && (
+            <ul className="space-y-3">
+              {removed.map((u) => (
+                <RemovedCard key={u.user_id} u={u} />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RemovedCard({ u }: { u: UserRow }) {
+  const [r, setR] = useState<Result | null>(null);
+  const [pending, start] = useTransition();
+  return (
+    <li className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold text-slate-600">{u.full_name}</span>
+          <span className="block text-sm text-slate-500">{u.email}</span>
+          <span className="block text-xs text-slate-400">
+            Removed {u.archived_at && new Date(u.archived_at).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium" })}
+          </span>
+        </span>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => start(async () => setR(await archiveUser(u.user_id, false)))}
+          className={`${btn} bg-white text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50`}
+        >
+          {pending ? "Restoring…" : "Restore"}
+        </button>
+      </div>
+      <div className="mt-2">
+        <Msg r={r} />
+      </div>
+    </li>
+  );
+}
+
+function RemoveUser({ userId, name }: { userId: string; name: string }) {
+  const [sure, setSure] = useState(false);
+  const [r, setR] = useState<Result | null>(null);
+  const [pending, start] = useTransition();
+  return (
+    <div className="space-y-2 border-t border-slate-200 pt-4">
+      <span className="block text-sm font-medium text-slate-700">Remove user</span>
+      <p className="text-xs text-slate-500">
+        For someone who has left: their login is switched off, they are signed out everywhere and hidden from lists. Everything they did
+        keeps their name. Their open receipt books are closed and future collection lists cleared. You can restore them later.
+      </p>
+      {!sure ? (
+        <button type="button" onClick={() => setSure(true)} className={`${btn} bg-white text-red-700 ring-1 ring-slate-300 hover:bg-red-50`}>
+          Remove user…
+        </button>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => start(async () => setR(await archiveUser(userId, true)))}
+            className={`${btn} bg-red-700 text-white hover:bg-red-800`}
+          >
+            {pending ? "Removing…" : `Yes, remove ${name}`}
+          </button>
+          <button type="button" onClick={() => setSure(false)} className={`${btn} bg-white text-slate-700 ring-1 ring-slate-300`}>
+            Keep
+          </button>
+        </div>
+      )}
+      <Msg r={r} />
     </div>
   );
 }
@@ -289,6 +371,7 @@ function UserCard({ u }: { u: UserRow }) {
             <Msg r={pwR} />
           </div>
           <SignOutNow userId={u.user_id} name={u.full_name} />
+          <RemoveUser userId={u.user_id} name={u.full_name} />
           <p className="text-xs text-slate-400">
             Last sign-in: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) : "never"}
           </p>
