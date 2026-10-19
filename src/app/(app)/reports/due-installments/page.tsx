@@ -7,6 +7,8 @@ import { dmy, inr } from "@/lib/format";
 import { fromPaise, toPaise, todayIST } from "@/lib/schedule";
 import { PrintButton } from "../day-book/print-button";
 import { DateInput } from "@/components/date-input";
+import { can } from "@/lib/permissions";
+import { AllButton, AllCheck, AssignSelect, RowCheck } from "./assign-select";
 
 export const metadata: Metadata = { title: "Due Installments · Shree Salasar Sarkar" };
 
@@ -61,6 +63,20 @@ async function loadLines(asOf: string): Promise<DueLine[]> {
   }));
 }
 
+/** Who has each account on today's collection lists ("old-123" -> name), and the people who can be given accounts. */
+async function loadAssigned(day: string) {
+  const supabase = await createClient();
+  const [{ data: rows }, { data: people }] = await Promise.all([
+    supabase.from("collection_assignments").select("source, ref_id, user_id").eq("day", day).limit(5000),
+    supabase.rpc("staff_names"),
+  ]);
+  const list = ((people ?? []) as { user_id: string; full_name: string; active: boolean }[]).filter((p) => p.active);
+  const names = new Map(list.map((p) => [p.user_id, p.full_name]));
+  const assignedTo = new Map<string, string>();
+  for (const r of (rows ?? []) as { source: string; ref_id: number; user_id: string }[]) assignedTo.set(`${r.source}-${r.ref_id}`, names.get(r.user_id) ?? "someone");
+  return { assignedTo, staff: list.map((p) => ({ id: p.user_id, name: p.full_name })) };
+}
+
 const SORTS = [
   { key: "due", label: "Due date (oldest first)" },
   { key: "emis", label: "Most due EMIs first" },
@@ -74,7 +90,8 @@ function one(v: string | string[] | undefined) {
 const isDate = (v: string | undefined): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
 
 export default async function DueInstallmentsPage({ searchParams }: PageProps<"/reports/due-installments">) {
-  await requirePerm("reports");
+  const staff = await requirePerm("reports");
+  const canAssign = can(staff, "assign");
   const sp = await searchParams;
   const today = todayIST();
   const asOf = isDate(one(sp.upto)) ? one(sp.upto)! : today;
@@ -88,7 +105,8 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
   const showAll = one(sp.all) === "1";
   const page = Math.max(1, Number.parseInt(one(sp.page) ?? "1", 10) || 1);
 
-  const all = await loadLines(asOf);
+  const [all, assignInfo] = await Promise.all([loadLines(asOf), canAssign ? loadAssigned(today) : Promise.resolve(null)]);
+  const assignedTo = assignInfo?.assignedTo ?? new Map<string, string>();
   const models = [...new Set(all.map((l) => l.model).filter(Boolean) as string[])].sort();
 
   let lines = all.filter(
@@ -202,6 +220,7 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
         <p className="text-sm">Due up to {dmy(asOf)}</p>
       </div>
 
+      <Wrap on={canAssign} all={lines.map((l) => ({ key: `${l.source}-${l.refId}`, emi: l.emi }))} staff={assignInfo?.staff ?? []}>
       <dl className="num grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Accounts" value={lines.length.toLocaleString("en-IN")} />
         <Stat label="Total EMI" value={inr(totals.emi)} />
@@ -216,18 +235,34 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
       ) : (
         <>
           {/* phone: cards */}
+          {!showAll && canAssign && (
+            <div className="flex items-center gap-2 md:hidden">
+              <AllButton />
+              <span className="text-xs text-slate-500">Tick accounts, then Assign them to a collection man.</span>
+            </div>
+          )}
           {!showAll && (
           <ul className="space-y-2 md:hidden print:hidden">
             {shown.map((l) => (
               <li key={`${l.source}-${l.refId}`} className={`rounded-xl bg-white p-3 ring-1 ${l.seized ? "ring-red-300" : "ring-slate-200"}`}>
                 <div className="flex items-start justify-between gap-2">
-                  <Link href={href(l)} className={`min-w-0 font-semibold ${l.seized ? "text-red-700" : ""}`}>
+                  {canAssign && (
+                    <span className="pt-0.5">
+                      <RowCheck k={`${l.source}-${l.refId}`} label={l.name} />
+                    </span>
+                  )}
+                  <Link href={href(l)} className={`min-w-0 flex-1 font-semibold ${l.seized ? "text-red-700" : ""}`}>
                     <span className="block truncate">{l.name}</span>
                     <span className="block text-xs font-normal text-slate-500">
                       Folio {l.folio}
                       {l.model && <> · {l.model}</>}
                       {l.vehicleNo && <> · {l.vehicleNo}</>}
                     </span>
+                    {assignedTo.has(`${l.source}-${l.refId}`) && (
+                      <span className="mt-0.5 inline-block rounded bg-amber-50 px-1.5 text-xs font-semibold text-amber-800">
+                        today with {assignedTo.get(`${l.source}-${l.refId}`)}
+                      </span>
+                    )}
                   </Link>
                   {l.seized ? (
                     <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-800">Seized</span>
@@ -271,6 +306,11 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
             <table className="num w-full text-sm print:text-[11px]">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
                 <tr>
+                  {canAssign && (
+                    <th className="w-10 px-3 py-2.5 print:hidden">
+                      <AllCheck />
+                    </th>
+                  )}
                   <th className="px-3 py-2.5">Folio</th>
                   <th className="px-3 py-2.5">Borrower</th>
                   <th className="px-3 py-2.5">Model</th>
@@ -286,6 +326,11 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
               <tbody>
                 {shown.map((l) => (
                   <tr key={`${l.source}-${l.refId}`} className={`break-inside-avoid ${l.seized ? "bg-red-50/60 text-red-800" : "hover:bg-slate-50"}`}>
+                    {canAssign && (
+                      <td className="px-3 py-2 print:hidden">
+                        <RowCheck k={`${l.source}-${l.refId}`} label={l.name} />
+                      </td>
+                    )}
                     <td className="whitespace-nowrap px-3 py-2 font-semibold">
                       <Link href={href(l)} className="hover:underline">
                         {l.folio}
@@ -296,6 +341,11 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
                         {l.name}
                       </Link>
                       {l.source === "new" && <span className="ml-1.5 rounded bg-blue-100 px-1 text-[10px] font-bold text-blue-800">NEW</span>}
+                      {assignedTo.has(`${l.source}-${l.refId}`) && (
+                        <span className="ml-1.5 rounded bg-amber-50 px-1.5 text-[11px] font-semibold text-amber-800 print:hidden">
+                          today with {assignedTo.get(`${l.source}-${l.refId}`)}
+                        </span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2">{l.model ?? ""}</td>
                     <td className="whitespace-nowrap px-3 py-2">{dmy(l.nextDue)}</td>
@@ -320,6 +370,7 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
               </tbody>
               <tfoot className="bg-slate-50 font-bold">
                 <tr>
+                  {canAssign && <td className="print:hidden" />}
                   <td className="px-3 py-2.5" colSpan={4}>
                     Total ({lines.length} accounts)
                   </td>
@@ -344,7 +395,18 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
           </nav>
         </>
       )}
+      </Wrap>
     </div>
+  );
+}
+
+/** With the "assign" power: tick boxes + Assign bar around the results; otherwise nothing extra. */
+function Wrap({ on, all, staff, children }: { on: boolean; all: { key: string; emi: string }[]; staff: { id: string; name: string }[]; children: React.ReactNode }) {
+  if (!on) return <>{children}</>;
+  return (
+    <AssignSelect all={all} staff={staff}>
+      <div className="space-y-4 pb-28">{children}</div>
+    </AssignSelect>
   );
 }
 
