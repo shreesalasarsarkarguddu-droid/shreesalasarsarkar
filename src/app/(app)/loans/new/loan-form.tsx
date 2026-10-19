@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { EMPTY_LOAN, STEPS, calcLoan, loanSchema, paiseToString, type LoanFields } from "@/lib/loan";
 import { inr } from "@/lib/format";
+import { DateInput } from "@/components/date-input";
 import { createLoan } from "./actions";
 import { editLoan } from "../../fix-actions";
 
@@ -416,6 +417,15 @@ function Field({
           aria-invalid={!!error}
           aria-describedby={describedBy}
           className={`${cls} py-2.5 uppercase`}
+        />
+      ) : type === "date" ? (
+        <DateInput
+          id={name}
+          value={value}
+          onChange={(v) => onChange(name, v)}
+          aria-invalid={!!error}
+          aria-describedby={describedBy}
+          className={`${cls} h-12 lg:h-10`}
         />
       ) : (
         <input

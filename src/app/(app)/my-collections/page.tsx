@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { getStaff } from "@/lib/staff";
 import { can, homeFor } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { dmy, inr } from "@/lib/format";
+import { dmy, inr, weekday } from "@/lib/format";
 import { todayIST } from "@/lib/schedule";
 import { CollectButton } from "../payments/collect-button";
 import { getReceiptHint } from "@/lib/ledger";
@@ -52,7 +52,7 @@ export default async function MyCollectionsPage({ searchParams }: PageProps<"/my
   const due = items.reduce((t, i) => t + Number(i.arrears && i.arrears > 0 ? i.arrears : (i.emi ?? 0)), 0);
   const got = items.reduce((t, i) => t + Number(i.collected), 0);
   const href = (d: string) => `/my-collections?day=${d}${who ? `&who=${who}` : ""}`;
-  const dayLabel = new Date(day + "T00:00:00Z").toLocaleDateString("en-IN", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });
+  const dayLabel = `${weekday(day)}, ${dmy(day)}`;
 
   // group by collection man (only shown when one person sees everyone)
   const groups = new Map<string, Item[]>();

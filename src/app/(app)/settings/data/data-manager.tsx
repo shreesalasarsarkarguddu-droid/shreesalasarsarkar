@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { dateTimeIST, dmy } from "@/lib/format";
 import { Section } from "@/components/section";
 import { commitImport, createRestorePoint, deleteData, restore, restoreFromFile, type Result } from "./actions";
 
@@ -17,7 +18,7 @@ const input =
   "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20";
 
 const n = (v: number | undefined) => (v ?? 0).toLocaleString("en-IN");
-const when = (s: string) => new Date(s).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" });
+const when = (s: string) => dateTimeIST(s);
 
 function summary(c: Counts) {
   return `${n(c.legacy_accounts)} old accounts · ${n(c.legacy_payments)} old receipts · ${n(c.loans)} new loans · ${n(c.payments)} payments · ${n(c.seizures)} seizures`;
@@ -646,10 +647,10 @@ function ImportCard() {
                         <tr key={i} className="border-t border-red-100">
                           <td className="py-1 pr-3">SNO {x.sno} {x.borrower_name}</td>
                           <td className="num py-1 pr-3">
-                            Rcpt {x.app_receipt} · {x.app_date} · ₹{Number(x.app_amount).toLocaleString("en-IN")}
+                            Rcpt {x.app_receipt} · {dmy(x.app_date)} · ₹{Number(x.app_amount).toLocaleString("en-IN")}
                           </td>
                           <td className="num py-1 pr-3">
-                            Rcpt {x.file_receipt ?? "—"} · {x.file_date ?? "—"} · ₹{Number(x.file_amount ?? 0).toLocaleString("en-IN")}
+                            Rcpt {x.file_receipt ?? "—"} · {dmy(x.file_date)} · ₹{Number(x.file_amount ?? 0).toLocaleString("en-IN")}
                           </td>
                           <td className="py-1">{x.why}</td>
                         </tr>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { dmy, inr, isPositive } from "@/lib/format";
 import { fromPaise, toPaise, todayIST, type DueRow } from "@/lib/schedule";
 import { PAYMENT_MODES } from "@/lib/payment";
+import { DateInput } from "@/components/date-input";
 import type { Ledger, ReceiptHint } from "@/lib/ledger";
 import { EmiSummary } from "../installments";
 import { LedgerCards, LedgerGrid } from "./ledger-grid";
@@ -475,12 +476,11 @@ export function CollectPanel({
                     <label htmlFor="pay-paid_date" className="mb-1 block text-sm font-medium text-slate-700">
                       Paid date <span className="text-red-600">*</span>
                     </label>
-                    <input
+                    <DateInput
                       id="pay-paid_date"
-                      type="date"
                       max={todayIST()}
                       value={form.paid_date}
-                      onChange={(e) => set("paid_date", e.target.value)}
+                      onChange={(v) => set("paid_date", v)}
                       aria-invalid={!!errors.paid_date}
                       className={inputCls(!!errors.paid_date)}
                     />

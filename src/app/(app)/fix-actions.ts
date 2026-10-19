@@ -120,7 +120,7 @@ export async function addAdjustment(source: "old" | "new", refId: number, path: 
   refresh(path);
   const owed = Number((data as { owed: number }).owed).toLocaleString("en-IN", { maximumFractionDigits: 2 });
   const done = { penalty: "Late fee added", discount: "Discount given", settle: "Account closed", reschedule: "Rescheduled" }[parsed.data.kind];
-  return { ok: true, message: `${done}. Balance now â‚¹${owed}.` };
+  return { ok: true, message: `${done}. Balance now ₹${owed}.` };
 }
 
 export async function cancelAdjustment(id: number, path: string, why: string): Promise<FixResult> {

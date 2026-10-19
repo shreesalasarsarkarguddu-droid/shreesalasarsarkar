@@ -1,5 +1,7 @@
 // Wording for the activity log (data_audit). Shared by the Activity page and the Data page.
 
+import { dateTimeIST, dmy } from "./format";
+
 export type AuditRow = {
   id: number;
   at: string;
@@ -60,9 +62,19 @@ const nice = (k: string) =>
     folio_no: "folio", emi_amount: "EMI", total_amount: "total", finance_amount: "finance", interest_amount: "interest",
     interest_rate: "rate %", installments: "no. of EMIs", interval_months: "interval",
   })[k] ?? k.replaceAll("_", " ");
-const val = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : Array.isArray(v) ? v.join(", ") || "—" : String(v));
+// dates stored as 2026-03-15 (or full timestamps) read as 15/03/2026
+const val = (v: unknown) =>
+  v === null || v === undefined || v === ""
+    ? "—"
+    : Array.isArray(v)
+      ? v.join(", ") || "—"
+      : typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)
+        ? dateTimeIST(v)
+        : typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)
+          ? dmy(v)
+          : String(v);
 
-/** "amount 5600 → 6000, date 2026-03-15 → 2026-03-16" */
+/** "amount 5600 → 6000, date 15/03/2026 → 16/03/2026" */
 export function changesText(c: unknown): string {
   if (!c || typeof c !== "object") return "";
   return Object.entries(c as Record<string, unknown>)

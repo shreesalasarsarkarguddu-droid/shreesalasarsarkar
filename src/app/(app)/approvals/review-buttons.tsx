@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { dmy, inr } from "@/lib/format";
+import { dmy, inr, timeIST } from "@/lib/format";
 import { reviewPending, type CtlResult } from "../control-actions";
 
 export type Waiting = {
@@ -81,7 +81,7 @@ export function ApproveGroup({ rows }: { rows: Waiting[] }) {
                 </a>
                 <span className="num block text-xs text-slate-500">
                   Rcpt {w.receipt_no} · {w.payment_mode} · paid {dmy(w.paid_date)} ·{" "}
-                  {new Date(w.created_at).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" })}
+                  {timeIST(w.created_at)}
                   {w.reason && w.reason !== "waiting for cash count" && <span className="text-amber-700"> · {w.reason.replace("waiting for cash count · ", "")}</span>}
                 </span>
               </span>

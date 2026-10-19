@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requirePerm } from "@/lib/staff";
 import { can } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { inr } from "@/lib/format";
+import { dmy, inr, monthYear, weekday } from "@/lib/format";
 import { todayIST } from "@/lib/schedule";
 
 export const metadata: Metadata = { title: "Dashboard · Shree Salasar Sarkar" };
@@ -40,8 +40,8 @@ function short(v: number): string {
   return rs(v);
 }
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-const monthName = (ym: string, long = false) =>
-  new Date(ym + "-01T00:00:00Z").toLocaleDateString("en-IN", { timeZone: "UTC", month: long ? "long" : "short", year: long ? "numeric" : "2-digit" });
+/** "2026-10" -> "10/2026" (long) or "10/26" (chart label) */
+const monthName = (ym: string, long = false) => (long ? monthYear(ym) : `${ym.slice(5, 7)}/${ym.slice(2, 4)}`);
 
 export default async function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   const staff = await requirePerm("reports");
@@ -81,7 +81,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         <div>
           <h1 className="text-xl font-bold">Dashboard</h1>
           <p className="text-sm text-slate-500">
-            {new Date(today + "T00:00:00Z").toLocaleDateString("en-IN", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" })} ·
+            {weekday(today)}, {dmy(today)} ·
             old software + this app
           </p>
         </div>

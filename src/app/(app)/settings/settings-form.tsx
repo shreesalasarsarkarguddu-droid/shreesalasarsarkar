@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { dateTimeIST } from "@/lib/format";
 import { OnOff, Section } from "@/components/section";
 import { saveSettings, sendTest, type Result } from "./actions";
 
@@ -264,7 +265,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
         {saved && <Message r={saved} />}
         {!saved && initial.updated_at && (
           <span className="text-xs text-slate-500">
-            Last saved {new Date(initial.updated_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })}
+            Last saved {dateTimeIST(initial.updated_at)}
           </span>
         )}
       </div>

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { requirePerm } from "@/lib/staff";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIONS, actionLabel, describe, refHref, type AuditRow } from "@/lib/activity";
+import { DateInput } from "@/components/date-input";
+import { dateIST, timeIST } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Activity · Shree Salasar Sarkar" };
 
@@ -80,8 +82,8 @@ export default async function ActivityPage({ searchParams }: PageProps<"/activit
   };
 
   // group by day (India time)
-  const day = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "short", day: "2-digit", month: "short", year: "numeric" });
-  const time = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" });
+  const day = dateIST;
+  const time = timeIST;
   const groups: { day: string; rows: AuditRow[] }[] = [];
   for (const r of rows) {
     const d = day(r.at);
@@ -123,11 +125,11 @@ export default async function ActivityPage({ searchParams }: PageProps<"/activit
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-600">From</span>
-          <input type="date" name="from" defaultValue={from} className={field} />
+          <DateInput name="from" defaultValue={from} className={field} />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-600">To</span>
-          <input type="date" name="to" defaultValue={to} className={field} />
+          <DateInput name="to" defaultValue={to} className={field} />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-600">Name / SNO / folio</span>

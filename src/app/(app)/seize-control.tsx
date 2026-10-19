@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { todayIST } from "@/lib/schedule";
+import { DateInput } from "@/components/date-input";
 import { setSeized } from "./seize-actions";
 
 /** "Seize vehicle" (or "Release" when already seized) button with a small confirm form. */
@@ -84,7 +85,7 @@ function SeizeDialog({ source, refId, seize, onClose }: { source: "old" | "new";
         </div>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">{seize ? "Seized on" : "Released on"} *</span>
-          <input type="date" value={date} max={todayIST()} onChange={(e) => setDate(e.target.value)} required className={`${input} h-12`} />
+          <DateInput value={date} max={todayIST()} onChange={setDate} required className={`${input} h-12`} />
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">

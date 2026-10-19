@@ -4,9 +4,10 @@ import { notFound, redirect } from "next/navigation";
 import { getStaff } from "@/lib/staff";
 import { can, homeFor } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { inr } from "@/lib/format";
+import { dateTimeIST, dmy, inr, weekday } from "@/lib/format";
 import { addMonths, todayIST } from "@/lib/schedule";
 import { ReceiveCash } from "./receive-cash";
+import { DateInput } from "@/components/date-input";
 
 export const metadata: Metadata = { title: "Daily cash · Shree Salasar Sarkar" };
 
@@ -41,7 +42,7 @@ export default async function CashPage({ searchParams }: PageProps<"/cash">) {
     (t, r) => ({ cash: t.cash + Number(r.cash), other: t.other + Number(r.total) - Number(r.cash), received: t.received + Number(r.received_amount ?? 0) }),
     { cash: 0, other: 0, received: 0 },
   );
-  const dayLabel = new Date(day + "T00:00:00Z").toLocaleDateString("en-IN", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const dayLabel = `${weekday(day)}, ${dmy(day)}`;
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
@@ -59,7 +60,7 @@ export default async function CashPage({ searchParams }: PageProps<"/cash">) {
             ←
           </Link>
           <form method="get">
-            <input type="date" name="day" defaultValue={day} max={today} className="h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm" />
+            <DateInput name="day" defaultValue={day} max={today} className="h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm" />
             <button className="ml-1 h-10 rounded-lg bg-blue-700 px-3 text-sm font-semibold text-white">Go</button>
           </form>
           {day < today && (
@@ -120,7 +121,7 @@ export default async function CashPage({ searchParams }: PageProps<"/cash">) {
                   <p className="mt-2 text-xs text-slate-500">
                     Received {n(r.received_amount)} by {r.received_by ?? "—"}
                     {r.received_at &&
-                      ` on ${new Date(r.received_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })}`}
+                      ` on ${dateTimeIST(r.received_at)}`}
                     {r.note && ` · ${r.note}`}
                     {changed && (
                       <span className="mt-1 block font-semibold text-amber-700">

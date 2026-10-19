@@ -23,12 +23,56 @@ export function isNegative(value: string | null | undefined): boolean {
   return value != null && value.startsWith("-") && /[1-9]/.test(value);
 }
 
-/** "2022-03-03" -> "03 Mar 2022" */
+// Dates: one format everywhere, DD/MM/YYYY (21/12/1993). Never month names.
+
+/** "2022-03-03" -> "03/03/2022" */
 export function dmy(value: string | null | undefined): string {
   if (!value) return "—";
-  const [y, m, d] = value.split("-");
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${d} ${months[Number(m) - 1]} ${y}`;
+  const [y, m, d] = value.slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
+}
+
+/** "2022-03-03" -> "Thursday" */
+export function weekday(ymd: string): string {
+  return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][new Date(ymd.slice(0, 10) + "T00:00:00Z").getUTCDay()];
+}
+
+/** "2022-03" -> "03/2022" (month-only labels) */
+export function monthYear(ym: string): string {
+  const [y, m] = ym.split("-");
+  return `${m}/${y}`;
+}
+
+const istParts = (iso: string) => {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true,
+    })
+      .formatToParts(new Date(iso))
+      .map((x) => [x.type, x.value]),
+  );
+  return { date: `${p.day}/${p.month}/${p.year}`, time: `${p.hour}:${p.minute} ${String(p.dayPeriod ?? "").toUpperCase()}`.trim() };
+};
+
+/** A timestamp in India time: "21/12/1993" */
+export const dateIST = (iso: string | null | undefined) => (iso ? istParts(iso).date : "—");
+/** A timestamp in India time: "05:30 PM" */
+export const timeIST = (iso: string | null | undefined) => (iso ? istParts(iso).time : "—");
+/** A timestamp in India time: "21/12/1993 05:30 PM" */
+export const dateTimeIST = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  const p = istParts(iso);
+  return `${p.date} ${p.time}`;
+};
+
+/** "21/12/1993" (or 21-12-1993, 21.12.1993) -> "1993-12-21"; "" when not a real date. */
+export function parseDmy(text: string): string {
+  const m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(text.trim());
+  if (!m) return "";
+  const [d, mo, y] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return "";
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
 const FLAG_LABELS: Record<string, string> = {

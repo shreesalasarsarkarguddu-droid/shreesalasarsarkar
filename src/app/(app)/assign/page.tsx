@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { inr } from "@/lib/format";
 import { todayIST } from "@/lib/schedule";
 import { AssignPicker, AssignedList, type Candidate, type Assigned } from "./assign-forms";
+import { DateInput } from "@/components/date-input";
 
 export const metadata: Metadata = { title: "Assign collections · Shree Salasar Sarkar" };
 
@@ -57,7 +58,7 @@ export default async function AssignPage({ searchParams }: PageProps<"/assign">)
       <form method="get" className="grid gap-2 rounded-xl bg-white p-4 ring-1 ring-slate-200 sm:grid-cols-[auto_auto_1fr_auto]">
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-600">Day</span>
-          <input type="date" name="day" defaultValue={day} min={today} className={field} />
+          <DateInput name="day" defaultValue={day} min={today} className={field} />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-600">Show</span>

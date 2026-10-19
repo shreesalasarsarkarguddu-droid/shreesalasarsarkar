@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { dmy, weekday } from "@/lib/format";
 import Link from "next/link";
 import { requirePerm } from "@/lib/staff";
 import { createClient } from "@/lib/supabase/server";
@@ -44,7 +45,7 @@ export default async function ApprovalsPage() {
           <section key={`${g.userId}-${g.day}`} className="space-y-1">
             <div className="flex flex-wrap items-center justify-between gap-2 px-1">
               <h2 className="text-sm font-semibold">
-                {g.who} · {new Date(g.day + "T00:00:00Z").toLocaleDateString("en-IN", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" })}
+                {g.who} · {weekday(g.day).slice(0, 3)} {dmy(g.day)}
               </h2>
               <Link href={`/cash?day=${g.day}`} className="text-sm font-semibold text-blue-700">
                 Daily cash for this day →

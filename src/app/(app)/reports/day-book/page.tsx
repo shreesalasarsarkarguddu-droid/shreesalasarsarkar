@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { dmy } from "@/lib/format";
 import { todayIST } from "@/lib/schedule";
 import { PrintButton } from "./print-button";
+import { DateInput } from "@/components/date-input";
 
 export const metadata: Metadata = { title: "Day Book · Shree Salasar Sarkar" };
 
@@ -128,11 +129,11 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
       <form className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 ring-1 ring-slate-200 print:hidden" action="/reports/day-book">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">From</span>
-          <input type="date" name="from" defaultValue={from} max={today} required className="h-11 rounded-lg border border-slate-300 px-3" />
+          <DateInput name="from" defaultValue={from} max={today} required className="h-11 rounded-lg border border-slate-300 px-3" />
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">To</span>
-          <input type="date" name="to" defaultValue={to} required className="h-11 rounded-lg border border-slate-300 px-3" />
+          <DateInput name="to" defaultValue={to} required className="h-11 rounded-lg border border-slate-300 px-3" />
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">Narration</span>

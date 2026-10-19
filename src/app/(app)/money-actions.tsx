@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { dmy, inr, isPositive } from "@/lib/format";
 import { addMonths, todayIST } from "@/lib/schedule";
+import { DateInput } from "@/components/date-input";
 import { ADJ_LABEL, type Adjustment } from "@/lib/adjustments";
 import { addAdjustment, cancelAdjustment, type AdjustInput, type FixResult } from "./fix-actions";
 
@@ -228,7 +229,7 @@ function AdjustForm({
               <input className={input} inputMode="decimal" value={newEmi} onChange={(e) => setNewEmi(e.target.value.replace(/[^\d.]/g, ""))} />
             </L>
             <L label="Next due date" error={err("next_due")}>
-              <input className={input} type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value)} />
+              <DateInput className={input} value={nextDue} onChange={setNextDue} />
             </L>
           </div>
           <p className="text-sm text-slate-600">

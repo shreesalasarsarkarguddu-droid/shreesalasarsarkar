@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { dmy, inr } from "@/lib/format";
 import { fromPaise, toPaise, todayIST } from "@/lib/schedule";
 import { PrintButton } from "../day-book/print-button";
+import { DateInput } from "@/components/date-input";
 
 export const metadata: Metadata = { title: "Due Installments · Shree Salasar Sarkar" };
 
@@ -142,11 +143,11 @@ export default async function DueInstallmentsPage({ searchParams }: PageProps<"/
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-600">Due from</span>
-          <input type="date" name="from" defaultValue={from} className={input} />
+          <DateInput name="from" defaultValue={from} className={input} />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-600">Due up to</span>
-          <input type="date" name="upto" defaultValue={asOf} className={input} />
+          <DateInput name="upto" defaultValue={asOf} className={input} />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-600">Model</span>

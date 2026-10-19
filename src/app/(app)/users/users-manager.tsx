@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { dateIST, dateTimeIST } from "@/lib/format";
 import { PERMISSIONS, PRESETS } from "@/lib/permissions";
 import { archiveUser, createUser, setPassword, signOutUser, updateUser, type Result } from "./actions";
 
@@ -67,7 +68,7 @@ function RemovedCard({ u }: { u: UserRow }) {
           <span className="block font-semibold text-slate-600">{u.full_name}</span>
           <span className="block text-sm text-slate-500">{u.email}</span>
           <span className="block text-xs text-slate-400">
-            Removed {u.archived_at && new Date(u.archived_at).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium" })}
+            Removed {u.archived_at && dateIST(u.archived_at)}
           </span>
         </span>
         <button
@@ -373,7 +374,7 @@ function UserCard({ u }: { u: UserRow }) {
           <SignOutNow userId={u.user_id} name={u.full_name} />
           <RemoveUser userId={u.user_id} name={u.full_name} />
           <p className="text-xs text-slate-400">
-            Last sign-in: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) : "never"}
+            Last sign-in: {u.last_sign_in_at ? dateTimeIST(u.last_sign_in_at) : "never"}
           </p>
         </div>
       )}

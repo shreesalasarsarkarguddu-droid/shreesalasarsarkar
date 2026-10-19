@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { dmy, inr } from "@/lib/format";
 import { PAYMENT_MODES, paymentModeText } from "@/lib/payment";
 import { todayIST } from "@/lib/schedule";
+import { DateInput } from "@/components/date-input";
 import type { NewPaymentRecord } from "@/lib/ledger";
 import { cancelPayment, editPayment, type FixResult, type PaymentFixInput } from "./fix-actions";
 
@@ -143,7 +144,7 @@ function EditForm({ p, path, onDone }: { p: NewPaymentRecord; path: string; onDo
           </>
         )}
         <L label="Paid date" error={err("paid_date")}>
-          <input className={input} type="date" max={todayIST()} value={f.paid_date} onChange={(e) => set("paid_date", e.target.value)} />
+          <DateInput className={input} max={todayIST()} value={f.paid_date} onChange={(v) => set("paid_date", v)} />
         </L>
         <L label="Receipt no." error={err("receipt_no")}>
           <input className={input} inputMode="numeric" value={f.receipt_no} onChange={(e) => set("receipt_no", e.target.value.replace(/\D/g, ""))} />

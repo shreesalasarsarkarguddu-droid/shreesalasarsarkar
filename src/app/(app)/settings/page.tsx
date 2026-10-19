@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { dateTimeIST } from "@/lib/format";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getStaff } from "@/lib/staff";
@@ -53,7 +54,7 @@ export default async function SettingsPage() {
                     {r.status}
                   </span>
                   <span className="num text-xs text-slate-400">
-                    {new Date(r.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    {dateTimeIST(r.created_at)}
                   </span>
                 </div>
                 <p className="mt-1 line-clamp-2 whitespace-pre-line text-slate-600">{r.message}</p>
