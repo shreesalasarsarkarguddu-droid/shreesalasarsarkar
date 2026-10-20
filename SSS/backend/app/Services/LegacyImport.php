@@ -232,8 +232,8 @@ final class LegacyImport
             foreach ($rows as $p) {
                 $a = $acct[(int) $p['sno']] ?? null;
                 $zone = $a ? trim((string) $a->zone) : '';
-                $sid = $series[$zone] ??= Receipts::historySeries($zone);
-                $row = ['account_id' => $a?->id, 'import_batch_id' => $ids[$p['_file']], 'series_id' => $sid, 'receipt_book' => Receipts::code($sid)];
+                [$sid, $book] = $series[$zone] ??= [$h = Receipts::historySeries($zone), Receipts::code($h)]; // once per zone
+                $row = ['account_id' => $a?->id, 'import_batch_id' => $ids[$p['_file']], 'series_id' => $sid, 'receipt_book' => $book];
                 foreach ($p as $k => $v) {
                     if ($k !== '_file' && in_array($k, $payCols, true) && ! array_key_exists($k, $row) && $k !== 'id') {
                         $row[$k] = is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : $v;

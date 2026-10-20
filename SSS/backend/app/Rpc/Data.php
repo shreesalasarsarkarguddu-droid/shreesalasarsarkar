@@ -292,10 +292,11 @@ class Data
     /** Receipts from a backup made before receipt books existed: the zone's first book (app_private.legacy_series). */
     private static function withSeries(array $r): array
     {
+        static $zones = null, $books = [];
         if (empty($r['series_id'])) {
-            $zone = isset($r['account_id']) ? DB::table('legacy_accounts')->where('id', $r['account_id'])->value('zone') : null;
-            $r['series_id'] = Receipts::historySeries($zone);
-            $r['receipt_book'] = Receipts::code($r['series_id']);
+            $zones ??= DB::table('legacy_accounts')->pluck('zone', 'id')->all();
+            $zone = trim((string) ($zones[$r['account_id'] ?? 0] ?? ''));
+            [$r['series_id'], $r['receipt_book']] = $books[$zone] ??= [$h = Receipts::historySeries($zone), Receipts::code($h)];
         }
 
         return $r;
