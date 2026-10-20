@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { dateTimeIST, dmy } from "@/lib/format";
 import { Section } from "@/components/section";
-import { strFromU8 } from "fflate";
+import { strFromU8, unzipSync } from "fflate";
 import { parseCsv } from "@/lib/csv";
 import { rpc } from "@/lib/rpc";
 import { ImportError, parseAll, type FileKey, type Files } from "@/lib/legacy/parse";
@@ -231,7 +231,6 @@ function RestoreFileCard() {
         setBusy("Unlocking (takes a few seconds)…");
         bytes = await decryptOpenSsl(bytes, pass);
       }
-      const { unzipSync } = await import("fflate");
       let files: Record<string, Uint8Array>;
       try {
         files = unzipSync(bytes);

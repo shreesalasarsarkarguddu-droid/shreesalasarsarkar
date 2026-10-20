@@ -1,5 +1,7 @@
 # Installing on shared hosting (cPanel / Hostinger style)
 
+Paths are inside the SSS folder, which is the root of the deploy repo (github.com/TarunKumarDewangan/shreesalasarsarkarfin1).
+
 The site is one Laravel app (`backend/`). The React screens are built once into `backend/public/app/` and Laravel serves them,
 so the hosting needs only PHP + MySQL. Nothing runs on Vercel or Supabase any more.
 
@@ -14,7 +16,7 @@ so the hosting needs only PHP + MySQL. Nothing runs on Vercel or Supabase any mo
 ## 1. Build on your PC
 
 ```bash
-cd SSS/frontend
+cd frontend
 npm ci
 npm run build          # writes backend/public/app/
 cd ../backend
@@ -23,7 +25,7 @@ composer install --no-dev --optimize-autoloader
 
 ## 2. Upload
 
-Upload the whole `SSS/backend` folder to the hosting, **outside** `public_html`, e.g. `/home/USER/sss`.
+Upload the whole `backend` folder to the hosting, **outside** `public_html`, e.g. `/home/USER/sss`.
 Then make the domain's document root point to `/home/USER/sss/public`:
 
 - cPanel → Domains → (your domain) → Document Root → `sss/public`.
@@ -74,7 +76,7 @@ This sends the hourly Telegram daily summary / WhatsApp due reminders, and makes
 Stop entries on the old site first (tell staff), then on your PC:
 
 ```bash
-python SSS/scripts/pull_from_supabase.py move.sql --keep-notifications
+python SSS/scripts/pull_from_supabase.py move.sql --keep-notifications   # from the full project folder on the PC
 ```
 
 `move.sql` holds every user (same email + password as before), account, receipt, loan, payment, setting and the activity log.
@@ -102,7 +104,7 @@ A migration that adds a column to a data table must add it to its restore-point 
 ## Screens and API on two domains (Hostinger: businesstradecore.in + api.businesstradecore.in)
 
 - API: clone into `~/domains/api.businesstradecore.in/sss`, replace that domain's `public_html` with a link to
-  `sss/SSS/backend/public`, and add to `.env`:
+  `sss/backend/public`, and add to `.env`:
   ```
   APP_URL=https://api.businesstradecore.in
   FRONTEND_URL=https://businesstradecore.in,https://www.businesstradecore.in
@@ -110,13 +112,13 @@ A migration that adds a column to a data table must add it to its restore-point 
   SESSION_DOMAIN=.businesstradecore.in
   SESSION_SECURE_COOKIE=true
   ```
-- Screens: on the PC `cd SSS/frontend && npm run build:split` (API address in `.env.split`) writes `dist/` with an `.htaccess`;
+- Screens: on the PC `cd frontend && npm run build:split` (API address in `.env.split`) writes `dist/` with an `.htaccess`;
   upload the contents of `dist/` (including `.htaccess`) into `~/domains/businesstradecore.in/public_html`.
 
 ## Local development
 
 ```bash
-cd SSS/backend && php artisan serve            # API on 127.0.0.1:8000
-cd SSS/frontend && npm run dev                 # screens on localhost:5173 (calls the API through the Vite proxy)
+cd backend && php artisan serve            # API on 127.0.0.1:8000
+cd frontend && npm run dev                 # screens on localhost:5173 (calls the API through the Vite proxy)
 php artisan test                               # feature tests (on the local copy, rolled back)
 ```
