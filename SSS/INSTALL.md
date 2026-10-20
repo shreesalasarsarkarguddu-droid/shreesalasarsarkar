@@ -99,6 +99,20 @@ php artisan route:cache
 A migration that adds a column to a data table must add it to its restore-point copy `rp_<table>` too
 (see `database/migrations/2026_10_21_000100_create_data_safety_tables.php`).
 
+## Screens and API on two domains (Hostinger: businesstradecore.in + api.businesstradecore.in)
+
+- API: clone into `~/domains/api.businesstradecore.in/sss`, replace that domain's `public_html` with a link to
+  `sss/SSS/backend/public`, and add to `.env`:
+  ```
+  APP_URL=https://api.businesstradecore.in
+  FRONTEND_URL=https://businesstradecore.in,https://www.businesstradecore.in
+  SANCTUM_STATEFUL_DOMAINS=businesstradecore.in,www.businesstradecore.in
+  SESSION_DOMAIN=.businesstradecore.in
+  SESSION_SECURE_COOKIE=true
+  ```
+- Screens: on the PC `cd SSS/frontend && npm run build:split` (API address in `.env.split`) writes `dist/` with an `.htaccess`;
+  upload the contents of `dist/` (including `.htaccess`) into `~/domains/businesstradecore.in/public_html`.
+
 ## Local development
 
 ```bash

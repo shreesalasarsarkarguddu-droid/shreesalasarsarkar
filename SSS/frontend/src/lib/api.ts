@@ -1,4 +1,8 @@
-// Talking to the Laravel API (same origin; session cookie + CSRF token, Sanctum SPA).
+// Talking to the Laravel API (session cookie + CSRF token, Sanctum SPA). Same origin, or the API's own domain when the
+// screens are built with VITE_API_URL (npm run build:split -> dist/ for businesstradecore.in, API on api.businesstradecore.in).
+
+/** "" (same origin) or "https://api.businesstradecore.in". */
+export const API = ((import.meta.env.VITE_API_URL as string | undefined) ?? "").replace(/\/+$/, "");
 
 export class ApiError extends Error {
   status: number;
@@ -11,7 +15,7 @@ export class ApiError extends Error {
 let csrf: Promise<void> | null = null;
 function ensureCsrf(force = false): Promise<void> {
   if (force || !csrf || !document.cookie.includes("XSRF-TOKEN=")) {
-    csrf = fetch("/sanctum/csrf-cookie", { credentials: "same-origin" }).then(() => undefined);
+    csrf = fetch(`${API}/sanctum/csrf-cookie`, { credentials: "include" }).then(() => undefined);
   }
   return csrf;
 }
@@ -25,9 +29,9 @@ export const SIGNED_OUT = "sss:signed-out";
 
 async function send(method: string, url: string, body?: unknown, retry = true): Promise<Response> {
   if (method !== "GET") await ensureCsrf();
-  const res = await fetch(`/api${url}`, {
+  const res = await fetch(`${API}/api${url}`, {
     method,
-    credentials: "same-origin",
+    credentials: "include",
     headers: {
       Accept: "application/json",
       "X-Requested-With": "XMLHttpRequest",

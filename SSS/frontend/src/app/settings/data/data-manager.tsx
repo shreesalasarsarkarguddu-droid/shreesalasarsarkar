@@ -8,6 +8,7 @@ import { parseCsv } from "@/lib/csv";
 import { rpc } from "@/lib/rpc";
 import { ImportError, parseAll, type FileKey, type Files } from "@/lib/legacy/parse";
 import { commitImport, createRestorePoint, deleteData, restore, restoreFromFile, stageRows, type Result } from "./actions";
+import { API } from "@/lib/api";
 
 /** A server function's answer, or its message as an error. */
 async function call<T>(name: string, params: Record<string, unknown>): Promise<T> {
@@ -121,7 +122,7 @@ function BackupCard() {
         that can be put back with one button. The newest 5 restore points are kept.
       </p>
       <div className="flex flex-wrap gap-2">
-        <a href="/api/backup" className={`${btn} inline-flex items-center bg-white text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50`}>
+        <a href={`${API}/api/backup`} className={`${btn} inline-flex items-center bg-white text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50`}>
           Download backup (.zip)
         </a>
         <button
@@ -440,7 +441,7 @@ function DeleteCard({ o }: { o: Overview }) {
           <div className="space-y-2 p-3">
             <p className="text-sm font-medium">Step 1: download a backup to your device</p>
             <a
-              href="/api/backup"
+              href={`${API}/api/backup`}
               onClick={() => setDownloaded(true)}
               className={`${btn} inline-flex items-center bg-white text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50`}
             >

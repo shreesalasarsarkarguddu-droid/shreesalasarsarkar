@@ -2,6 +2,7 @@ import { useState, useTransition } from "react";
 import { dateTimeIST } from "@/lib/format";
 import { OnOff, Section } from "@/components/section";
 import { saveSettings, sendTest, type Result } from "./actions";
+import { API } from "@/lib/api";
 
 export type Settings = {
   business_name: string;
@@ -193,7 +194,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           details, so keep it private.
         </p>
         <a
-          href="/api/backup"
+          href={`${API}/api/backup`}
           className="inline-flex h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50"
         >
           Download backup (.zip)

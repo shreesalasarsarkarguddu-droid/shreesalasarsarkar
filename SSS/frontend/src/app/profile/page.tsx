@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useAuth, useStaff } from "@/lib/auth";
 import { PasswordForm } from "./password-form";
 import { can, controlLinks } from "@/lib/permissions";
+import { API } from "@/lib/api";
 
 export default function ProfilePage() {
   const staff = useStaff();
@@ -37,7 +38,7 @@ export default function ProfilePage() {
       ))}
 
       {staff.role !== "admin" && can(staff, "backup") && (
-        <a href="/api/backup" className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
+        <a href={`${API}/api/backup`} className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
           <span>
             <span className="block font-semibold text-blue-700">Download backup</span>
             <span className="block text-sm text-slate-500">Every account and payment as a zip. Keep it private.</span>
