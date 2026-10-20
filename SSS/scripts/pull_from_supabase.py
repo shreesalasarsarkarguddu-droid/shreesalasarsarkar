@@ -1,11 +1,13 @@
 """Copy the live Supabase data into the MySQL database of the Laravel app.
 
-    python SSS/scripts/pull_from_supabase.py OUT.sql [--keep-notifications]
+    python SSS/scripts/pull_from_supabase.py OUT.sql [--keep-notifications] [--restore-point N]
     mysql -u root sss < OUT.sql
 
 Writes one SQL file (India-time DATETIMEs, JSON for jsonb/arrays). Users come from auth.users + staff with their
 bcrypt password hashes, so everyone keeps the same login. By default Telegram / WhatsApp are switched off in the copy
 (a test copy must never message the real group); pass --keep-notifications for the final move.
+--restore-point N reads the business tables from that restore point (app_private.rpN_*) instead of the live ones
+(users and settings still come from the live tables).
 The output holds customer data: keep it out of git and delete it after loading.
 """
 import datetime as dt
@@ -83,6 +85,7 @@ def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     keep_notifications = "--keep-notifications" in sys.argv
+    rp = sys.argv[sys.argv.index("--restore-point") + 1] if "--restore-point" in sys.argv else None
     target = Path(sys.argv[1])
     counts = {}
     with connect() as conn, target.open("w", encoding="utf-8", newline="\n") as out:
@@ -105,6 +108,8 @@ def main():
         counts["users"] = len(users)
 
         for table, query in TABLES:
+            if rp and table != "data_audit":
+                query = query.replace(f"public.{table} ", f"app_private.rp{int(rp)}_{table} ")
             counts[table] = dump(cur, out, table, query)
 
         cur.execute("select * from public.app_settings where id = 1")

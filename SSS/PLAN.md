@@ -29,7 +29,7 @@ non-API path. Document root = `backend/public`. Cron: `php artisan schedule:run`
 - [x] 1 Core: Laravel + React skeleton, login, staff/permissions, nav, Accounts list, Account page, Loan page, Payments (collect) list,
       Collect window (split, receipt books/zone books, waiting for approval, idempotency), New loan / edit loan form, data move script
       (local copy of live data for testing), checks against Supabase totals.
-- [ ] 2 Reports: Day Book, Due Installments (+ tick & assign), Finance Details, Seized, Dashboard (+60 s cache), Statement print.
+- [x] 2 Reports: Day Book, Due Installments (+ tick & assign), Finance Details, Seized, Dashboard (+60 s cache), Statement print.
 - [ ] 3 Control: Approvals, Daily cash, Receipt books, Zones + books + DHAMTARI main book, Remarks, Assign, My list, account zone picker.
 - [ ] 4 Admin: payment edit (split) / cancel, late fee / discount / reschedule / close, loan delete, seize/release, Activity log,
       Users (create, permissions, archive, sign out), Settings (business, Telegram, WhatsApp, staff controls), notifications.
@@ -47,3 +47,11 @@ non-API path. Document root = `backend/public`. Cron: `php artisan schedule:run`
   `php artisan test` — 15 feature tests; browser check of every Phase 1 page (dev server and the built app served by Laravel).
   Local test logins: database/seeders/LocalTestUserSeeder.php. The copied screens keep their Next.js imports through
   src/compat (next/link, next/navigation, next/cache, @/lib/supabase/server -> /api/rpc/{name}, @/lib/staff).
+
+- 2026-10-20 Phase 2 done. Due report (DueReport.php), Day Book + opening, Seized, Dashboard (60 s cache), staff performance,
+  statements, reports index, Due Installments tick & assign (rpc staff_names / assign_collections / unassign_collections).
+  Checks: `php artisan sss:reports-parity` (pg_reports_parity.py) — due report 3 days x 1,033 accounts x every column, dashboard,
+  day book 934 rows + opening, seized 173, staff performance: all match; 21 feature tests; browser check of every report.
+  NOTE: on 2026-10-20 11:53 the live site's admin (Guddu) ran Settings -> Data -> "Delete (old)": the live legacy data is gone,
+  restore point #32 holds it. Local tests use that restore point (pull_from_supabase.py --restore-point 32; the parity scripts put
+  it into the live tables inside a transaction that is rolled back).

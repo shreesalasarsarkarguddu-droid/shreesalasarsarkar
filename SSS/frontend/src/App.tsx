@@ -14,6 +14,13 @@ const NewLoanPage = lazy(() => import("@/app/loans/new/page"));
 const PaymentsPage = lazy(() => import("@/app/payments/page"));
 const CollectPage = lazy(() => import("@/app/payments/collect-page"));
 const ProfilePage = lazy(() => import("@/app/profile/page"));
+const StatementPage = lazy(() => import("@/app/statement-page"));
+const DashboardPage = lazy(() => import("@/app/dashboard/page"));
+const ReportsPage = lazy(() => import("@/app/reports/page"));
+const DayBookPage = lazy(() => import("@/app/reports/day-book/page"));
+const DueInstallmentsPage = lazy(() => import("@/app/reports/due-installments/page"));
+const FinanceDetailsPage = lazy(() => import("@/app/reports/finance-details/page"));
+const SeizedPage = lazy(() => import("@/app/reports/seized/page"));
 
 const guard = (el: ReactNode, perm?: Permission, admin?: boolean) => (
   <RequirePerm perm={perm} admin={admin}>
@@ -23,15 +30,7 @@ const guard = (el: ReactNode, perm?: Permission, admin?: boolean) => (
 
 /** Not moved to the new system yet: filled in by the next phases. */
 const SOON: [string, string, Permission | undefined, boolean?][] = [
-  ["/accounts/:sno/statement", "Account statement", "view_accounts"],
-  ["/loans/:id/statement", "Loan statement", "view_accounts"],
   ["/loans/:id/edit", "Edit loan", "fix_entries"],
-  ["/dashboard", "Dashboard", "reports"],
-  ["/reports", "Reports", "reports"],
-  ["/reports/day-book", "Day Book", "reports"],
-  ["/reports/due-installments", "Due Installments", "reports"],
-  ["/reports/finance-details", "Finance Details", "reports"],
-  ["/reports/seized", "Seized Vehicles", "reports"],
   ["/my-collections", "My collection list", undefined],
   ["/approvals", "Approvals", "approve"],
   ["/cash", "Daily cash", undefined],
@@ -63,6 +62,14 @@ export default function App() {
         <Route path="/payments" element={guard(<PaymentsPage />, "collect")} />
         <Route path="/payments/:source/:ref" element={guard(<CollectPage />, "collect")} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/accounts/:sno/statement" element={guard(<StatementPage source="old" />, "view_accounts")} />
+        <Route path="/loans/:id/statement" element={guard(<StatementPage source="new" />, "view_accounts")} />
+        <Route path="/dashboard" element={guard(<DashboardPage />, "reports")} />
+        <Route path="/reports" element={guard(<ReportsPage />, "reports")} />
+        <Route path="/reports/day-book" element={guard(<DayBookPage />, "reports")} />
+        <Route path="/reports/due-installments" element={guard(<DueInstallmentsPage />, "reports")} />
+        <Route path="/reports/finance-details" element={guard(<FinanceDetailsPage />, "reports")} />
+        <Route path="/reports/seized" element={guard(<SeizedPage />, "reports")} />
         {SOON.map(([path, title, perm, admin]) => (
           <Route key={path} path={path} element={guard(<ComingSoon title={title} />, perm, admin)} />
         ))}

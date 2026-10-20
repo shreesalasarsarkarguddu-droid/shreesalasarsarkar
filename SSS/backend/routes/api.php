@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountsController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LoansController;
 use App\Http\Controllers\PaymentsController;
+use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\RpcController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -27,6 +28,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/legacy-accounts/{sno}', [AccountsController::class, 'legacy']);
     Route::get('/loans/{id}', [AccountsController::class, 'loan']);
     Route::post('/loans', [LoansController::class, 'store']);
+
+    // reports
+    Route::get('/reports/due', [ReportsController::class, 'due']);
+    Route::get('/reports/day-book', [ReportsController::class, 'dayBook']);
+    Route::get('/reports/seized', [ReportsController::class, 'seized']);
+    Route::get('/dashboard', [ReportsController::class, 'dashboard']);
+    Route::get('/staff-performance', [ReportsController::class, 'staff']);
+    Route::get('/assignments', [ReportsController::class, 'assignments']);
 
     // collecting payments
     Route::get('/payments/pending', [PaymentsController::class, 'pending']);

@@ -13,7 +13,11 @@ use Illuminate\Support\Facades\DB;
 class RpcController extends Controller
 {
     /** name => [class, method]; each method takes the parameters array and returns the data. */
-    private const FUNCTIONS = [];
+    private const FUNCTIONS = [
+        'staff_names' => [\App\Rpc\Staff::class, 'names'],
+        'assign_collections' => [\App\Rpc\Collections::class, 'assign'],
+        'unassign_collections' => [\App\Rpc\Collections::class, 'unassign'],
+    ];
 
     public function call(Request $request, string $name)
     {
