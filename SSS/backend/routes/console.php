@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 
 // The hosting's cron runs the scheduler every minute:  * * * * * php /path/to/artisan schedule:run
 Illuminate\Support\Facades\Schedule::call(fn () => App\Services\Notify::hourly())->hourly()->name('notifications')->withoutOverlapping();
+Illuminate\Support\Facades\Schedule::call(fn () => App\Services\Backup::nightly())->dailyAt('22:00')->name('backup')->withoutOverlapping();

@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    // nightly backup (App\Services\Backup::nightly)
+    'backup' => [
+        'password' => env('BACKUP_PASSWORD'),
+        'telegram_token' => env('BACKUP_TELEGRAM_TOKEN'),
+        'telegram_chat_id' => env('BACKUP_TELEGRAM_CHAT_ID'),
+    ],
+
 ];

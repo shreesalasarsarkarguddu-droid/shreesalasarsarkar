@@ -6,7 +6,7 @@ use App\Support\Perm;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/** Activity log and the notification log. */
+/** Activity log, the notification log and the backup download. */
 class AdminController extends Controller
 {
     /**
@@ -52,5 +52,19 @@ class AdminController extends Controller
 
         return response()->json(DB::table('notification_log')->orderByDesc('id')->limit(30)
             ->get(['id', 'channel', 'event', 'recipient', 'message', 'status', 'detail', 'created_at']));
+    }
+
+    /** GET /api/backup — every table as CSV, zipped (people with the "backup" power). */
+    public function backup()
+    {
+        Perm::need('backup');
+        set_time_limit(300);
+        $bytes = \App\Services\Backup::zip();
+
+        return response($bytes, 200, [
+            'Content-Type' => 'application/zip',
+            'Content-Disposition' => 'attachment; filename="salasar-backup-'.now()->format('Y-m-d').'.zip"',
+            'Cache-Control' => 'no-store',
+        ]);
     }
 }

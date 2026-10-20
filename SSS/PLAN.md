@@ -33,7 +33,7 @@ non-API path. Document root = `backend/public`. Cron: `php artisan schedule:run`
 - [x] 3 Control: Approvals, Daily cash, Receipt books, Zones + books + DHAMTARI main book, Remarks, Assign, My list, account zone picker.
 - [x] 4 Admin: payment edit (split) / cancel, late fee / discount / reschedule / close, loan delete, seize/release, Activity log,
       Users (create, permissions, archive, sign out), Settings (business, Telegram, WhatsApp, staff controls), notifications.
-- [ ] 5 Data: backups (zip/csv), restore points, restore from file, FoxPro DBF import, final data move + totals check,
+- [x] 5 Data: backups (zip/csv), restore points, restore from file, FoxPro DBF import, final data move + totals check,
       shared-hosting install guide.
 
 ## Progress log
@@ -67,3 +67,13 @@ non-API path. Document root = `backend/public`. Cron: `php artisan schedule:run`
   Activity log (/api/activity), Notify service (Telegram / WhatsApp sent after the response; hourly scheduler for the daily summary
   and due reminders: `php artisan schedule:run` from cron). Pages: Users, Settings, Activity, Edit loan.
   Checks: 37 feature tests (Phase4Test: 8, Telegram faked with Http::fake); browser check of the new pages.
+
+- 2026-10-20 Phase 5 done. Settings -> Data: restore points (rp_<table> copy tables + restore_points; plain inserts/deletes so every
+  step is one transaction — MySQL commits on CREATE TABLE), delete old / new / all, restore, backup zip download (/api/backup,
+  own ZipWriter: no zip extension needed), restore from a backup file (this app's zip, the old app's zip or the nightly encrypted
+  .enc; values converted: t/f, UTC times -> India time, {a,b} arrays -> JSON), import from the old software (FoxPro files read in
+  the browser with src/lib/legacy, rows staged, preview, commit with totals check), nightly backup at 22:00 (storage/app/backups,
+  encrypted to Telegram with BACKUP_* in .env). Hosting guide: SSS/INSTALL.md.
+  Checks: 43 feature tests (Phase5Test: 6); real FoxPro files imported on the local copy: 2,707 accounts / 25,602 receipts,
+  totals matched, preview 0 changed; backup zip downloaded and read back in the browser (preview counts match); the encrypted
+  backup opens with `openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000` and the other way round.

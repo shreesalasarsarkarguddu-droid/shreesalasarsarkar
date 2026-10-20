@@ -52,6 +52,18 @@ class RpcController extends Controller
         'send_test_notification' => [\App\Rpc\Settings::class, 'test'],
         'notification_result' => [\App\Rpc\Settings::class, 'result'],
         'refresh_notification_log' => [\App\Rpc\Settings::class, 'refresh'],
+        'admin_data_overview' => [\App\Rpc\Data::class, 'overview'],
+        'admin_create_restore_point' => [\App\Rpc\Data::class, 'createPoint'],
+        'admin_delete_data' => [\App\Rpc\Data::class, 'delete'],
+        'admin_restore' => [\App\Rpc\Data::class, 'restore'],
+        'admin_backup_begin' => [\App\Rpc\Data::class, 'backupBegin'],
+        'admin_backup_stage' => [\App\Rpc\Data::class, 'backupStage'],
+        'admin_backup_preview' => [\App\Rpc\Data::class, 'backupPreview'],
+        'admin_backup_commit' => [\App\Rpc\Data::class, 'backupCommit'],
+        'admin_import_begin' => [\App\Rpc\Data::class, 'importBegin'],
+        'admin_import_stage' => [\App\Rpc\Data::class, 'importStage'],
+        'admin_import_preview' => [\App\Rpc\Data::class, 'importPreview'],
+        'admin_import_commit' => [\App\Rpc\Data::class, 'importCommit'],
     ];
 
     public function call(Request $request, string $name)
