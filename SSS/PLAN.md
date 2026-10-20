@@ -31,7 +31,7 @@ non-API path. Document root = `backend/public`. Cron: `php artisan schedule:run`
       (local copy of live data for testing), checks against Supabase totals.
 - [x] 2 Reports: Day Book, Due Installments (+ tick & assign), Finance Details, Seized, Dashboard (+60 s cache), Statement print.
 - [x] 3 Control: Approvals, Daily cash, Receipt books, Zones + books + DHAMTARI main book, Remarks, Assign, My list, account zone picker.
-- [ ] 4 Admin: payment edit (split) / cancel, late fee / discount / reschedule / close, loan delete, seize/release, Activity log,
+- [x] 4 Admin: payment edit (split) / cancel, late fee / discount / reschedule / close, loan delete, seize/release, Activity log,
       Users (create, permissions, archive, sign out), Settings (business, Telegram, WhatsApp, staff controls), notifications.
 - [ ] 5 Data: backups (zip/csv), restore points, restore from file, FoxPro DBF import, final data move + totals check,
       shared-hosting install guide.
@@ -60,3 +60,10 @@ non-API path. Document root = `backend/public`. Cron: `php artisan schedule:run`
   cash_receive), Books (receipt books, zones, new zone / DHAMTARI books), Remarks (add / delete / list, set_account_zone),
   Collections (assign_candidates, collection_list, assign / unassign). Pages copied with SSS/scripts/port_page.py (the data
   statement runs in a useQuery; the rest of the page is unchanged). 29 feature tests; browser check of all seven pages.
+
+- 2026-10-20 Phase 4 done. Rpc Fixes (admin_edit_payment with SPLIT, admin_cancel_payment, admin_adjust penalty / discount /
+  reschedule / settle, admin_cancel_adjustment + reopen, admin_edit_loan, admin_delete_loan, set_seized), Users (list / create /
+  update / password / sign out / archive), Settings (notification settings with masked keys, test message, notification log),
+  Activity log (/api/activity), Notify service (Telegram / WhatsApp sent after the response; hourly scheduler for the daily summary
+  and due reminders: `php artisan schedule:run` from cron). Pages: Users, Settings, Activity, Edit loan.
+  Checks: 37 feature tests (Phase4Test: 8, Telegram faked with Http::fake); browser check of the new pages.

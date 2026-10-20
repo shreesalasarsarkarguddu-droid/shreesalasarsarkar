@@ -28,6 +28,10 @@ const ZonesPage = lazy(() => import("@/app/zones/page"));
 const RemarksPage = lazy(() => import("@/app/remarks/page"));
 const AssignPage = lazy(() => import("@/app/assign/page"));
 const MyCollectionsPage = lazy(() => import("@/app/my-collections/page"));
+const EditLoanPage = lazy(() => import("@/app/loans/edit/page"));
+const ActivityPage = lazy(() => import("@/app/activity/page"));
+const UsersPage = lazy(() => import("@/app/users/page"));
+const SettingsPage = lazy(() => import("@/app/settings/page"));
 
 const guard = (el: ReactNode, perm?: Permission, admin?: boolean) => (
   <RequirePerm perm={perm} admin={admin}>
@@ -37,10 +41,6 @@ const guard = (el: ReactNode, perm?: Permission, admin?: boolean) => (
 
 /** Not moved to the new system yet: filled in by the next phases. */
 const SOON: [string, string, Permission | undefined, boolean?][] = [
-  ["/loans/:id/edit", "Edit loan", "fix_entries"],
-  ["/activity", "Activity", "activity"],
-  ["/users", "Users", undefined, true],
-  ["/settings", "Settings", undefined, true],
   ["/settings/data", "Data", undefined, true],
 ];
 
@@ -76,6 +76,10 @@ export default function App() {
         <Route path="/zones" element={guard(<ZonesPage />, undefined, true)} />
         <Route path="/remarks" element={<RequirePerm any={["collect", "view_accounts"]}><RemarksPage /></RequirePerm>} />
         <Route path="/assign" element={guard(<AssignPage />, "assign")} />
+        <Route path="/loans/:id/edit" element={guard(<EditLoanPage />, "fix_entries")} />
+        <Route path="/activity" element={guard(<ActivityPage />, "activity")} />
+        <Route path="/users" element={guard(<UsersPage />, undefined, true)} />
+        <Route path="/settings" element={guard(<SettingsPage />, undefined, true)} />
         <Route path="/my-collections" element={<RequirePerm any={["collect", "assign"]}><MyCollectionsPage /></RequirePerm>} />
         {SOON.map(([path, title, perm, admin]) => (
           <Route key={path} path={path} element={guard(<ComingSoon title={title} />, perm, admin)} />

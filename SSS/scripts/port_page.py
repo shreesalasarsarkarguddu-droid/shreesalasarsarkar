@@ -37,9 +37,9 @@ b = s.index(end_marker, a)
 load = s[a:b].rstrip("\n")
 load = "\n".join("    " + l if l else l for l in load.split("\n"))
 block = (
-    f'  const page = useQuery({{\n    queryKey: ["page", "{dst}", search.toString()],\n    queryFn: async () => {{\n{load}\n'
-    f'      return {{ {names} }};\n    }},\n  }});\n  if (page.isPending) return <Loading />;\n  if (page.error) throw page.error;\n'
-    f'  const {{ {names} }} = page.data;\n'
+    f'  const loaded = useQuery({{\n    queryKey: ["page", "{dst}", search.toString()],\n    queryFn: async () => {{\n{load}\n'
+    f'      return {{ {names} }};\n    }},\n  }});\n  if (loaded.isPending) return <Loading />;\n  if (loaded.error) throw loaded.error;\n'
+    f'  const {{ {names} }} = loaded.data;\n'
 )
 s = s[:a] + block + s[b:]
 if title:

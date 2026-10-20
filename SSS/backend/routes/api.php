@@ -44,6 +44,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/staff-performance', [ReportsController::class, 'staff']);
     Route::get('/assignments', [ReportsController::class, 'assignments']);
 
+    // admin
+    Route::get('/activity', [\App\Http\Controllers\AdminController::class, 'activity']);
+    Route::get('/notification-log', [\App\Http\Controllers\AdminController::class, 'notificationLog']);
+
     // collecting payments
     Route::get('/payments/pending', [PaymentsController::class, 'pending']);
     Route::get('/ledger/{source}/{ref}', [PaymentsController::class, 'ledger']);

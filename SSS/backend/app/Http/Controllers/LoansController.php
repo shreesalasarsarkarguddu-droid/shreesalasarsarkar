@@ -66,6 +66,8 @@ class LoansController extends Controller
             return $this->fail('This folio number is already used.', ['folio_no' => 'This folio number is already used']);
         }
 
+        \App\Services\Notify::loan($id);
+
         return $this->ok(['id' => $id]);
     }
 }
