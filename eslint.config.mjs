@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // the Laravel + React rebuild has its own tooling
+    "SSS/**",
   ]),
 ]);
 

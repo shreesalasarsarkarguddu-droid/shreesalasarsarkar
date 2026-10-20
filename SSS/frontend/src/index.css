@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: "Geist", system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  font-family: "Geist", system-ui, sans-serif;
+}
+
+/* tabular figures for amounts and dates */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* printing: A4 portrait, exact colours, no app background */
+@page {
+  size: A4 portrait;
+  margin: 8mm;
+}
+@media print {
+  body {
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Cell borders on every app table (the printed statement keeps its own black borders).
+   "separate" + 0 spacing keeps borders on sticky header/total rows while scrolling. */
+main table:not(.statement table) {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+main table:not(.statement table) :is(th, td) {
+  border-right: 1px solid #e2e8f0; /* slate-200 */
+  border-bottom: 1px solid #e2e8f0;
+}
+main table:not(.statement table) :is(th, td):first-child {
+  border-left: 1px solid #e2e8f0;
+}
+main table:not(.statement table) thead tr:first-child :is(th, td) {
+  border-top: 1px solid #e2e8f0;
+}
+main table:not(.statement table) thead :is(th, td) {
+  border-color: #cbd5e1; /* slate-300: header slightly stronger */
+}

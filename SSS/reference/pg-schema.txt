@@ -1,0 +1,648 @@
+
+## adjustments
+  id: bigint NOT NULL
+  legacy_account_id: bigint
+  loan_id: bigint
+  kind: text NOT NULL
+  amount: numeric(14,2) NOT NULL default 0
+  entry_date: date NOT NULL default ((now() AT TIME ZONE 'Asia/Kolkata'::text))::date
+  reason: text NOT NULL
+  new_emi: numeric(14,2)
+  next_due: date
+  cancelled_at: timestamp with time zone
+  cancelled_by: uuid
+  cancel_reason: text
+  created_at: timestamp with time zone NOT NULL default now()
+  created_by: uuid NOT NULL default auth.uid()
+
+## app_settings
+  id: integer NOT NULL default 1
+  business_name: text NOT NULL default 'Shree Salasar Sarkar'::text
+  telegram_enabled: boolean NOT NULL default false
+  telegram_bot_token: text
+  telegram_group_id: text
+  tg_on_payment: boolean NOT NULL default true
+  tg_on_new_loan: boolean NOT NULL default true
+  tg_on_seizure: boolean NOT NULL default true
+  tg_daily_summary: boolean NOT NULL default true
+  tg_summary_hour: integer NOT NULL default 20
+  whatsapp_enabled: boolean NOT NULL default false
+  whatsapp_host: text
+  whatsapp_api_key: text
+  wa_receipt: boolean NOT NULL default true
+  wa_receipt_template: text NOT NULL default 'Dear {name}, we have received {amount} on {date} for Folio {folio} (Receipt {receipt}). Balance: {balance}. Thank you - {business}'::text
+  wa_due_reminder: boolean NOT NULL default true
+  wa_reminder_days_before: integer NOT NULL default 1
+  wa_reminder_hour: integer NOT NULL default 10
+  wa_reminder_template: text NOT NULL default 'Dear {name}, your EMI of {emi} for Folio {folio} is due on {due_date}. Please pay on time to avoid late charges. - {business}'::text
+  updated_at: timestamp with time zone
+  updated_by: uuid
+  review_backdate_days: integer NOT NULL default 3
+  review_above: numeric(14,2) NOT NULL default 0
+  require_receipt_books: boolean NOT NULL default false
+  restrict_to_assigned: boolean NOT NULL default false
+
+## borrowers
+  id: bigint NOT NULL
+  full_name: text NOT NULL
+  father_name: text
+  mobile: text
+  date_of_birth: date
+  address: text
+  created_at: timestamp with time zone NOT NULL default now()
+  created_by: uuid NOT NULL default auth.uid()
+
+## cash_closings
+  id: bigint NOT NULL
+  user_id: uuid NOT NULL
+  day: date NOT NULL
+  receipts: integer NOT NULL
+  expected_cash: numeric(14,2) NOT NULL
+  expected_other: numeric(14,2) NOT NULL
+  received_amount: numeric(14,2) NOT NULL
+  note: text
+  received_by: uuid NOT NULL default auth.uid()
+  received_at: timestamp with time zone NOT NULL default now()
+
+## collection_assignments
+  id: bigint NOT NULL
+  day: date NOT NULL
+  user_id: uuid NOT NULL
+  source: text NOT NULL
+  ref_id: bigint NOT NULL
+  note: text
+  created_by: uuid NOT NULL default auth.uid()
+  created_at: timestamp with time zone NOT NULL default now()
+
+## data_audit
+  id: bigint NOT NULL
+  at: timestamp with time zone NOT NULL default now()
+  by_user: uuid
+  by_name: text
+  action: text NOT NULL
+  details: jsonb NOT NULL default '{}'::jsonb
+  subject: text
+  ref: jsonb
+
+## import_batches
+  id: bigint NOT NULL
+  source_file: text NOT NULL
+  imported_at: timestamp with time zone NOT NULL default now()
+  imported_by: text NOT NULL
+  total_records: integer NOT NULL
+  imported_records: integer NOT NULL
+  skipped_records: integer NOT NULL
+  flagged_records: integer NOT NULL
+  status: text NOT NULL
+  notes: jsonb NOT NULL default '{}'::jsonb
+
+## legacy_accounts
+  id: bigint NOT NULL
+  ledger: text NOT NULL
+  sno: integer NOT NULL
+  fno: integer NOT NULL
+  fcode: text
+  borrower_name: text NOT NULL
+  borrower_father: text
+  borrower_address: text
+  borrower_mobile: text
+  borrower_mobile2: text
+  guarantor_name: text
+  guarantor_father: text
+  guarantor_address: text
+  guarantor_mobile: text
+  guarantor_mobile2: text
+  finance_mode: text
+  zone: text
+  vehicle_condition: text
+  vehicle_model: text
+  vehicle_variant: text
+  chassis_no: text
+  engine_no: text
+  model_year: integer
+  registration_no: text
+  agreement_date: date
+  tenure_months: integer
+  interval_months: integer
+  finance_amount: numeric(14,2) NOT NULL
+  interest_amount: numeric(14,2) NOT NULL
+  agreement_amount: numeric(14,2) NOT NULL
+  hp_amount: numeric(14,2) NOT NULL
+  total_amount: numeric(14,2) NOT NULL
+  emi_amount: numeric(14,2) NOT NULL
+  seized: boolean
+  data_flags: ARRAY NOT NULL default '{}'::text[]
+  recovery: text NOT NULL
+  raw: jsonb NOT NULL
+  import_batch_id: bigint NOT NULL
+  search_text: text GENERATED
+  legacy_paid: numeric(14,2) NOT NULL default 0
+  legacy_payments_count: integer NOT NULL default 0
+  legacy_last_paid: date
+  zone_set_in_app: boolean NOT NULL default false
+
+## legacy_payments
+  id: bigint NOT NULL
+  ledger: text NOT NULL
+  sno: integer NOT NULL
+  account_id: bigint
+  installment_no: integer NOT NULL
+  due_amount: numeric(14,2)
+  due_date: date
+  paid_amount: numeric(14,2) NOT NULL
+  paid_date: date
+  balance_after: numeric(14,2)
+  delay_days: integer
+  payment_mode: text
+  cheque_no: text
+  receipt_no: integer
+  data_flags: ARRAY NOT NULL default '{}'::text[]
+  raw: jsonb NOT NULL
+  import_batch_id: bigint NOT NULL
+  series_id: bigint NOT NULL
+  receipt_book: text
+
+## loans
+  id: bigint NOT NULL
+  folio_no: text NOT NULL
+  zone: text
+  dealer: text
+  loan_type: text NOT NULL
+  borrower_id: bigint NOT NULL
+  guarantor_name: text
+  guarantor_father: text
+  guarantor_mobile: text
+  guarantor_address: text
+  vehicle_condition: text NOT NULL
+  sold_by: text
+  vehicle_model: text NOT NULL
+  vehicle_color: text
+  chassis_no: text
+  engine_no: text
+  make_year: integer
+  vehicle_no: text
+  insurance_expiry: date
+  agreement_date: date NOT NULL
+  installments: integer NOT NULL
+  interval_months: integer NOT NULL
+  finance_amount: numeric(14,2) NOT NULL
+  interest_rate: numeric(6,2) NOT NULL
+  agreement_amount: numeric(14,2) NOT NULL default 0
+  hp_amount: numeric(14,2) NOT NULL default 0
+  interest_amount: numeric(14,2) NOT NULL
+  total_amount: numeric(14,2) NOT NULL
+  emi_amount: numeric(14,2) NOT NULL
+  status: text NOT NULL default 'active'::text
+  idempotency_key: uuid NOT NULL
+  created_at: timestamp with time zone NOT NULL default now()
+  created_by: uuid NOT NULL default auth.uid()
+
+## notification_log
+  id: bigint NOT NULL
+  channel: text NOT NULL
+  event: text NOT NULL
+  recipient: text NOT NULL
+  message: text NOT NULL
+  request_id: bigint
+  status: text NOT NULL default 'queued'::text
+  detail: text
+  dedupe_key: text
+  created_at: timestamp with time zone NOT NULL default now()
+
+## payments
+  id: bigint NOT NULL
+  legacy_account_id: bigint
+  loan_id: bigint
+  installment_no: integer NOT NULL
+  due_date: date
+  due_amount: numeric(14,2)
+  paid_amount: numeric(14,2) NOT NULL
+  paid_date: date NOT NULL
+  payment_mode: text NOT NULL
+  reference_no: text
+  receipt_no: bigint NOT NULL
+  balance_after: numeric(14,2) NOT NULL
+  delay_days: integer
+  idempotency_key: uuid NOT NULL
+  created_at: timestamp with time zone NOT NULL default now()
+  created_by: uuid NOT NULL default auth.uid()
+  installments_covered: integer NOT NULL default 1
+  bank_name: text
+  review_reason: text
+  reviewed_by: uuid
+  reviewed_at: timestamp with time zone
+  parts: jsonb
+  series_id: bigint NOT NULL
+  receipt_book: text
+
+## pending_payments
+  id: bigint NOT NULL
+  source: text NOT NULL
+  ref_id: bigint NOT NULL
+  paid_amount: numeric(14,2) NOT NULL
+  paid_date: date NOT NULL
+  payment_mode: text NOT NULL
+  reference_no: text
+  bank_name: text
+  receipt_no: bigint NOT NULL
+  installments_covered: integer NOT NULL default 1
+  idempotency_key: uuid NOT NULL
+  note: text
+  created_by: uuid NOT NULL default auth.uid()
+  created_at: timestamp with time zone NOT NULL default now()
+  parts: jsonb
+  series_id: bigint NOT NULL
+  receipt_book: text
+
+## receipt_books
+  id: bigint NOT NULL
+  user_id: uuid NOT NULL
+  from_no: bigint NOT NULL
+  to_no: bigint NOT NULL
+  issued_on: date NOT NULL default ((now() AT TIME ZONE 'Asia/Kolkata'::text))::date
+  note: text
+  closed_at: timestamp with time zone
+  created_at: timestamp with time zone NOT NULL default now()
+  created_by: uuid NOT NULL default auth.uid()
+  series_id: bigint NOT NULL
+
+## receipt_series
+  id: bigint NOT NULL
+  zone_id: bigint
+  book_no: integer NOT NULL
+  code: text NOT NULL
+  start_no: bigint NOT NULL
+  opened_at: timestamp with time zone NOT NULL default now()
+  closed_at: timestamp with time zone
+  opened_by: uuid default auth.uid()
+
+## seizures
+  id: bigint NOT NULL
+  legacy_account_id: bigint
+  loan_id: bigint
+  action: text NOT NULL
+  action_date: date NOT NULL
+  remarks: text
+  created_by: uuid NOT NULL default auth.uid()
+  created_at: timestamp with time zone NOT NULL default now()
+  idempotency_key: uuid NOT NULL
+
+## staff
+  user_id: uuid NOT NULL
+  full_name: text NOT NULL
+  role: text NOT NULL default 'staff'::text
+  created_at: timestamp with time zone NOT NULL default now()
+  active: boolean NOT NULL default true
+  permissions: ARRAY NOT NULL default '{}'::text[]
+  force_logout_at: timestamp with time zone
+  archived_at: timestamp with time zone
+
+## visit_remarks
+  id: bigint NOT NULL
+  source: text NOT NULL
+  ref_id: bigint NOT NULL
+  installment_no: integer
+  remark: text NOT NULL
+  promise_date: date
+  created_by: uuid NOT NULL default auth.uid()
+  created_at: timestamp with time zone NOT NULL default now()
+
+## zones
+  id: bigint NOT NULL
+  name: text NOT NULL
+  receipt_start: bigint NOT NULL
+  active: boolean NOT NULL default true
+  created_at: timestamp with time zone NOT NULL default now()
+  created_by: uuid default auth.uid()
+
+## CONSTRAINTS
+  staff staff_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'staff'::text])))
+  staff staff_permissions_check CHECK ((permissions <@ ARRAY['view_accounts'::text, 'collect'::text, 'new_loan'::text, 'seize'::text, 'reports'::text, 'backdate'::text, 'fix_entries'
+  staff staff_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+  import_batches import_batches_status_check CHECK ((status = ANY (ARRAY['completed'::text, 'failed'::text])))
+  legacy_accounts legacy_accounts_import_batch_id_fkey FOREIGN KEY (import_batch_id) REFERENCES import_batches(id)
+  legacy_accounts legacy_accounts_ledger_check CHECK ((ledger = ANY (ARRAY['pending'::text, 'closed'::text])))
+  legacy_accounts legacy_accounts_sno_key UNIQUE (sno)
+  legacy_payments legacy_payments_import_batch_id_fkey FOREIGN KEY (import_batch_id) REFERENCES import_batches(id)
+  legacy_payments legacy_payments_series_id_fkey FOREIGN KEY (series_id) REFERENCES receipt_series(id)
+  legacy_payments legacy_payments_ledger_check CHECK ((ledger = ANY (ARRAY['pending'::text, 'closed'::text])))
+  legacy_payments legacy_payments_ledger_sno_installment_no_key UNIQUE (ledger, sno, installment_no)
+  legacy_payments legacy_payments_account_id_fkey FOREIGN KEY (account_id) REFERENCES legacy_accounts(id)
+  borrowers borrowers_full_name_check CHECK (((length(btrim(full_name)) >= 1) AND (length(btrim(full_name)) <= 120)))
+  borrowers borrowers_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+  borrowers borrowers_mobile_check CHECK ((mobile ~ '^[6-9][0-9]{9}$'::text))
+  loans loans_installments_check CHECK (((installments >= 1) AND (installments <= 360)))
+  loans loans_folio_no_check CHECK (((length(btrim(folio_no)) >= 1) AND (length(btrim(folio_no)) <= 30)))
+  loans loans_loan_type_check CHECK ((loan_type = ANY (ARRAY['CASH'::text, 'BANK'::text])))
+  loans loans_guarantor_mobile_check CHECK ((guarantor_mobile ~ '^[6-9][0-9]{9}$'::text))
+  loans loans_vehicle_condition_check CHECK ((vehicle_condition = ANY (ARRAY['NEW'::text, 'USED'::text])))
+  loans loans_hp_amount_check CHECK ((hp_amount >= (0)::numeric))
+  loans loans_idempotency_key_key UNIQUE (idempotency_key)
+  loans loans_status_check CHECK ((status = ANY (ARRAY['active'::text, 'closed'::text, 'seized'::text])))
+  loans loans_borrower_id_fkey FOREIGN KEY (borrower_id) REFERENCES borrowers(id)
+  loans loans_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+  loans loans_agreement_amount_check CHECK ((agreement_amount >= (0)::numeric))
+  loans loans_interest_rate_check CHECK (((interest_rate >= (0)::numeric) AND (interest_rate <= (100)::numeric)))
+  loans loans_finance_amount_check CHECK ((finance_amount > (0)::numeric))
+  loans loans_make_year_check CHECK (((make_year >= 1980) AND (make_year <= 2100)))
+  loans loans_interval_months_check CHECK (((interval_months >= 1) AND (interval_months <= 12)))
+  payments payments_reference_no_check CHECK ((length(reference_no) <= 30))
+  payments payments_receipt_no_check CHECK ((receipt_no > 0))
+  payments payments_legacy_account_id_installment_no_key UNIQUE (legacy_account_id, installment_no)
+  payments payments_loan_id_installment_no_key UNIQUE (loan_id, installment_no)
+  payments payments_legacy_account_id_fkey FOREIGN KEY (legacy_account_id) REFERENCES legacy_accounts(id)
+  payments payments_loan_id_fkey FOREIGN KEY (loan_id) REFERENCES loans(id)
+  payments payments_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+  payments payments_series_receipt_no_key UNIQUE (series_id, receipt_no)
+  payments payments_series_id_fkey FOREIGN KEY (series_id) REFERENCES receipt_series(id)
+  payments payments_split_parts CHECK (((payment_mode <> 'SPLIT'::text) OR ((jsonb_typeof(parts) = 'array'::text) AND ((jsonb_array_length(parts) >= 2) AND (jsonb_array_length(parts)
+  payments payments_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES auth.users(id)
+  payments payments_installment_no_check CHECK ((installment_no > 0))
+  payments payments_paid_amount_check CHECK ((paid_amount > (0)::numeric))
+  payments payments_idempotency_key_key UNIQUE (idempotency_key)
+  payments payments_cheque_needs_number CHECK (((payment_mode <> 'CHEQUE'::text) OR (NULLIF(btrim(reference_no), ''::text) IS NOT NULL)))
+  payments payments_installments_covered_check CHECK (((installments_covered >= 1) AND (installments_covered <= 360)))
+  payments payments_bank_name_check CHECK ((length(bank_name) <= 60))
+  payments payments_bank_needs_name CHECK (((payment_mode <> 'BANK'::text) OR (NULLIF(btrim(bank_name), ''::text) IS NOT NULL)))
+  payments payments_payment_mode_check CHECK ((payment_mode = ANY (ARRAY['CASH'::text, 'CHEQUE'::text, 'SBI'::text, 'BANK'::text, 'SPLIT'::text])))
+  payments payments_check CHECK (((legacy_account_id IS NULL) <> (loan_id IS NULL)))
+  seizures seizures_remarks_check CHECK ((length(remarks) <= 300))
+  seizures seizures_check CHECK (((legacy_account_id IS NULL) <> (loan_id IS NULL)))
+  seizures seizures_check1 CHECK (((action = 'seize'::text) OR (NULLIF(btrim(remarks), ''::text) IS NOT NULL)))
+  seizures seizures_idempotency_key_key UNIQUE (idempotency_key)
+  seizures seizures_legacy_account_id_fkey FOREIGN KEY (legacy_account_id) REFERENCES legacy_accounts(id)
+  seizures seizures_loan_id_fkey FOREIGN KEY (loan_id) REFERENCES loans(id)
+  seizures seizures_action_check CHECK ((action = ANY (ARRAY['seize'::text, 'release'::text])))
+  seizures seizures_created_by_fkey FOREIGN KEY (created_by) REFERENCES staff(user_id)
+  app_settings app_settings_wa_reminder_days_before_check CHECK (((wa_reminder_days_before >= 0) AND (wa_reminder_days_before <= 10)))
+  app_settings app_settings_id_check CHECK ((id = 1))
+  app_settings app_settings_tg_summary_hour_check CHECK (((tg_summary_hour >= 0) AND (tg_summary_hour <= 23)))
+  app_settings app_settings_wa_reminder_hour_check CHECK (((wa_reminder_hour >= 0) AND (wa_reminder_hour <= 23)))
+  app_settings app_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES staff(user_id)
+  app_settings app_settings_review_backdate_days_check CHECK (((review_backdate_days >= 0) AND (review_backdate_days <= 365)))
+  app_settings app_settings_review_above_check CHECK ((review_above >= (0)::numeric))
+  notification_log notification_log_dedupe_key_key UNIQUE (dedupe_key)
+  notification_log notification_log_channel_check CHECK ((channel = ANY (ARRAY['telegram'::text, 'whatsapp'::text])))
+  data_audit data_audit_by_user_fkey FOREIGN KEY (by_user) REFERENCES auth.users(id) ON DELETE SET NULL
+  adjustments adjustments_check1 CHECK (((kind <> 'penalty'::text) OR (amount > (0)::numeric)))
+  adjustments adjustments_check2 CHECK (((kind <> 'discount'::text) OR (amount < (0)::numeric)))
+  adjustments adjustments_check3 CHECK (((kind <> 'settle'::text) OR (amount <= (0)::numeric)))
+  adjustments adjustments_kind_check CHECK ((kind = ANY (ARRAY['penalty'::text, 'discount'::text, 'settle'::text, 'reschedule'::text])))
+  adjustments adjustments_check4 CHECK (((kind <> 'reschedule'::text) OR ((amount = (0)::numeric) AND (new_emi IS NOT NULL) AND (next_due IS NOT NULL))))
+  adjustments adjustments_legacy_account_id_fkey FOREIGN KEY (legacy_account_id) REFERENCES legacy_accounts(id)
+  adjustments adjustments_loan_id_fkey FOREIGN KEY (loan_id) REFERENCES loans(id)
+  adjustments adjustments_cancelled_by_fkey FOREIGN KEY (cancelled_by) REFERENCES auth.users(id)
+  adjustments adjustments_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+  adjustments adjustments_reason_check CHECK (((length(btrim(reason)) >= 3) AND (length(btrim(reason)) <= 300)))
+  adjustments adjustments_new_emi_check CHECK ((new_emi > (0)::numeric))
+  adjustments adjustments_check CHECK (((legacy_account_id IS NULL) <> (loan_id IS NULL)))
+  receipt_books receipt_books_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+  receipt_books receipt_books_user_id_fkey FOREIGN KEY (user_id) REFERENCES staff(user_id)
+  receipt_books receipt_books_from_no_check CHECK ((from_no > 0))
+  receipt_books receipt_books_note_check CHECK ((length(note) <= 200))
+  receipt_books receipt_books_check CHECK (((to_no >= from_no) AND ((to_no - from_no) < 10000)))
+  receipt_books receipt_books_series_id_fkey FOREIGN KEY (series_id) REFERENCES receipt_series(id)
+  cash_closings cash_closings_received_by_fkey FOREIGN KEY (received_by) REFERENCES auth.users(id)
+  cash_closings cash_closings_note_check CHECK ((length(note) <= 300))
+  cash_closings cash_closings_user_id_day_key UNIQUE (user_id, day)
+  cash_closings cash_closings_received_amount_check CHECK ((received_amount >= (0)::numeric))
+  cash_closings cash_closings_user_id_fkey FOREIGN KEY (user_id) REFERENCES staff(user_id)
+  collection_assignments collection_assignments_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+  collection_assignments collection_assignments_user_id_fkey FOREIGN KEY (user_id) REFERENCES staff(user_id)
+  collection_assignments collection_assignments_source_check CHECK ((source = ANY (ARRAY['old'::text, 'new'::text])))
+  collection_assignments collection_assignments_note_check CHECK ((length(note) <= 200))
+  collection_assignments collection_assignments_day_source_ref_id_key UNIQUE (day, source, ref_id)
+  pending_payments pending_payments_installments_covered_check CHECK (((installments_covered >= 1) AND (installments_covered <= 360)))
+  pending_payments pending_payments_idempotency_key_key UNIQUE (idempotency_key)
+  pending_payments pending_payments_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+  pending_payments pending_payments_payment_mode_check CHECK ((payment_mode = ANY (ARRAY['CASH'::text, 'CHEQUE'::text, 'SBI'::text, 'BANK'::text, 'SPLIT'::text])))
+  pending_payments pending_payments_split_parts CHECK (((payment_mode <> 'SPLIT'::text) OR ((jsonb_typeof(parts) = 'array'::text) AND ((jsonb_array_length(parts) >= 2) AND (jsonb_array_length(parts)
+  pending_payments pending_payments_source_check CHECK ((source = ANY (ARRAY['old'::text, 'new'::text])))
+  pending_payments pending_payments_paid_amount_check CHECK ((paid_amount > (0)::numeric))
+  pending_payments pending_payments_reference_no_check CHECK ((length(reference_no) <= 30))
+  pending_payments pending_payments_bank_name_check CHECK ((length(bank_name) <= 60))
+  pending_payments pending_payments_receipt_no_check CHECK ((receipt_no > 0))
+  pending_payments pending_payments_series_id_fkey FOREIGN KEY (series_id) REFERENCES receipt_series(id)
+  pending_payments pending_payments_series_receipt_no_key UNIQUE (series_id, receipt_no)
+  zones zones_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+  zones zones_receipt_start_check CHECK ((receipt_start > 0))
+  zones zones_name_check CHECK (((length(btrim(name)) >= 1) AND (length(btrim(name)) <= 60)))
+  receipt_series receipt_series_book_no_check CHECK ((book_no >= 1))
+  receipt_series receipt_series_code_key UNIQUE (code)
+  receipt_series receipt_series_zone_id_fkey FOREIGN KEY (zone_id) REFERENCES zones(id)
+  receipt_series receipt_series_opened_by_fkey FOREIGN KEY (opened_by) REFERENCES auth.users(id)
+  receipt_series receipt_series_start_no_check CHECK ((start_no > 0))
+  receipt_series receipt_series_zone_id_book_no_key UNIQUE NULLS NOT DISTINCT (zone_id, book_no)
+  visit_remarks visit_remarks_source_check CHECK ((source = ANY (ARRAY['old'::text, 'new'::text])))
+  visit_remarks visit_remarks_remark_check CHECK (((length(btrim(remark)) >= 2) AND (length(btrim(remark)) <= 300)))
+  visit_remarks visit_remarks_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+
+## INDEXES
+  CREATE UNIQUE INDEX adjustments_pkey ON public.adjustments USING btree (id)
+  CREATE INDEX adjustments_loan_idx ON public.adjustments USING btree (loan_id) WHERE (loan_id IS NOT NULL)
+  CREATE INDEX adjustments_legacy_idx ON public.adjustments USING btree (legacy_account_id) WHERE (legacy_account_id IS NOT NULL)
+  CREATE UNIQUE INDEX app_settings_pkey ON public.app_settings USING btree (id)
+  CREATE UNIQUE INDEX borrowers_pkey ON public.borrowers USING btree (id)
+  CREATE UNIQUE INDEX cash_closings_pkey ON public.cash_closings USING btree (id)
+  CREATE UNIQUE INDEX cash_closings_user_id_day_key ON public.cash_closings USING btree (user_id, day)
+  CREATE INDEX collection_assignments_user_day_idx ON public.collection_assignments USING btree (user_id, day)
+  CREATE UNIQUE INDEX collection_assignments_day_source_ref_id_key ON public.collection_assignments USING btree (day, source, ref_id)
+  CREATE UNIQUE INDEX collection_assignments_pkey ON public.collection_assignments USING btree (id)
+  CREATE INDEX data_audit_user_idx ON public.data_audit USING btree (by_user, at DESC)
+  CREATE UNIQUE INDEX data_audit_pkey ON public.data_audit USING btree (id)
+  CREATE INDEX data_audit_at_idx ON public.data_audit USING btree (at DESC)
+  CREATE INDEX data_audit_action_idx ON public.data_audit USING btree (action, at DESC)
+  CREATE UNIQUE INDEX import_batches_pkey ON public.import_batches USING btree (id)
+  CREATE UNIQUE INDEX legacy_accounts_sno_key ON public.legacy_accounts USING btree (sno)
+  CREATE UNIQUE INDEX legacy_accounts_pkey ON public.legacy_accounts USING btree (id)
+  CREATE INDEX legacy_accounts_fno_idx ON public.legacy_accounts USING btree (fno)
+  CREATE INDEX legacy_accounts_search_trgm ON public.legacy_accounts USING gin (search_text gin_trgm_ops)
+  CREATE INDEX legacy_accounts_agreement_idx ON public.legacy_accounts USING btree (agreement_date)
+  CREATE INDEX legacy_accounts_ledger_idx ON public.legacy_accounts USING btree (ledger, sno DESC)
+  CREATE INDEX legacy_payments_account_idx ON public.legacy_payments USING btree (account_id, installment_no)
+  CREATE INDEX legacy_payments_series_receipt_idx ON public.legacy_payments USING btree (series_id, receipt_no)
+  CREATE INDEX legacy_payments_paid_date_idx ON public.legacy_payments USING btree (paid_date)
+  CREATE INDEX legacy_payments_sno_idx ON public.legacy_payments USING btree (sno)
+  CREATE UNIQUE INDEX legacy_payments_pkey ON public.legacy_payments USING btree (id)
+  CREATE UNIQUE INDEX legacy_payments_ledger_sno_installment_no_key ON public.legacy_payments USING btree (ledger, sno, installment_no)
+  CREATE INDEX loans_borrower_idx ON public.loans USING btree (borrower_id)
+  CREATE INDEX loans_created_idx ON public.loans USING btree (created_at DESC)
+  CREATE INDEX loans_agreement_idx ON public.loans USING btree (agreement_date)
+  CREATE UNIQUE INDEX loans_folio_no_key ON public.loans USING btree (upper(btrim(folio_no)))
+  CREATE UNIQUE INDEX loans_pkey ON public.loans USING btree (id)
+  CREATE UNIQUE INDEX loans_idempotency_key_key ON public.loans USING btree (idempotency_key)
+  CREATE INDEX notification_log_created_idx ON public.notification_log USING btree (created_at DESC)
+  CREATE UNIQUE INDEX notification_log_pkey ON public.notification_log USING btree (id)
+  CREATE UNIQUE INDEX notification_log_dedupe_key_key ON public.notification_log USING btree (dedupe_key)
+  CREATE INDEX payments_review_idx ON public.payments USING btree (created_at) WHERE ((review_reason IS NOT NULL) AND (reviewed_at IS NULL))
+  CREATE UNIQUE INDEX payments_pkey ON public.payments USING btree (id)
+  CREATE UNIQUE INDEX payments_idempotency_key_key ON public.payments USING btree (idempotency_key)
+  CREATE UNIQUE INDEX payments_legacy_account_id_installment_no_key ON public.payments USING btree (legacy_account_id, installment_no)
+  CREATE UNIQUE INDEX payments_loan_id_installment_no_key ON public.payments USING btree (loan_id, installment_no)
+  CREATE INDEX payments_legacy_idx ON public.payments USING btree (legacy_account_id) WHERE (legacy_account_id IS NOT NULL)
+  CREATE INDEX payments_loan_idx ON public.payments USING btree (loan_id) WHERE (loan_id IS NOT NULL)
+  CREATE INDEX payments_paid_date_idx ON public.payments USING btree (paid_date)
+  CREATE UNIQUE INDEX payments_series_receipt_no_key ON public.payments USING btree (series_id, receipt_no)
+  CREATE UNIQUE INDEX pending_payments_pkey ON public.pending_payments USING btree (id)
+  CREATE UNIQUE INDEX pending_payments_series_receipt_no_key ON public.pending_payments USING btree (series_id, receipt_no)
+  CREATE INDEX pending_payments_by_idx ON public.pending_payments USING btree (created_by, created_at)
+  CREATE INDEX pending_payments_ref_idx ON public.pending_payments USING btree (source, ref_id)
+  CREATE UNIQUE INDEX pending_payments_idempotency_key_key ON public.pending_payments USING btree (idempotency_key)
+  CREATE UNIQUE INDEX receipt_books_pkey ON public.receipt_books USING btree (id)
+  CREATE UNIQUE INDEX receipt_series_one_open ON public.receipt_series USING btree (COALESCE(zone_id, (0)::bigint)) WHERE (closed_at IS NULL)
+  CREATE UNIQUE INDEX receipt_series_zone_id_book_no_key ON public.receipt_series USING btree (zone_id, book_no) NULLS NOT DISTINCT
+  CREATE UNIQUE INDEX receipt_series_code_key ON public.receipt_series USING btree (code)
+  CREATE UNIQUE INDEX receipt_series_pkey ON public.receipt_series USING btree (id)
+  CREATE INDEX seizures_loan_idx ON public.seizures USING btree (loan_id, created_at DESC) WHERE (loan_id IS NOT NULL)
+  CREATE UNIQUE INDEX seizures_pkey ON public.seizures USING btree (id)
+  CREATE UNIQUE INDEX seizures_idempotency_key_key ON public.seizures USING btree (idempotency_key)
+  CREATE INDEX seizures_legacy_idx ON public.seizures USING btree (legacy_account_id, created_at DESC) WHERE (legacy_account_id IS NOT NULL)
+  CREATE UNIQUE INDEX staff_pkey ON public.staff USING btree (user_id)
+  CREATE INDEX visit_remarks_account_idx ON public.visit_remarks USING btree (source, ref_id)
+  CREATE INDEX visit_remarks_created_idx ON public.visit_remarks USING btree (created_at DESC)
+  CREATE UNIQUE INDEX visit_remarks_pkey ON public.visit_remarks USING btree (id)
+  CREATE INDEX visit_remarks_promise_idx ON public.visit_remarks USING btree (promise_date) WHERE (promise_date IS NOT NULL)
+  CREATE UNIQUE INDEX zones_name_key ON public.zones USING btree (upper(btrim(name)))
+  CREATE UNIQUE INDEX zones_pkey ON public.zones USING btree (id)
+
+## VIEWS
+  day_book_entries
+  seized_accounts
+  legacy_account_summary
+  all_accounts
+  pending_borrowers
+
+## FUNCTIONS public
+  account_remarks ( p_source text, p_ref bigint )
+  account_zone_info ( p_source text, p_ref bigint )
+  add_remark ( p jsonb )
+  adj_total ( p_acct bigint, p_loan bigint )
+  admin_adjust ( p jsonb )
+  admin_archive_user ( p_user uuid, p_archive boolean )
+  admin_backup_begin ( p_file text, p_taken text )
+  admin_backup_commit ( p_job uuid, p_confirm text )
+  admin_backup_preview ( p_job uuid )
+  admin_backup_stage ( p_job uuid, p_tbl text, p_rows jsonb )
+  admin_cancel_adjustment ( p_id bigint, p_reason text )
+  admin_cancel_payment ( p_id bigint, p_reason text )
+  admin_create_restore_point ( p_reason text )
+  admin_create_user ( p_email text, p_name text, p_password text, p_role text, p_perms text[] )
+  admin_data_overview (  )
+  admin_delete_data ( p_scope text, p_confirm text )
+  admin_delete_loan ( p_loan bigint, p_reason text, p_confirm text )
+  admin_edit_loan ( p_loan bigint, p jsonb, p_reason text )
+  admin_edit_payment ( p_id bigint, p jsonb, p_reason text )
+  admin_import_begin ( p_batches jsonb, p_checks jsonb )
+  admin_import_commit ( p_job uuid, p_confirm text )
+  admin_import_preview ( p_job uuid )
+  admin_import_stage ( p_job uuid, p_kind text, p_rows jsonb )
+  admin_list_users (  )
+  admin_main_book ( p_start bigint )
+  admin_receipt_book ( p jsonb )
+  admin_restore ( p_point bigint, p_confirm text )
+  admin_set_password ( p_user uuid, p_password text )
+  admin_sign_out_user ( p_user uuid )
+  admin_update_user ( p_user uuid, p_name text, p_role text, p_active boolean, p_perms text[] )
+  admin_zone ( p jsonb )
+  assign_candidates ( p_day date, p_q text, p_filter text )
+  assign_collections ( p_day date, p_user uuid, p_items jsonb, p_note text )
+  cash_day ( p_day date )
+  cash_receive ( p_user uuid, p_day date, p_amount numeric, p_note text )
+  collection_list ( p_day date, p_user uuid )
+  create_loan ( p jsonb )
+  dashboard ( p_day date )
+  day_book_opening ( p_from date )
+  delete_remark ( p_id bigint )
+  due_report ( p_asof date )
+  get_notification_settings (  )
+  has_perm ( p text )
+  is_admin (  )
+  is_staff (  )
+  legacy_is_seized ( p_id bigint, p_legacy boolean )
+  legacy_settled ( p_acct bigint )
+  loan_amounts ( p_principal numeric, p_rate numeric, p_installments integer, p_interval integer, p_agreement numeric, p_hp numeric, OUT interest numeric, OUT total numeric, OUT emi numeric )
+  main_book_status (  )
+  mode_part ( p_mode text, p_amount numeric, p_parts jsonb, p_want text )
+  notification_result ( p_id bigint )
+  payment_mode_text ( p_mode text, p_bank text, p_parts jsonb )
+  pending_approvals (  )
+  receipt_book_status (  )
+  receipt_hint ( p_source text, p_ref bigint )
+  record_payment ( p jsonb )
+  refresh_notification_log (  )
+  remarks_list ( p_from date, p_to date, p_user uuid, p_q text, p_status text, p_promise date, p_limit integer, p_offset integer )
+  review_payment ( p_id bigint, p_approve boolean, p_note text )
+  review_pending ( p_ids bigint[], p_approve boolean, p_note text )
+  rls_auto_enable (  )
+  save_notification_settings ( p jsonb )
+  send_test_notification ( p_channel text, p_mobile text )
+  set_account_zone ( p_source text, p_ref bigint, p_zone text )
+  set_seized ( p jsonb )
+  staff_names ( p_all boolean )
+  staff_performance ( p_from date, p_to date )
+  unassign_collections ( p_ids bigint[] )
+  zone_status (  )
+
+## FUNCTIONS app_private
+  acc_business ( a legacy_accounts )
+  acct_ref ( p_acct bigint, p_loan bigint )
+  acct_zone ( p_acct bigint, p_loan bigint )
+  active_reschedule ( p_acct bigint, p_loan bigint )
+  array_text ( v text )
+  audit ( p_action text, p_details jsonb )
+  audit_loan (  )
+  audit_payment (  )
+  audit_seizure (  )
+  audit_settings (  )
+  audit_staff (  )
+  books_series (  )
+  cancel_payment_core ( p_id bigint, p_reason text, p_action text )
+  check_parts ( p jsonb )
+  clean_perms ( p text[] )
+  daily_summary ( p_day date, p_dedupe text )
+  data_counts (  )
+  data_tables (  )
+  diff ( a jsonb, b jsonb, keys text[] )
+  due_reminders ( p_day date )
+  ensure_main (  )
+  fill ( tpl text, vals jsonb )
+  history_series ( p_zone text )
+  inr ( v numeric )
+  known_user ( v text, p_admin uuid )
+  legacy_series (  )
+  log ( p_action text, p_subject text, p_ref jsonb, p_details jsonb, p_user uuid, p_at timestamp with time zone )
+  make_restore_point ( p_reason text )
+  my_backup_job ( p_job uuid )
+  my_job ( p_job uuid )
+  need_reason ( p_reason text )
+  next_due_date ( p_acct bigint, p_loan bigint, p_iv integer, p_start date, p_used integer, p_last_due date, p_last_im integer, p_paid_after numeric )
+  on_new_loan (  )
+  on_payment (  )
+  on_seizure (  )
+  open_series ( p_zone text )
+  owed ( p_acct bigint, p_loan bigint )
+  paid_after ( p_source text, p_ref bigint, p_at timestamp with time zone )
+  paid_since_reschedule ( p_acct bigint, p_loan bigint )
+  payment_lock ( p payments )
+  payments_series (  )
+  pending_series (  )
+  post_payment ( p jsonb, p_by uuid, p_at timestamp with time zone )
+  ref_zone ( p_source text, p_ref bigint )
+  reflow_payments ( p_acct bigint, p_loan bigint )
+  refresh_log (  )
+  restore_cols ( p_job uuid, t text )
+  restore_expr ( t text, c text, typ text, is_array boolean )
+  run_hourly (  )
+  sees_all_remarks (  )
+  series_code ( p_series bigint )
+  series_last ( p_series bigint )
+  session_ok ( f timestamp with time zone )
+  staff_name ( p uuid )
+  staged_accounts ( p_job uuid )
+  staged_payments ( p_job uuid )
+  table_signature ( t text )
+  tg_quiet ( p_on boolean, p_text text, p_event text )
+  tg_send ( p_text text, p_event text, p_dedupe text )
+  tg_send_force ( p_text text )
+  wa_number ( m text )
+  wa_send ( p_mobile text, p_text text, p_event text, p_dedupe text, p_force boolean )

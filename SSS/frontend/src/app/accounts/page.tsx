@@ -1,0 +1,288 @@
+import { useStaff } from "@/lib/auth";
+import { useApi } from "@/lib/use-api";
+import { useSearchParams } from "next/navigation";
+import AccountsLoading from "./loading";
+import { can } from "@/lib/permissions";
+import Link from "next/link";
+import { Suspense } from "react";
+import { inr, isPositive } from "@/lib/format";
+import { SearchBox } from "./search-box";
+import { SourceBadge, StatusBadge } from "./status-badge";
+
+const PAGE_SIZE = 20;
+const LEDGERS = [
+  { key: "pending", label: "Pending" },
+  { key: "closed", label: "Fully paid" },
+  { key: "all", label: "All" },
+] as const;
+const SOURCES = [
+  { key: "new", label: "New" },
+  { key: "all", label: "Old + New" },
+  { key: "old", label: "Old" },
+] as const;
+
+type Row = {
+  source: "old" | "new";
+  ref_id: number;
+  folio: string;
+  ledger: "pending" | "closed";
+  borrower_name: string;
+  borrower_father: string | null;
+  borrower_mobile: string | null;
+  registration_no: string | null;
+  vehicle_model: string | null;
+  tenure_months: number | null;
+  total_amount: string;
+  emi_amount: string;
+  total_paid: string;
+  balance: string;
+  payments_count: number;
+  seized: boolean | null;
+};
+
+function one(v: string | string[] | undefined) {
+  return Array.isArray(v) ? v[0] : v;
+}
+
+const rowHref = (r: Row) => (r.source === "new" ? `/loans/${r.ref_id}` : `/accounts/${r.ref_id}`);
+
+export default function AccountsPage() {
+  const staff = useStaff();
+  const sp = Object.fromEntries(useSearchParams()) as Record<string, string | undefined>;
+  const q = (one(sp.q) ?? "").trim().toLowerCase().slice(0, 60);
+  // Pending only by default (fully paid accounts load only when chosen); a search without a chosen filter looks in all
+  const ledgerChosen = LEDGERS.some((l) => l.key === one(sp.ledger));
+  const ledger = ledgerChosen ? one(sp.ledger)! : q ? "all" : "pending";
+  // New loans by default; a search without a chosen filter looks in old + new (so old customers are still found)
+  const sourceChosen = SOURCES.some((s) => s.key === one(sp.source));
+  const source = sourceChosen ? one(sp.source)! : q ? "all" : "new";
+  const page = Math.max(1, Number.parseInt(one(sp.page) ?? "1", 10) || 1);
+
+  const res = useApi<{ rows: Row[]; total: number }>(`/accounts?${new URLSearchParams({ ledger, source, page: String(page), ...(q ? { q } : {}) })}`, { keep: true });
+  if (res.isPending) return <AccountsLoading />;
+  if (res.error) throw res.error;
+  const rows = res.data.rows;
+  const total = res.data.total;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const href = (changes: Record<string, string | null>) => {
+    const next = new URLSearchParams();
+    if (q) next.set("q", q);
+    if (ledgerChosen) next.set("ledger", ledger);
+    if (sourceChosen) next.set("source", source);
+    for (const [k, v] of Object.entries(changes)) {
+      if (v == null) next.delete(k);
+      else next.set(k, v);
+    }
+    const s = next.toString();
+    return s ? `/accounts?${s}` : "/accounts";
+  };
+
+  return (
+    <div className="space-y-4">
+      <title>Accounts · Shree Salasar Sarkar</title>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold">Accounts</h1>
+          <p className="text-sm text-slate-500">Old software records and new loans</p>
+        </div>
+        {can(staff, "new_loan") && (
+        <Link
+          href="/loans/new"
+          className="hidden h-10 items-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 md:flex"
+        >
+          + New loan
+        </Link>
+        )}
+      </div>
+
+      {one(sp.deleted) === "1" && (
+        <p role="status" className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200">
+          Loan deleted. A full copy is kept in the activity log.
+        </p>
+      )}
+
+      <Suspense>
+        <SearchBox />
+      </Suspense>
+
+      <div className="flex flex-wrap gap-x-4 gap-y-2">
+        <Chips label="Filter by status" items={LEDGERS} active={ledger} param="ledger" href={href} explicit />
+        <Chips label="Filter by old or new" items={SOURCES} active={source} param="source" href={href} explicit />
+      </div>
+
+      <p className="text-sm text-slate-500">
+        {total.toLocaleString("en-IN")} account{total === 1 ? "" : "s"}
+        {q && <> matching “{q}”</>}
+      </p>
+
+      {rows.length === 0 ? (
+        <div className="rounded-xl bg-white p-8 text-center ring-1 ring-slate-200">
+          {source === "new" && !q ? (
+            <>
+              <p className="font-medium">No new loans yet</p>
+              <p className="mt-1 text-sm text-slate-500">
+                Loans made in this app show here.{" "}
+                <Link href={href({ source: "all", page: null })} className="font-semibold text-blue-700">
+                  See old + new accounts →
+                </Link>
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium">No accounts found</p>
+              <p className="mt-1 text-sm text-slate-500">Try a different name, folio, mobile or vehicle number.</p>
+            </>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* phone: cards */}
+          <ul className="space-y-3 md:hidden">
+            {rows.map((r) => (
+              <li key={`${r.source}-${r.ref_id}`}>
+                <Link href={rowHref(r)} className="block rounded-xl bg-white p-4 ring-1 ring-slate-200 active:bg-slate-50">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{r.borrower_name}</p>
+                      <p className="flex items-center gap-1.5 truncate text-sm text-slate-500">
+                        <SourceBadge source={r.source} />
+                        <span className="truncate">
+                          Folio {r.folio}
+                          {r.borrower_mobile && <> · {r.borrower_mobile}</>}
+                        </span>
+                      </p>
+                    </div>
+                    <StatusBadge ledger={r.ledger} seized={r.seized} />
+                  </div>
+                  <dl className="num mt-3 grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                      <dt className="text-xs text-slate-500">Total</dt>
+                      <dd className="font-medium">{inr(r.total_amount)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-slate-500">Paid</dt>
+                      <dd className="font-medium text-emerald-700">{inr(r.total_paid)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-slate-500">Balance</dt>
+                      <dd className={`font-semibold ${isPositive(r.balance) ? "text-red-700" : "text-slate-700"}`}>{inr(r.balance)}</dd>
+                    </div>
+                  </dl>
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          {/* tablet / desktop: table */}
+          <div className="hidden overflow-hidden rounded-xl bg-white ring-1 ring-slate-200 md:block">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Folio</th>
+                  <th className="px-4 py-3">Customer</th>
+                  <th className="px-4 py-3">Vehicle</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 text-right">EMI</th>
+                  <th className="px-4 py-3 text-right">Paid</th>
+                  <th className="px-4 py-3 text-right">Balance</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="num divide-y divide-slate-100">
+                {rows.map((r) => (
+                  <tr key={`${r.source}-${r.ref_id}`} className="hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <SourceBadge source={r.source} />
+                    </td>
+                    <td className="px-4 py-3 font-medium">
+                      <Link href={rowHref(r)} className="text-blue-700 hover:underline">
+                        {r.folio}
+                      </Link>
+                    </td>
+                    <td className="max-w-64 px-4 py-3">
+                      <Link href={rowHref(r)} className="block truncate font-medium hover:underline">
+                        {r.borrower_name}
+                      </Link>
+                      <span className="block truncate text-xs text-slate-500">
+                        {r.borrower_father ?? ""}
+                        {r.borrower_mobile && <> · {r.borrower_mobile}</>}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      <span className="block">{r.registration_no ?? "—"}</span>
+                      <span className="block text-xs text-slate-500">{r.vehicle_model ?? ""}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right">{inr(r.total_amount)}</td>
+                    <td className="px-4 py-3 text-right">
+                      {inr(r.emi_amount)}
+                      <span className="block text-xs text-slate-500">× {r.tenure_months ?? "—"}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-emerald-700">{inr(r.total_paid)}</td>
+                    <td className={`px-4 py-3 text-right font-semibold ${isPositive(r.balance) ? "text-red-700" : "text-slate-700"}`}>
+                      {inr(r.balance)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge ledger={r.ledger} seized={r.seized} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {pages > 1 && (
+        <nav className="flex items-center justify-between gap-3" aria-label="Pages">
+          <PageLink href={page > 1 ? href({ page: String(page - 1) }) : null}>← Previous</PageLink>
+          <span className="text-sm text-slate-500">
+            Page {page} of {pages}
+          </span>
+          <PageLink href={page < pages ? href({ page: String(page + 1) }) : null}>Next →</PageLink>
+        </nav>
+      )}
+    </div>
+  );
+}
+
+function Chips({
+  label, items, active, param, href, explicit,
+}: {
+  label: string;
+  items: readonly { key: string; label: string }[];
+  active: string;
+  param: string;
+  href: (c: Record<string, string | null>) => string;
+  /** always put the choice in the link (the default is not "all") */
+  explicit?: boolean;
+}) {
+  return (
+    <nav className="flex gap-2" aria-label={label}>
+      {items.map((i) => (
+        <Link
+          key={i.key}
+          href={href({ [param]: !explicit && i.key === "all" ? null : i.key, page: null })}
+          aria-current={active === i.key ? "true" : undefined}
+          className={`flex h-10 items-center rounded-full px-4 text-sm font-medium ring-1 ${
+            active === i.key ? "bg-blue-700 text-white ring-blue-700" : "bg-white text-slate-700 ring-slate-300"
+          }`}
+        >
+          {i.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function PageLink({ href, children }: { href: string | null; children: React.ReactNode }) {
+  const cls = "flex h-11 items-center rounded-lg px-4 text-sm font-medium ring-1";
+  return href ? (
+    <Link href={href} className={`${cls} bg-white text-slate-700 ring-slate-300 hover:bg-slate-50`}>
+      {children}
+    </Link>
+  ) : (
+    <span className={`${cls} bg-slate-50 text-slate-300 ring-slate-200`}>{children}</span>
+  );
+}
