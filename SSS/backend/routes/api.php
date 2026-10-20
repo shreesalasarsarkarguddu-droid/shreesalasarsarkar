@@ -20,6 +20,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // the old database functions the screens call by name
     Route::post('/rpc/{name}', [RpcController::class, 'call'])->where('name', '[a-z_]+');
 
+    // open receipt books of the zones (people's receipt books form)
+    Route::get('/receipt-series/open', function () {
+        \App\Support\Perm::need('cash');
+
+        return response()->json(DB::table('receipt_series')->whereNull('closed_at')->orderBy('id')->get(['id', 'code']));
+    });
+
     // active zone names (loan form)
     Route::get('/zones/names', fn () => response()->json(DB::table('zones')->where('active', 1)->orderBy('name')->pluck('name')));
 

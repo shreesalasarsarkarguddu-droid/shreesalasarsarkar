@@ -6,9 +6,11 @@ import { ApiError } from "@/lib/api";
 import Loading from "@/app/loading";
 
 /** Page guard: people without this permission go to the first page they can use (requirePerm of the old app). */
-export function RequirePerm({ perm, admin, children }: { perm?: Permission; admin?: boolean; children: ReactNode }) {
+export function RequirePerm({ perm, any, admin, children }: { perm?: Permission; any?: Permission[]; admin?: boolean; children: ReactNode }) {
   const staff = useStaff();
-  if ((admin && staff.role !== "admin") || (perm && !can(staff, perm))) return <Navigate to={homeFor(staff)} replace />;
+  if ((admin && staff.role !== "admin") || (perm && !can(staff, perm)) || (any && !any.some((p) => can(staff, p)))) {
+    return <Navigate to={homeFor(staff)} replace />;
+  }
   return <>{children}</>;
 }
 

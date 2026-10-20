@@ -21,6 +21,13 @@ const DayBookPage = lazy(() => import("@/app/reports/day-book/page"));
 const DueInstallmentsPage = lazy(() => import("@/app/reports/due-installments/page"));
 const FinanceDetailsPage = lazy(() => import("@/app/reports/finance-details/page"));
 const SeizedPage = lazy(() => import("@/app/reports/seized/page"));
+const ApprovalsPage = lazy(() => import("@/app/approvals/page"));
+const CashPage = lazy(() => import("@/app/cash/page"));
+const ReceiptBooksPage = lazy(() => import("@/app/receipt-books/page"));
+const ZonesPage = lazy(() => import("@/app/zones/page"));
+const RemarksPage = lazy(() => import("@/app/remarks/page"));
+const AssignPage = lazy(() => import("@/app/assign/page"));
+const MyCollectionsPage = lazy(() => import("@/app/my-collections/page"));
 
 const guard = (el: ReactNode, perm?: Permission, admin?: boolean) => (
   <RequirePerm perm={perm} admin={admin}>
@@ -31,13 +38,6 @@ const guard = (el: ReactNode, perm?: Permission, admin?: boolean) => (
 /** Not moved to the new system yet: filled in by the next phases. */
 const SOON: [string, string, Permission | undefined, boolean?][] = [
   ["/loans/:id/edit", "Edit loan", "fix_entries"],
-  ["/my-collections", "My collection list", undefined],
-  ["/approvals", "Approvals", "approve"],
-  ["/cash", "Daily cash", undefined],
-  ["/receipt-books", "Receipt books", "cash"],
-  ["/zones", "Zones", undefined, true],
-  ["/remarks", "Remarks", undefined],
-  ["/assign", "Assign collections", "assign"],
   ["/activity", "Activity", "activity"],
   ["/users", "Users", undefined, true],
   ["/settings", "Settings", undefined, true],
@@ -70,6 +70,13 @@ export default function App() {
         <Route path="/reports/due-installments" element={guard(<DueInstallmentsPage />, "reports")} />
         <Route path="/reports/finance-details" element={guard(<FinanceDetailsPage />, "reports")} />
         <Route path="/reports/seized" element={guard(<SeizedPage />, "reports")} />
+        <Route path="/approvals" element={guard(<ApprovalsPage />, "approve")} />
+        <Route path="/cash" element={<RequirePerm any={["cash", "collect"]}><CashPage /></RequirePerm>} />
+        <Route path="/receipt-books" element={guard(<ReceiptBooksPage />, "cash")} />
+        <Route path="/zones" element={guard(<ZonesPage />, undefined, true)} />
+        <Route path="/remarks" element={<RequirePerm any={["collect", "view_accounts"]}><RemarksPage /></RequirePerm>} />
+        <Route path="/assign" element={guard(<AssignPage />, "assign")} />
+        <Route path="/my-collections" element={<RequirePerm any={["collect", "assign"]}><MyCollectionsPage /></RequirePerm>} />
         {SOON.map(([path, title, perm, admin]) => (
           <Route key={path} path={path} element={guard(<ComingSoon title={title} />, perm, admin)} />
         ))}

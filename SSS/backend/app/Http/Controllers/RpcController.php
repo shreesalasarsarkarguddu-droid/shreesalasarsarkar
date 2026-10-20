@@ -17,6 +17,23 @@ class RpcController extends Controller
         'staff_names' => [\App\Rpc\Staff::class, 'names'],
         'assign_collections' => [\App\Rpc\Collections::class, 'assign'],
         'unassign_collections' => [\App\Rpc\Collections::class, 'unassign'],
+        'assign_candidates' => [\App\Rpc\Collections::class, 'candidates'],
+        'collection_list' => [\App\Rpc\Collections::class, 'list'],
+        'pending_approvals' => [\App\Rpc\Approvals::class, 'list'],
+        'review_pending' => [\App\Rpc\Approvals::class, 'review'],
+        'review_payment' => [\App\Rpc\Approvals::class, 'reviewOne'],
+        'cash_day' => [\App\Rpc\Cash::class, 'day'],
+        'cash_receive' => [\App\Rpc\Cash::class, 'receive'],
+        'receipt_book_status' => [\App\Rpc\Books::class, 'status'],
+        'admin_receipt_book' => [\App\Rpc\Books::class, 'book'],
+        'zone_status' => [\App\Rpc\Books::class, 'zones'],
+        'admin_zone' => [\App\Rpc\Books::class, 'zone'],
+        'main_book_status' => [\App\Rpc\Books::class, 'main'],
+        'admin_main_book' => [\App\Rpc\Books::class, 'newMain'],
+        'add_remark' => [\App\Rpc\Remarks::class, 'add'],
+        'delete_remark' => [\App\Rpc\Remarks::class, 'delete'],
+        'remarks_list' => [\App\Rpc\Remarks::class, 'list'],
+        'set_account_zone' => [\App\Rpc\Remarks::class, 'setZone'],
     ];
 
     public function call(Request $request, string $name)

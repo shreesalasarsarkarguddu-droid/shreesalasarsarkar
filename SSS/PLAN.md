@@ -30,7 +30,7 @@ non-API path. Document root = `backend/public`. Cron: `php artisan schedule:run`
       Collect window (split, receipt books/zone books, waiting for approval, idempotency), New loan / edit loan form, data move script
       (local copy of live data for testing), checks against Supabase totals.
 - [x] 2 Reports: Day Book, Due Installments (+ tick & assign), Finance Details, Seized, Dashboard (+60 s cache), Statement print.
-- [ ] 3 Control: Approvals, Daily cash, Receipt books, Zones + books + DHAMTARI main book, Remarks, Assign, My list, account zone picker.
+- [x] 3 Control: Approvals, Daily cash, Receipt books, Zones + books + DHAMTARI main book, Remarks, Assign, My list, account zone picker.
 - [ ] 4 Admin: payment edit (split) / cancel, late fee / discount / reschedule / close, loan delete, seize/release, Activity log,
       Users (create, permissions, archive, sign out), Settings (business, Telegram, WhatsApp, staff controls), notifications.
 - [ ] 5 Data: backups (zip/csv), restore points, restore from file, FoxPro DBF import, final data move + totals check,
@@ -55,3 +55,8 @@ non-API path. Document root = `backend/public`. Cron: `php artisan schedule:run`
   NOTE: on 2026-10-20 11:53 the live site's admin (Guddu) ran Settings -> Data -> "Delete (old)": the live legacy data is gone,
   restore point #32 holds it. Local tests use that restore point (pull_from_supabase.py --restore-point 32; the parity scripts put
   it into the live tables inside a transaction that is rolled back).
+
+- 2026-10-20 Phase 3 done. Rpc classes (app/Rpc): Approvals (pending_approvals, review_pending, review_payment), Cash (cash_day,
+  cash_receive), Books (receipt books, zones, new zone / DHAMTARI books), Remarks (add / delete / list, set_account_zone),
+  Collections (assign_candidates, collection_list, assign / unassign). Pages copied with SSS/scripts/port_page.py (the data
+  statement runs in a useQuery; the rest of the page is unchanged). 29 feature tests; browser check of all seven pages.
