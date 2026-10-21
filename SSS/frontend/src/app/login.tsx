@@ -17,6 +17,7 @@ export default function LoginPage() {
     <main className="flex min-h-dvh items-center justify-center bg-slate-100 px-4">
       <title>Sign in · Shree Salasar Sarkar</title>
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+<img src="/icons/icon-192.png" alt="" width={56} height={56} className="mb-3 h-14 w-14 rounded-xl" />
         <h1 className="text-xl font-bold text-slate-900">Shree Salasar Sarkar</h1>
         <p className="mb-6 mt-1 text-sm text-slate-500">Sign in to view accounts</p>
         <form

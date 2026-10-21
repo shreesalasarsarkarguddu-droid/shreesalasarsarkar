@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -18,7 +19,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur print:hidden">
         <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between gap-4 px-4 lg:px-6">
           <div className="flex items-center gap-6">
-            <Link href="/accounts" className="text-base font-bold text-slate-900">
+            <Link href="/accounts" className="flex shrink-0 items-center gap-2 text-base font-bold text-slate-900">
+              <Image src="/icons/icon-192.png" alt="" width={28} height={28} className="h-7 w-7 rounded-md" priority />
               Shree Salasar Sarkar
             </Link>
             {staff && <TopNav access={staff} />}
