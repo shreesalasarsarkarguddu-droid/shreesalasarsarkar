@@ -45,6 +45,40 @@ class Phase2Test extends TestCase
         $this->assertTrue(collect($d['entries'])->every(fn ($e) => $e['entry_date'] >= '2026-10-01' && $e['entry_date'] <= '2026-10-19'));
     }
 
+    public function test_day_book_cash_and_bank(): void
+    {
+        $this->as($this->admin());
+        [$sno, , $acct] = $this->openOldAccount();
+        $rno = $this->freeReceipt();
+        // a split payment: 600 cash + 400 bank
+        $this->postJson('/api/payments', $this->payment('old', $sno, '1000', $rno, ['payment_mode' => 'SPLIT',
+            'parts' => [['mode' => 'CASH', 'amount' => '600', 'bank_name' => '', 'reference_no' => ''], ['mode' => 'BANK', 'amount' => '400', 'bank_name' => 'SBI', 'reference_no' => '']]]))
+            ->assertOk();
+        $day = now()->toDateString();
+        $q = fn ($mode) => $this->getJson("/api/reports/day-book?from=$day&to=$day&mode=$mode")->assertOk()->json();
+        $pick = fn ($d) => collect($d['entries'])->first(fn ($e) => (int) $e['receipt_no'] === $rno);
+
+        $all = $q('all');
+        $this->assertSame(['1000.00', '600.00', '400.00'], [$pick($all)['debit'], $pick($all)['cash'], $pick($all)['bank']]);
+        $this->assertTrue(collect($all['entries'])->every(fn ($e) => bcadd($e['cash'], $e['bank'], 2) === bcadd($e['debit'], $e['credit'], 2)));
+        $cash = $q('cash');
+        $bank = $q('bank');
+        $this->assertNotNull($pick($cash));
+        $this->assertNotNull($pick($bank));
+        $this->assertTrue(collect($cash['entries'])->every(fn ($e) => $e['cash'] !== '0.00'));
+        $this->assertTrue(collect($bank['entries'])->every(fn ($e) => $e['bank'] !== '0.00'));
+        $this->getJson("/api/reports/day-book?from=$day&to=$day&mode=nonsense")->assertOk()->assertJsonCount(count($all['entries']), 'entries');
+
+        // the opening balance of each mode adds up to the whole
+        $o = fn ($mode) => $q($mode)['opening'];
+        [$a, $c, $b] = [$o('all'), $o('cash'), $o('bank')];
+        $this->assertSame($a['debit'], bcadd($c['debit'], $b['debit'], 2));
+        $this->assertSame($a['credit'], bcadd($c['credit'], $b['credit'], 2));
+        $this->assertSame([$a['cash_debit'], $a['cash_credit']], [$c['debit'], $c['credit']]);
+        $this->assertSame(['0.00', '0.00'], [$b['cash_debit'], $b['cash_credit']]);
+        $this->assertNotNull($acct);
+    }
+
     public function test_dashboard_is_kept_for_a_minute(): void
     {
         $this->as($this->staff('staff', ['reports', 'view_accounts']));

@@ -10,11 +10,24 @@ final class Reports
 {
     // ---------------------------------------------------------------- Day Book (view day_book_entries)
 
+    /** CASH or no mode (old software) is cash; everything else (BOB, SBI, SSS, BANK, UPI, ...) is bank. */
+    private static function isCash(?string $mode): bool
+    {
+        return strtoupper(trim($mode ?? 'CASH')) === 'CASH';
+    }
+
+    /** cash / bank parts of an amount paid or given in one mode. */
+    private static function parts(?string $mode, string $amount): array
+    {
+        return self::isCash($mode) ? ['cash' => Money::dec($amount), 'bank' => '0.00'] : ['cash' => '0.00', 'bank' => Money::dec($amount)];
+    }
+
     /**
      * Receipts (old software + app) and loans given, between two days, sorted like the old report:
-     * day, receipts before loans, particulars, account.
+     * day, receipts before loans, particulars, account. Each entry has its cash and bank part;
+     * with $mode 'cash' or 'bank' only the entries that have such a part are given.
      */
-    public static function dayBook(string $from, string $to): array
+    public static function dayBook(string $from, string $to, string $mode = 'all'): array
     {
         $rows = array_merge(
             self::legacyReceipts(fn ($q) => $q->whereBetween('lp.paid_date', [$from, $to])),
@@ -24,25 +37,49 @@ final class Reports
         usort($rows, fn ($a, $b) => [$a['entry_date'], $a['kind_order'], mb_strtolower($a['particulars']), $a['ref_id']]
             <=> [$b['entry_date'], $b['kind_order'], mb_strtolower($b['particulars']), $b['ref_id']]);
 
-        return array_map(function ($r) {
+        if ($mode === 'cash' || $mode === 'bank') {
+            $rows = array_filter($rows, fn ($r) => Money::paise($r[$mode]) > 0);
+        }
+
+        return array_values(array_map(function ($r) {
             unset($r['kind_order']);
 
             return $r;
-        }, $rows);
+        }, $rows));
     }
 
-    /** Totals of every entry before the first day (public.day_book_opening). */
-    public static function dayBookOpening(string $from): array
+    /**
+     * Totals of every entry before the first day, for one mode ('all', 'cash' or 'bank'), with the cash part of each side
+     * (public.day_book_opening).
+     */
+    public static function dayBookOpening(string $from, string $mode = 'all'): array
     {
-        $dr = Money::paise((string) DB::table('legacy_payments as lp')->leftJoin('legacy_accounts as a', 'a.id', '=', 'lp.account_id')
+        $cashSql = fn (string $amount, string $modeCol) => "coalesce(sum($amount), 0) as total, "
+            ."coalesce(sum(case when upper(trim(coalesce($modeCol, 'CASH'))) = 'CASH' then $amount else 0 end), 0) as cash";
+        $old = DB::table('legacy_payments as lp')->leftJoin('legacy_accounts as a', 'a.id', '=', 'lp.account_id')
             ->whereNotNull('lp.paid_date')->where('lp.paid_date', '<', $from)
-            ->where(fn ($q) => $q->whereNull('a.id')->orWhereColumn('lp.ledger', 'a.ledger'))->sum('lp.paid_amount'))
-            + Money::paise((string) DB::table('payments')->where('paid_date', '<', $from)->sum('paid_amount'));
-        $cr = Money::paise((string) DB::table('legacy_accounts')->whereNotNull('agreement_date')->where('agreement_date', '<', $from)
-            ->where('finance_amount', '>', 0)->sum('finance_amount'))
-            + Money::paise((string) DB::table('loans')->where('agreement_date', '<', $from)->sum('finance_amount'));
+            ->where(fn ($q) => $q->whereNull('a.id')->orWhereColumn('lp.ledger', 'a.ledger'))
+            ->selectRaw($cashSql('lp.paid_amount', 'lp.payment_mode'))->first();
+        $dr = Money::paise((string) $old->total);
+        $cashDr = Money::paise((string) $old->cash);
+        foreach (DB::table('payments')->where('paid_date', '<', $from)->get(['payment_mode', 'paid_amount', 'parts']) as $p) {
+            $dr += Money::paise($p->paid_amount);
+            $cashDr += self::cashPart($p->payment_mode, $p->paid_amount, $p->parts);
+        }
+        $cr = $cashCr = 0;
+        foreach ([DB::table('legacy_accounts')->whereNotNull('agreement_date')->where('agreement_date', '<', $from)->where('finance_amount', '>', 0)
+            ->selectRaw($cashSql('finance_amount', 'finance_mode'))->first(),
+            DB::table('loans')->where('agreement_date', '<', $from)->selectRaw($cashSql('finance_amount', 'loan_type'))->first()] as $x) {
+            $cr += Money::paise((string) $x->total);
+            $cashCr += Money::paise((string) $x->cash);
+        }
+        [$dr, $cr, $cashDr, $cashCr] = match ($mode) {
+            'cash' => [$cashDr, $cashCr, $cashDr, $cashCr],
+            'bank' => [$dr - $cashDr, $cr - $cashCr, 0, 0],
+            default => [$dr, $cr, $cashDr, $cashCr],
+        };
 
-        return ['debit' => Money::str($dr), 'credit' => Money::str($cr)];
+        return ['debit' => Money::str($dr), 'credit' => Money::str($cr), 'cash_debit' => Money::str($cashDr), 'cash_credit' => Money::str($cashCr)];
     }
 
     private static function legacyReceipts(callable $where): array
@@ -61,7 +98,7 @@ final class Reports
                 'delay_days' => $r->delay_days, 'im' => $emi > 0 ? AccountMath::imOf(Money::paise($r->paid_amount), $emi) : null,
                 'mode' => $r->payment_mode ?? 'CASH', 'receipt_no' => $r->receipt_no, 'debit' => Money::dec($r->paid_amount), 'credit' => '0.00',
                 'source' => 'old', 'ref_id' => (int) $r->sno, 'receipt_book' => $r->receipt_book,
-            ];
+            ] + self::parts($r->payment_mode, $r->paid_amount);
         }
 
         return $out;
@@ -88,6 +125,8 @@ final class Reports
                 'delay_days' => $r->delay_days, 'im' => $emi > 0 ? AccountMath::imOf(Money::paise($r->paid_amount), $emi) : null,
                 'mode' => $mode, 'receipt_no' => (int) $r->receipt_no, 'debit' => Money::dec($r->paid_amount), 'credit' => '0.00',
                 'source' => $r->loan_id === null ? 'old' : 'new', 'ref_id' => (int) ($r->sno ?? $r->lid), 'receipt_book' => $r->receipt_book,
+                'cash' => Money::str($cash = self::cashPart($r->payment_mode, $r->paid_amount, $r->parts)),
+                'bank' => Money::str(Money::paise($r->paid_amount) - $cash),
             ];
         }
 
@@ -102,14 +141,16 @@ final class Reports
             $out[] = ['entry_date' => $a->agreement_date, 'kind_order' => 2, 'kind' => 'loan',
                 'particulars' => $a->borrower_name.($a->registration_no !== null ? ' '.$a->registration_no : ''), 'folio' => (string) $a->fno,
                 'due_amount' => null, 'due_date' => null, 'delay_days' => null, 'im' => null, 'mode' => $a->finance_mode ?? 'CASH', 'receipt_no' => null,
-                'debit' => '0.00', 'credit' => Money::dec($a->finance_amount), 'source' => 'old', 'ref_id' => (int) $a->sno, 'receipt_book' => null];
+                'debit' => '0.00', 'credit' => Money::dec($a->finance_amount), 'source' => 'old', 'ref_id' => (int) $a->sno, 'receipt_book' => null]
+                + self::parts($a->finance_mode, $a->finance_amount);
         }
         foreach (DB::table('loans as l')->join('borrowers as b', 'b.id', '=', 'l.borrower_id')->whereBetween('l.agreement_date', [$from, $to])
             ->get(['l.agreement_date', 'b.full_name', 'l.vehicle_no', 'l.folio_no', 'l.loan_type', 'l.finance_amount', 'l.id']) as $l) {
             $out[] = ['entry_date' => $l->agreement_date, 'kind_order' => 2, 'kind' => 'loan',
                 'particulars' => $l->full_name.($l->vehicle_no !== null ? ' '.$l->vehicle_no : ''), 'folio' => $l->folio_no,
                 'due_amount' => null, 'due_date' => null, 'delay_days' => null, 'im' => null, 'mode' => $l->loan_type, 'receipt_no' => null,
-                'debit' => '0.00', 'credit' => Money::dec($l->finance_amount), 'source' => 'new', 'ref_id' => (int) $l->id, 'receipt_book' => null];
+                'debit' => '0.00', 'credit' => Money::dec($l->finance_amount), 'source' => 'new', 'ref_id' => (int) $l->id, 'receipt_book' => null]
+                + self::parts($l->loan_type, $l->finance_amount);
         }
 
         return $out;

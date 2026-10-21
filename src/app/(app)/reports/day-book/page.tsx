@@ -26,6 +26,8 @@ type Entry = {
   receipt_book: string | null;
   debit: string;
   credit: string;
+  cash: string;
+  bank: string;
   source: "old" | "new";
   ref_id: number;
 };
@@ -51,6 +53,20 @@ function amt(p: bigint): string {
 }
 const drcr = (p: bigint) => (p < 0n ? `${amt(-p)} Cr` : `${amt(p)} Dr`);
 
+type Mode = "all" | "cash" | "bank";
+const MODE_LABEL: Record<Mode, string> = { all: "All", cash: "Cash", bank: "Bank" };
+
+/** Cash in / bank in (receipts) and cash out / bank out (loans given). */
+type Split = { cashIn: bigint; bankIn: bigint; cashOut: bigint; bankOut: bigint };
+const noSplit = (): Split => ({ cashIn: 0n, bankIn: 0n, cashOut: 0n, bankOut: 0n });
+function SplitLine({ s }: { s: Split }) {
+  return (
+    <span className="block text-xs font-normal text-slate-600">
+      Cash in {amt(s.cashIn)} · Bank in {amt(s.bankIn)} · Cash out {amt(s.cashOut)} · Bank out {amt(s.bankOut)}
+    </span>
+  );
+}
+
 function one(v: string | string[] | undefined) {
   return Array.isArray(v) ? v[0] : v;
 }
@@ -64,6 +80,8 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
   const from = isDate(one(sp.from)) ? one(sp.from)! : today;
   const to = isDate(one(sp.to)) ? one(sp.to)! : from;
   const narration = one(sp.narration) !== "no";
+  const m = one(sp.mode);
+  const mode: Mode = m === "cash" || m === "bank" ? m : "all";
 
   let problem: string | null = null;
   if (to < from) problem = "“To” date must be on or after “From” date.";
@@ -72,16 +90,21 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
   let entries: Entry[] = [];
   let openDr = 0n;
   let openCr = 0n;
+  const openSplit = noSplit();
   if (!problem) {
     const supabase = await createClient();
     const fetchAll = async () => {
       const out: Entry[] = [];
       for (let start = 0; ; start += CHUNK) {
-        const { data, error } = await supabase
+        let q = supabase
           .from("day_book_entries")
-          .select("entry_date, kind, particulars, folio, due_date, delay_days, im, mode, receipt_no, receipt_book, source, ref_id, due_amount::text, debit::text, credit::text")
+          .select(
+            "entry_date, kind, particulars, folio, due_date, delay_days, im, mode, receipt_no, receipt_book, source, ref_id, due_amount::text, debit::text, credit::text, cash::text, bank::text",
+          )
           .gte("entry_date", from)
-          .lte("entry_date", to)
+          .lte("entry_date", to);
+        if (mode !== "all") q = q.gt(mode, 0); // only entries with a cash (or bank) part
+        const { data, error } = await q
           .order("entry_date")
           .order("kind_order")
           .order("particulars")
@@ -92,15 +115,19 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
         if (!data || data.length < CHUNK) return out;
       }
     };
-    const [rows, opening] = await Promise.all([fetchAll(), supabase.rpc("day_book_opening", { p_from: from }).single()]);
+    const [rows, opening] = await Promise.all([fetchAll(), supabase.rpc("day_book_opening", { p_from: from, p_mode: mode }).single()]);
     if (opening.error) {
       console.error("day book opening failed:", opening.error);
       throw new Error("Could not load the day book.");
     }
     entries = rows;
-    const o = opening.data as { debit: number | string; credit: number | string };
+    const o = opening.data as { debit: number | string; credit: number | string; cash_debit: number | string; cash_credit: number | string };
     openDr = toPaise(o.debit);
     openCr = toPaise(o.credit);
+    openSplit.cashIn = toPaise(o.cash_debit);
+    openSplit.cashOut = toPaise(o.cash_credit);
+    openSplit.bankIn = openDr - openSplit.cashIn;
+    openSplit.bankOut = openCr - openSplit.cashOut;
   }
 
   // group by day
@@ -113,6 +140,7 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
   let running = openDr - openCr;
   let periodDr = 0n;
   let periodCr = 0n;
+  const periodSplit = noSplit();
 
   const cell = "px-3 py-2 align-top";
   return (
@@ -143,14 +171,22 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
             <option value="no">No</option>
           </select>
         </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Mode</span>
+          <select name="mode" defaultValue={mode} className="h-11 rounded-lg border border-slate-300 bg-white px-3">
+            <option value="all">All</option>
+            <option value="cash">Cash</option>
+            <option value="bank">Bank</option>
+          </select>
+        </label>
         <button className="h-11 rounded-lg bg-blue-700 px-5 text-sm font-semibold text-white hover:bg-blue-800">Show</button>
         <PrintButton />
       </form>
 
       <div className="hidden print:block">
-        <p className="text-lg font-bold">Shree Salasar Sarkar — Day Book</p>
+        <p className="text-lg font-bold">Shree Salasar Sarkar — Day Book{mode !== "all" && ` (${MODE_LABEL[mode]})`}</p>
         <p className="text-sm">
-          {dmy(from)} to {dmy(to)}
+          {dmy(from)} to {dmy(to)} · Mode: {MODE_LABEL[mode]}
         </p>
       </div>
 
@@ -176,7 +212,7 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
                 <td className={cell}>
                   Opening balance
                   <span className="block text-xs font-normal text-slate-500">
-                    Received before {dmy(from)}: {amt(openDr)} · Loans given before: {amt(openCr)}
+                    {mode !== "all" && `${MODE_LABEL[mode]} only · `}Received before {dmy(from)}: {amt(openDr)} · Loans given before: {amt(openCr)}
                   </span>
                 </td>
                 <td className={cell} />
@@ -195,11 +231,27 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
               {[...days.entries()].map(([day, list]) => {
                 let dayDr = 0n;
                 let dayCr = 0n;
+                const daySplit = noSplit();
                 const rows = list.map((e, i) => {
-                  const dr = toPaise(e.debit);
-                  const cr = toPaise(e.credit);
+                  // with a mode chosen only that part of the entry counts (a split payment shows its cash or its bank part)
+                  const cash = mode === "bank" ? 0n : toPaise(e.cash);
+                  const bank = mode === "cash" ? 0n : toPaise(e.bank);
+                  const dr = e.kind === "receipt" ? cash + bank : 0n;
+                  const cr = e.kind === "loan" ? cash + bank : 0n;
                   dayDr += dr;
                   dayCr += cr;
+                  if (e.kind === "receipt") {
+                    daySplit.cashIn += cash;
+                    daySplit.bankIn += bank;
+                  } else {
+                    daySplit.cashOut += cash;
+                    daySplit.bankOut += bank;
+                  }
+                  const part = cash > 0n && bank > 0n && (
+                    <span className="block text-xs text-slate-500">
+                      Cash {amt(cash)} · Bank {amt(bank)}
+                    </span>
+                  );
                   const href = e.source === "new" && e.kind === "loan" ? `/loans/${e.ref_id}` : e.source === "new" ? null : `/accounts/${e.ref_id}`;
                   return (
                     <tr key={`${day}-${i}`} className="break-inside-avoid">
@@ -230,14 +282,24 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
                         )}
                       </td>
                       <td className={`${cell} whitespace-nowrap`}>{e.kind === "receipt" ? `Instalment · ${e.mode ?? ""}` : `Loan · ${e.mode ?? ""}`}</td>
-                      <td className={`${cell} text-right`}>{dr ? amt(dr) : "—"}</td>
-                      <td className={`${cell} text-right`}>{cr ? amt(cr) : "—"}</td>
+                      <td className={`${cell} text-right`}>
+                        {dr ? amt(dr) : "—"}
+                        {dr > 0n && part}
+                      </td>
+                      <td className={`${cell} text-right`}>
+                        {cr ? amt(cr) : "—"}
+                        {cr > 0n && part}
+                      </td>
                     </tr>
                   );
                 });
                 running += dayDr - dayCr;
                 periodDr += dayDr;
                 periodCr += dayCr;
+                periodSplit.cashIn += daySplit.cashIn;
+                periodSplit.bankIn += daySplit.bankIn;
+                periodSplit.cashOut += daySplit.cashOut;
+                periodSplit.bankOut += daySplit.bankOut;
                 return [
                   ...rows,
                   <tr key={`${day}-total`} className="break-inside-avoid border-t border-slate-300 bg-emerald-50/60 font-semibold">
@@ -245,6 +307,7 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
                     <td className={cell} colSpan={2}>
                       Total for {dmy(day)} ({list.length})
                       <span className="block text-xs font-normal text-slate-600">Closing balance {drcr(running)}</span>
+                      {mode === "all" && <SplitLine s={daySplit} />}
                     </td>
                     <td className={`${cell} text-right`}>{amt(dayDr)}</td>
                     <td className={`${cell} text-right`}>{amt(dayCr)}</td>
@@ -257,6 +320,7 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
                 <td className={cell} />
                 <td className={cell} colSpan={2}>
                   Period total ({entries.length} entries)
+                  {mode === "all" && <SplitLine s={periodSplit} />}
                 </td>
                 <td className={`${cell} text-right`}>{amt(periodDr)}</td>
                 <td className={`${cell} text-right`}>{amt(periodCr)}</td>
@@ -266,6 +330,16 @@ export default async function DayBookPage({ searchParams }: PageProps<"/reports/
                 <td className={cell} colSpan={2}>
                   Grand total (opening + period)
                   <span className="block text-xs font-normal text-slate-600">Closing balance {drcr(openDr - openCr + periodDr - periodCr)}</span>
+                  {mode === "all" && (
+                    <SplitLine
+                      s={{
+                        cashIn: openSplit.cashIn + periodSplit.cashIn,
+                        bankIn: openSplit.bankIn + periodSplit.bankIn,
+                        cashOut: openSplit.cashOut + periodSplit.cashOut,
+                        bankOut: openSplit.bankOut + periodSplit.bankOut,
+                      }}
+                    />
+                  )}
                 </td>
                 <td className={`${cell} text-right`}>{amt(openDr + periodDr)}</td>
                 <td className={`${cell} text-right`}>{amt(openCr + periodCr)}</td>

@@ -41,7 +41,8 @@ class ReportsParity extends Command
         $this->rows('day book', $db['rows'], collect($mine)->keyBy($key)->all(), $key);
         $this->info('day book: '.count($db['rows']).' rows there, '.count($mine).' here');
         $op = Reports::dayBookOpening($db['from']);
-        $this->same('opening', [Money::dec($db['opening'][0]), Money::dec($db['opening'][1])], [$op['debit'], $op['credit']]);
+        $this->same('opening', array_map(fn ($v) => Money::dec($v), $db['opening']),
+            array_slice([$op['debit'], $op['credit'], $op['cash_debit'], $op['cash_credit']], 0, count($db['opening'])));
 
         $mine = collect(Reports::seized())->keyBy(fn ($r) => "{$r['source']}:{$r['ref_id']}")->all();
         $this->rows('seized', $ref['seized'], $mine, fn ($r) => "{$r['source']}:{$r['ref_id']}");

@@ -78,8 +78,14 @@ class Phase1Test extends TestCase
 
     public function test_times_are_sent_as_iso_with_india_offset(): void
     {
-        $this->as($this->staff('staff', ['view_accounts']));
-        $loan = DB::table('loans')->value('id');
+        $this->as($this->staff('staff', ['view_accounts', 'new_loan']));
+        $values = ['folio_no' => 'T'.random_int(10000, 99999), 'zone' => '', 'dealer' => '', 'loan_type' => 'CASH', 'borrower_name' => 'time test',
+            'borrower_father' => 'x', 'borrower_mobile' => '9876543210', 'borrower_dob' => '', 'borrower_address' => 'x', 'guarantor_name' => '',
+            'guarantor_father' => '', 'guarantor_mobile' => '', 'guarantor_address' => '', 'vehicle_condition' => 'NEW', 'sold_by' => '',
+            'vehicle_model' => 'x', 'vehicle_color' => '', 'chassis_no' => '', 'engine_no' => '', 'make_year' => '', 'vehicle_no' => '',
+            'insurance_expiry' => '', 'agreement_date' => now()->toDateString(), 'installments' => '12', 'interval_months' => '1',
+            'finance_amount' => '1000', 'interest_rate' => '12', 'agreement_amount' => '', 'hp_amount' => ''];
+        $loan = $this->postJson('/api/loans', ['idempotencyKey' => (string) \Illuminate\Support\Str::uuid(), 'values' => $values])->assertOk()->json('id');
         $d = $this->getJson("/api/loans/$loan")->assertOk()->json();
         $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?\+05:30$/', $d['loan']['created_at']);
         $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}$/', $d['loan']['agreement_date']);
@@ -115,19 +121,25 @@ class Phase1Test extends TestCase
     public function test_receipt_numbers_are_unique_only_inside_a_book(): void
     {
         $this->as($this->admin());
-        $nar = DB::table('legacy_accounts as a')->where('a.ledger', 'pending')->where('a.zone', 'NARHARPUR')->where('a.emi_amount', '>', 0)
+        // a zone whose second book starts at a number the main book also uses (like NARHARPUR-2 starting at 188)
+        $no = $this->freeReceipt();
+        $zone = DB::table('zones')->insertGetId(['name' => 'TESTZONE', 'receipt_start' => 1]);
+        DB::table('receipt_series')->insert([['zone_id' => $zone, 'book_no' => 1, 'code' => 'TESTZONE-1', 'start_no' => 1, 'closed_at' => now()],
+            ['zone_id' => $zone, 'book_no' => 2, 'code' => 'TESTZONE-2', 'start_no' => $no, 'closed_at' => null]]);
+        $open = DB::table('legacy_accounts as a')->where('a.ledger', 'pending')->where('a.emi_amount', '>', 0)->whereNull('a.zone')
             ->whereNotExists(fn ($q) => $q->from('adjustments as x')->whereColumn('x.legacy_account_id', 'a.id')->where('x.kind', 'settle')->whereNull('x.cancelled_at'))
-            ->first(['a.sno', 'a.emi_amount']);
-        $this->assertNotNull($nar, 'needs a NARHARPUR account in the data');
-        // 188 is already used in the main book, but NARHARPUR-2 starts at 188
-        $this->postJson('/api/payments', $this->payment('old', (int) $nar->sno, $nar->emi_amount, 188))->assertOk();
-        $this->assertSame('NARHARPUR-2', DB::table('payments')->where('receipt_no', 188)->where('series_id', '<>', 1)->value('receipt_book'));
-        [$sno, $emi] = $this->openOldAccount();
-        $this->postJson('/api/payments', $this->payment('old', $sno, $emi, 188))->assertStatus(422);
+            ->orderByDesc('a.sno')->limit(3)->get(['a.sno', 'a.emi_amount']);
+        [$main, $z1, $z2] = $open->all();
+        DB::table('legacy_accounts')->whereIn('sno', [$z1->sno, $z2->sno])->update(['zone' => 'TESTZONE']);
 
-        $hint = $this->getJson("/api/ledger/old/{$nar->sno}")->assertOk()->json('receiptHint');
-        $this->assertSame('NARHARPUR-2', $hint['series']['code']);
-        $this->assertSame(189, $hint['series']['next']);
+        $this->postJson('/api/payments', $this->payment('old', (int) $main->sno, $main->emi_amount, $no))->assertOk();
+        $this->postJson('/api/payments', $this->payment('old', (int) $z1->sno, $z1->emi_amount, $no))->assertOk(); // same number, other book
+        $this->assertSame('TESTZONE-2', DB::table('payments')->where('receipt_no', $no)->where('series_id', '<>', 1)->value('receipt_book'));
+        $this->postJson('/api/payments', $this->payment('old', (int) $z2->sno, $z2->emi_amount, $no))->assertStatus(422); // used in this book
+
+        $hint = $this->getJson("/api/ledger/old/{$z2->sno}")->assertOk()->json('receiptHint');
+        $this->assertSame('TESTZONE-2', $hint['series']['code']);
+        $this->assertSame($no + 1, $hint['series']['next']);
     }
 
     public function test_collection_man_payment_waits_for_approval(): void

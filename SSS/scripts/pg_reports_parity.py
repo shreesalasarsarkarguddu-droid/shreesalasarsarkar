@@ -19,7 +19,7 @@ DUE = ["source", "ref_id", "folio", "borrower_name", "vehicle_model", "mobile", 
        "arrears", "overdue_emis", "due_emis", "next_due", "agreement_date", "tenure", "finance_amount", "interest_amount",
        "other_charges", "total_amount", "total_paid", "last_paid", "late_days"]
 DAYBOOK = ["entry_date", "kind", "particulars", "folio", "due_amount", "due_date", "delay_days", "im", "mode", "receipt_no", "debit",
-           "credit", "source", "ref_id", "receipt_book"]
+           "credit", "source", "ref_id", "receipt_book", "cash", "bank"]
 SEIZED = ["source", "ref_id", "folio", "ledger", "borrower_name", "mobile", "vehicle_model", "vehicle_no", "total_amount", "total_paid",
           "balance", "seized_on", "remarks", "from_old_software", "search_text"]
 TABLES = ["import_batches", "legacy_accounts", "zones", "receipt_series", "legacy_payments", "borrowers", "loans", "payments",

@@ -25,7 +25,7 @@ class ReportsController extends Controller
         return response()->json(DueReport::run($this->day($request->query('asof'))));
     }
 
-    /** GET /api/reports/day-book?from&to — at most 93 days. */
+    /** GET /api/reports/day-book?from&to&mode=all|cash|bank — at most 93 days. */
     public function dayBook(Request $request)
     {
         Perm::need('reports');
@@ -34,8 +34,9 @@ class ReportsController extends Controller
         if ($to < $from || (strtotime($to) - strtotime($from)) / 86400 > 93) {
             return $this->fail('Choose a period of 93 days or less.');
         }
+        $mode = in_array($request->query('mode'), ['cash', 'bank'], true) ? $request->query('mode') : 'all';
 
-        return response()->json(['entries' => Reports::dayBook($from, $to), 'opening' => Reports::dayBookOpening($from)]);
+        return response()->json(['entries' => Reports::dayBook($from, $to, $mode), 'opening' => Reports::dayBookOpening($from, $mode)]);
     }
 
     /** GET /api/reports/seized?status=pending|closed|all&q — newest seizure first, at most 1000. */
