@@ -19,6 +19,9 @@ export const ACTIONS: { key: string; label: string; group: string }[] = [
   { key: "new_loan", label: "New loan", group: "Loans" },
   { key: "loan_edited", label: "Loan edited", group: "Fixes" },
   { key: "loan_deleted", label: "Loan deleted", group: "Fixes" },
+  { key: "old_account_edited", label: "Old account edited", group: "Fixes" },
+  { key: "old_receipt_edited", label: "Old receipt edited", group: "Fixes" },
+  { key: "old_receipt_cancelled", label: "Old receipt cancelled", group: "Fixes" },
   { key: "adjust_penalty", label: "Late fee added", group: "Money" },
   { key: "adjust_discount", label: "Discount given", group: "Money" },
   { key: "adjust_reschedule", label: "Rescheduled", group: "Money" },
@@ -150,6 +153,12 @@ export function describe(a: AuditRow): string {
       return `${changesText(d.changes)} · Reason: ${val(d.reason)}`;
     case "loan_deleted":
       return `Reason: ${val(d.reason)}`;
+    case "old_account_edited":
+      return `${changesText(d.changes)} · Reason: ${val(d.reason)}`;
+    case "old_receipt_edited":
+      return `#${val(d.installment_no)} Rcpt ${val(d.receipt_no)}: ${changesText(d.changes)} · Reason: ${val(d.reason)}`;
+    case "old_receipt_cancelled":
+      return `#${val(d.installment_no)} Rcpt ${val(d.receipt_no)} · ${rs(d.amount)} on ${val(d.paid_date)} · Reason: ${val(d.reason)}`;
     case "adjust_penalty":
     case "adjust_discount":
       return `${rs(Math.abs(Number(d.amount)))} · balance ${rs(d.owed_before)} → ${rs(d.owed_after)} · Reason: ${val(d.reason)}`;

@@ -178,7 +178,8 @@ class Phase5Test extends TestCase
         $this->rpc('admin_import_stage', ['p_job' => $job, 'p_kind' => 'acc', 'p_rows' => [$changed, $fresh, $same]])->assertOk()->assertJsonPath('data', 3);
         $this->rpc('admin_import_stage', ['p_job' => $job, 'p_kind' => 'pay', 'p_rows' => $pays])->assertOk();
         $pv = $this->rpc('admin_import_preview', ['p_job' => $job])->assertOk()->json('data');
-        $this->assertSame(['in_files' => 3, 'new' => 1, 'changed' => 1, 'same' => 1, 'moved' => 0], array_slice($pv['accounts'], 0, 5));
+        $this->assertSame(['in_files' => 3, 'new' => 1, 'changed' => 1, 'same' => 1, 'kept' => 0, 'moved' => 0],
+            array_intersect_key($pv['accounts'], array_flip(['in_files', 'new', 'changed', 'same', 'kept', 'moved'])));
         $this->assertSame(['sno' => (int) $e->sno, 'name' => $e->borrower_name], $pv['accounts']['examples_changed'][0]);
         $this->assertSame(3, $pv['receipts']['in_files']);
         $this->assertSame($paidBefore, $pv['receipts']['now_for_these_accounts']);

@@ -65,12 +65,12 @@ final class AccountData
             'guarantor_name', 'guarantor_father', 'guarantor_address', 'guarantor_mobile', 'guarantor_mobile2', 'finance_mode', 'zone',
             'vehicle_condition', 'vehicle_model', 'vehicle_variant', 'chassis_no', 'engine_no', 'model_year', 'registration_no',
             'agreement_date', 'tenure_months', 'interval_months', 'seized', 'data_flags', 'finance_amount', 'interest_amount',
-            'agreement_amount', 'hp_amount', 'total_amount', 'emi_amount', 'legacy_paid',
+            'agreement_amount', 'hp_amount', 'total_amount', 'emi_amount', 'legacy_paid', 'edited_in_app',
         ]);
         if (! $a) {
             return null;
         }
-        $r = self::clean($a, ['data_flags'], ['seized']);
+        $r = self::clean($a, ['data_flags'], ['seized', 'edited_in_app']);
         $r['legacy_payments'] = DB::table('legacy_payments')->where('account_id', $a->id)->orderBy('installment_no')
             ->get(self::LEGACY_PAYMENT_COLUMNS)->map(fn ($x) => self::clean($x, ['data_flags']))->all();
         $r['payments'] = self::appPayments('legacy_account_id', $a->id);

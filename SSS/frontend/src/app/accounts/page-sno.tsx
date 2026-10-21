@@ -16,6 +16,7 @@ import type { ZoneInfo } from "@/lib/zones";
 import { WaitingBanner } from "../waiting-banner";
 import { Delay, EmiSummary, InstallmentTable, RowFlags } from "../installments";
 import { PaymentFixes } from "../payment-fixes";
+import { OldReceiptFixes } from "../old-receipt-fixes";
 import { RemarkHistory, RemarkPanel } from "../remark-panel";
 import { ZonePicker } from "../zone-picker";
 import { MoneyActions } from "../money-actions";
@@ -160,6 +161,14 @@ function AccountView({ d }: { d: AccountResponse }) {
                 />
               )}
               {(isPending || seizedNow) && can(staff, "seize") && <SeizeControl source="old" refId={a.sno} seized={seizedNow} />}
+              {staff?.role === "admin" && (
+                <Link
+                  href={`/accounts/${a.sno}/edit`}
+                  className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 sm:px-4"
+                >
+                  Edit details
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -282,6 +291,8 @@ function AccountView({ d }: { d: AccountResponse }) {
       />
 
       {can(staff, "fix_entries") && <PaymentFixes payments={a.payments} path={`/accounts/${a.sno}`} />}
+
+      {staff?.role === "admin" && <OldReceiptFixes receipts={all.filter((p) => p.ledger === a.ledger)} sno={a.sno} />}
 
       {otherFile.length > 0 && (
         <section className="rounded-xl bg-white ring-1 ring-amber-200">

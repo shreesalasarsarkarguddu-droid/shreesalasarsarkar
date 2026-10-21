@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
 class Fixes
 {
     /** { key: {from, to} } for the keys that changed (app_private.diff). Money compared by value. */
-    private static function diff(array $a, array $b, array $keys, array $money = []): array
+    public static function diff(array $a, array $b, array $keys, array $money = []): array
     {
         $d = [];
         foreach ($keys as $k) {

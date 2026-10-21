@@ -469,12 +469,13 @@ type Preview = {
     same: number;
     moved: number;
     not_in_files: number;
+    kept?: number;
     examples_new: { sno: number; name: string }[];
     examples_changed: { sno: number; name: string }[];
     examples_moved: { sno: number; name: string; from: string; to: string }[];
     examples_not_in_files: { sno: number; name: string; ledger: string }[];
   };
-  receipts: { in_files: number; now_for_these_accounts: number; added: number; removed: number };
+  receipts: { in_files: number; now_for_these_accounts: number; added: number; removed: number; kept_edited?: number; kept_cancelled?: number };
   double_entry_risk: { sno: number; name: string; app_first: string; file_receipts_after: number }[];
   double_entry_likely?: {
     sno: number; borrower_name: string; why: string;
@@ -629,6 +630,12 @@ function ImportCard() {
             <Examples title="Changed" items={a.examples_changed} />
             <Examples title="Moved" items={a.examples_moved.map((x) => ({ ...x, extra: `${x.from} → ${x.to}` }))} />
             <Examples title="Not in files" items={a.examples_not_in_files.map((x) => ({ ...x, extra: x.ledger }))} />
+            {(a.kept || pv.receipts.kept_edited || pv.receipts.kept_cancelled) ? (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Changed in this app, kept as they are: {n(a.kept)} account(s) and {n(pv.receipts.kept_edited)} receipt(s);{" "}
+                {n(pv.receipts.kept_cancelled)} receipt(s) cancelled in this app are not brought back.
+              </p>
+            ) : null}
 
             <p className="text-sm">
               Receipts: <b className="num">{n(pv.receipts.in_files)}</b> in the files,{" "}

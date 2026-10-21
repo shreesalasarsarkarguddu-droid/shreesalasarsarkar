@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
  * Import from the old software (admin_import_preview / admin_import_commit). The page reads the 4 FoxPro files in the browser
  * (src/lib/legacy/parse.ts) and stages the rows: accounts ("acc") and receipts ("pay"), each with _file = which file.
  * Accounts are updated in place by SNO, new ones added, ones missing from the files kept; receipts are replaced for the SNOs in the files.
+ * Accounts and receipts changed in this app (edited_in_app), and receipts cancelled in it (legacy_receipts_removed), stay as they are.
  */
 final class LegacyImport
 {
@@ -63,7 +64,9 @@ final class LegacyImport
                 $seen[$sno] = true;
                 $e = $existing[$sno] ?? null;
                 $kind = 'new';
-                if ($e) {
+                if ($e && $e['edited_in_app']) {
+                    $kind = 'kept'; // changed in this app: stays as it is
+                } elseif ($e) {
                     $kind = 'same';
                     foreach ($a as $k => $v) {
                         if (in_array($k, self::NOT_BUSINESS, true) || ! array_key_exists($k, $e)) {
@@ -81,15 +84,19 @@ final class LegacyImport
         });
         usort($cmp, fn ($x, $y) => $x['sno'] <=> $y['sno']);
         $pick = fn ($fn, $map) => array_map($map, array_slice(array_values(array_filter($cmp, $fn)), 0, 10));
-        $moved = fn ($c) => $c['kind'] !== 'new' && $c['from'] !== $c['to'];
+        $moved = fn ($c) => $c['kind'] !== 'new' && $c['kind'] !== 'kept' && $c['from'] !== $c['to'];
         $notIn = array_values(array_filter($existing, fn ($e) => ! isset($seen[(int) $e['sno']])));
 
         // receipts: the files' ones, the ones now for those SNOs, and the ones that look entered in both programs
         $newR = [];
         $snos = $seen;
         $fileRows = [];
-        Data::rows($j->id, 'pay', function ($rows) use (&$newR, &$snos, &$fileRows) {
+        [$edited, $removed] = self::keptReceipts();
+        $keptEdited = $keptCancelled = 0;
+        Data::rows($j->id, 'pay', function ($rows) use (&$newR, &$snos, &$fileRows, $edited, $removed, &$keptEdited, &$keptCancelled) {
             foreach ($rows as $r) {
+                $keptEdited += (int) isset($edited[self::slot($r)]);
+                $keptCancelled += (int) isset($removed[self::slot($r)]);
                 $k = self::receiptKey($r);
                 $newR[$k] = ($newR[$k] ?? 0) + 1;
                 $snos[(int) $r['sno']] = true;
@@ -154,6 +161,7 @@ final class LegacyImport
                 'new' => count(array_filter($cmp, fn ($c) => $c['kind'] === 'new')),
                 'changed' => count(array_filter($cmp, fn ($c) => $c['kind'] === 'changed')),
                 'same' => count(array_filter($cmp, fn ($c) => $c['kind'] === 'same')),
+                'kept' => count(array_filter($cmp, fn ($c) => $c['kind'] === 'kept')),
                 'moved' => count(array_filter($cmp, $moved)),
                 'not_in_files' => count($notIn),
                 'examples_new' => $pick(fn ($c) => $c['kind'] === 'new', fn ($c) => ['sno' => $c['sno'], 'name' => $c['name']]),
@@ -161,7 +169,8 @@ final class LegacyImport
                 'examples_moved' => $pick($moved, fn ($c) => ['sno' => $c['sno'], 'name' => $c['name'], 'from' => $c['from'], 'to' => $c['to']]),
                 'examples_not_in_files' => array_map(fn ($e) => ['sno' => (int) $e['sno'], 'name' => $e['borrower_name'], 'ledger' => $e['ledger']], array_slice($notIn, 0, 10)),
             ],
-            'receipts' => ['in_files' => array_sum($newR), 'now_for_these_accounts' => $nowCount, 'added' => $minus($newR, $oldR), 'removed' => $minus($oldR, $newR)],
+            'receipts' => ['in_files' => array_sum($newR), 'now_for_these_accounts' => $nowCount, 'added' => $minus($newR, $oldR), 'removed' => $minus($oldR, $newR),
+                'kept_edited' => $keptEdited, 'kept_cancelled' => $keptCancelled],
             'double_entry_risk' => $risk,
             'double_entry_likely' => $likely,
         ];
@@ -189,14 +198,24 @@ final class LegacyImport
             ]);
         }
 
-        // accounts: update in place by SNO (a zone chosen in the app stays), add new ones
+        // accounts: update in place by SNO (a zone chosen in the app stays), add new ones; accounts changed in this app stay
+        // as they are (and are left out of the totals check)
         $accCols = array_keys(DataStore::columns('legacy_accounts'));
         $kept = DB::table('legacy_accounts')->where('zone_set_in_app', 1)->pluck('zone', 'sno')->all();
+        $editedAcc = DB::table('legacy_accounts')->where('edited_in_app', 1)->pluck('sno')->flip()->all();
+        $keptBy = array_fill_keys(self::FILES, ['n' => 0, 'paise' => 0]);
         $snos = [];
         $nAcc = 0;
-        Data::rows($j->id, 'acc', function ($rows) use ($accCols, $kept, $ids, &$snos, &$nAcc) {
+        Data::rows($j->id, 'acc', function ($rows) use ($accCols, $kept, $editedAcc, $ids, &$snos, &$nAcc, &$keptBy) {
             $vals = [];
             foreach ($rows as $a) {
+                if (isset($editedAcc[(int) $a['sno']])) {
+                    $keptBy[$a['_file']]['n']++;
+                    $keptBy[$a['_file']]['paise'] += Money::paise((string) $a['total_amount']);
+                    $snos[(int) $a['sno']] = true;
+
+                    continue;
+                }
                 $row = ['import_batch_id' => $ids[$a['_file']]];
                 foreach ($a as $k => $v) {
                     if ($k !== '_file' && in_array($k, $accCols, true) && ! in_array($k, ['id', 'legacy_paid', 'legacy_payments_count', 'legacy_last_paid', 'zone_set_in_app'], true)) {
@@ -209,27 +228,36 @@ final class LegacyImport
                 $vals[] = $row;
                 $snos[(int) $a['sno']] = true;
             }
-            DataStore::insertChunks('legacy_accounts', $vals, ['sno']);
+            if ($vals) {
+                DataStore::insertChunks('legacy_accounts', $vals, ['sno']);
+            }
             $nAcc += count($vals);
         });
 
-        // receipts: replace for the SNOs in the files only
+        // receipts: replace for the SNOs in the files only; receipts edited or cancelled in this app stay as they are
         Data::rows($j->id, 'pay', function ($rows) use (&$snos) {
             foreach ($rows as $r) {
                 $snos[(int) $r['sno']] = true;
             }
         });
         $snoList = array_keys($snos);
+        [$edited, $removed] = self::keptReceipts();
         foreach (array_chunk($snoList, 1000) as $chunk) {
-            DB::table('legacy_payments')->whereIn('sno', $chunk)->delete();
+            DB::table('legacy_payments')->whereIn('sno', $chunk)->where('edited_in_app', 0)->delete();
         }
         $acct = DB::table('legacy_accounts')->get(['id', 'sno', 'zone'])->keyBy('sno');
         $series = [];
         $payCols = array_keys(DataStore::columns('legacy_payments'));
         $nPay = 0;
-        Data::rows($j->id, 'pay', function ($rows) use ($acct, $ids, $payCols, &$series, &$nPay) {
+        Data::rows($j->id, 'pay', function ($rows) use ($acct, $ids, $payCols, $edited, $removed, &$series, &$nPay, &$keptBy) {
             $vals = [];
             foreach ($rows as $p) {
+                if (isset($edited[self::slot($p)]) || isset($removed[self::slot($p)])) {
+                    $keptBy[$p['_file']]['n']++;
+                    $keptBy[$p['_file']]['paise'] += Money::paise((string) $p['paid_amount']);
+
+                    continue;
+                }
                 $a = $acct[(int) $p['sno']] ?? null;
                 $zone = $a ? trim((string) $a->zone) : '';
                 [$sid, $book] = $series[$zone] ??= [$h = Receipts::historySeries($zone), Receipts::code($h)]; // once per zone
@@ -241,7 +269,9 @@ final class LegacyImport
                 }
                 $vals[] = $row;
             }
-            DataStore::insertChunks('legacy_payments', $vals);
+            if ($vals) {
+                DataStore::insertChunks('legacy_payments', $vals);
+            }
             $nPay += count($vals);
         });
         DataStore::refreshLegacyTotals($snoList);
@@ -251,7 +281,9 @@ final class LegacyImport
         foreach (['F_ACC' => ['legacy_accounts', 'closed', 'total_amount'], 'P_ACCOUNT' => ['legacy_accounts', 'pending', 'total_amount'],
             'F_INSMENT' => ['legacy_payments', 'closed', 'paid_amount'], 'P_INSMENT' => ['legacy_payments', 'pending', 'paid_amount']] as $k => [$t, $ledger, $col]) {
             $got = DB::table($t)->where('import_batch_id', $ids[$k])->where('ledger', $ledger)->selectRaw("count(*) n, coalesce(sum($col), 0) total")->first();
-            if ((int) $got->n !== (int) ($checks[$k]['rows'] ?? -1) || Money::paise((string) $got->total) !== Money::paise((string) ($checks[$k]['total'] ?? 'x'))) {
+            $wantRows = (int) ($checks[$k]['rows'] ?? -1) - $keptBy[$k]['n'];
+            $wantPaise = Money::paise((string) ($checks[$k]['total'] ?? 'x')) - $keptBy[$k]['paise'];
+            if ((int) $got->n !== $wantRows || Money::paise((string) $got->total) !== $wantPaise) {
                 $problems[] = $t === 'legacy_accounts' ? "$k: accounts or total payable do not match the file" : "$k: receipts or total paid do not match the file";
             }
         }
@@ -259,6 +291,28 @@ final class LegacyImport
             throw RpcError::bad('check failed, nothing was imported: '.implode('; ', $problems));
         }
 
-        return ['batches' => $ids, 'accounts' => $nAcc, 'receipts' => $nPay];
+        return ['batches' => $ids, 'accounts' => $nAcc, 'receipts' => $nPay,
+            'kept_accounts' => $keptBy['F_ACC']['n'] + $keptBy['P_ACCOUNT']['n'], 'kept_receipts' => $keptBy['F_INSMENT']['n'] + $keptBy['P_INSMENT']['n']];
+    }
+
+    /** "pending|123|4": a receipt's place (ledger, SNO, installment no.) */
+    private static function slot(array $r): string
+    {
+        return $r['ledger'].'|'.(int) $r['sno'].'|'.(int) $r['installment_no'];
+    }
+
+    /** [receipts edited in this app, receipts cancelled in this app] as sets of slot() */
+    private static function keptReceipts(): array
+    {
+        $edited = [];
+        foreach (DB::table('legacy_payments')->where('edited_in_app', 1)->get(['ledger', 'sno', 'installment_no']) as $r) {
+            $edited[self::slot((array) $r)] = true;
+        }
+        $removed = [];
+        foreach (DB::table('legacy_receipts_removed')->get(['ledger', 'sno', 'installment_no']) as $r) {
+            $removed[self::slot((array) $r)] = true;
+        }
+
+        return [$edited, $removed];
     }
 }

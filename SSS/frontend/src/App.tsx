@@ -29,6 +29,7 @@ const RemarksPage = lazy(() => import("@/app/remarks/page"));
 const AssignPage = lazy(() => import("@/app/assign/page"));
 const MyCollectionsPage = lazy(() => import("@/app/my-collections/page"));
 const EditLoanPage = lazy(() => import("@/app/loans/edit/page"));
+const EditOldAccountPage = lazy(() => import("@/app/accounts/edit/page"));
 const ActivityPage = lazy(() => import("@/app/activity/page"));
 const UsersPage = lazy(() => import("@/app/users/page"));
 const SettingsPage = lazy(() => import("@/app/settings/page"));
@@ -76,6 +77,7 @@ export default function App() {
         <Route path="/remarks" element={<RequirePerm any={["collect", "view_accounts"]}><RemarksPage /></RequirePerm>} />
         <Route path="/assign" element={guard(<AssignPage />, "assign")} />
         <Route path="/loans/:id/edit" element={guard(<EditLoanPage />, "fix_entries")} />
+        <Route path="/accounts/:sno/edit" element={guard(<EditOldAccountPage />, undefined, true)} />
         <Route path="/activity" element={guard(<ActivityPage />, "activity")} />
         <Route path="/users" element={guard(<UsersPage />, undefined, true)} />
         <Route path="/settings" element={guard(<SettingsPage />, undefined, true)} />

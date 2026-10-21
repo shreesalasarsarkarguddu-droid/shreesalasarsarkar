@@ -350,8 +350,9 @@ class Data
         DataStore::changed();
         $preview = json_decode((string) $j->preview, true) ?? [];
         unset($preview['files']);
-        self::audit('import', ['restore_point' => $rp, 'batches' => $r['batches'], 'accounts' => $r['accounts'], 'receipts' => $r['receipts'], 'preview' => $preview]);
+        $kept = ['kept_accounts' => $r['kept_accounts'], 'kept_receipts' => $r['kept_receipts']];
+        self::audit('import', ['restore_point' => $rp, 'batches' => $r['batches'], 'accounts' => $r['accounts'], 'receipts' => $r['receipts']] + $kept + ['preview' => $preview]);
 
-        return ['restore_point' => $rp, 'accounts' => $r['accounts'], 'receipts' => $r['receipts']];
+        return ['restore_point' => $rp, 'accounts' => $r['accounts'], 'receipts' => $r['receipts']] + $kept;
     }
 }
