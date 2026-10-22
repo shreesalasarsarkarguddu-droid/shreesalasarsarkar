@@ -52,7 +52,7 @@ class Cloudinary
             'public_id' => $name,
             'timestamp' => time(),
         ];
-        $res = Http::timeout(60)
+        $res = Http::connectTimeout(8)->timeout(25)
             ->attach('file', (string) file_get_contents($file), "$name.jpg")
             ->post("https://api.cloudinary.com/v1_1/{$cloud}/image/upload", [...$params, 'api_key' => $key, 'signature' => self::sign($params, $secret)]);
         if (! $res->successful() || ! $res->json('public_id')) {
@@ -72,7 +72,7 @@ class Cloudinary
         [$cloud, $key, $secret] = $account;
         $params = ['public_id' => preg_replace('/\.[a-z0-9]+$/i', '', substr($path, strlen(self::PREFIX))), 'timestamp' => time()];
         try {
-            Http::timeout(30)->asForm()
+            Http::connectTimeout(8)->timeout(15)->asForm()
                 ->post("https://api.cloudinary.com/v1_1/{$cloud}/image/destroy", [...$params, 'api_key' => $key, 'signature' => self::sign($params, $secret)])
                 ->throw();
         } catch (\Throwable $e) {

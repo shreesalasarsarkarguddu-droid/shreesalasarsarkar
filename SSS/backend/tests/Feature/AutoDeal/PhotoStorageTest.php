@@ -8,6 +8,7 @@ use App\Services\Backup;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 /** Photos: at most 200 KB each (shrunk on the server when a bigger one arrives), on Cloudinary when CLOUDINARY_URL is set. */
@@ -99,20 +100,19 @@ class PhotoStorageTest extends AutoDealTestCase
             && $r['signature'] === sha1("public_id=autodeal/vehicles/{$vehicle->id}/abc&timestamp={$r['timestamp']}s3cret"));
     }
 
-    public function test_a_failed_cloudinary_upload_saves_nothing(): void
+    public function test_when_cloudinary_fails_the_photo_is_kept_on_the_server(): void
     {
         config(['autodeal.cloudinary_url' => 'cloudinary://111222:s3cret@democloud']);
         Http::fake(['api.cloudinary.com/*' => Http::response(['error' => ['message' => 'Invalid Signature']], 401)]);
+        Log::spy();
 
-        $this->signedIn($this->dealerOwner());
-        $this->withoutExceptionHandling();
-        try {
-            $this->post('/autodeal/vehicles', $this->payload([$this->jpeg()]));
-            $this->fail('expected the upload error');
-        } catch (\RuntimeException $e) {
-            $this->assertStringContainsString('Invalid Signature', $e->getMessage());
-        }
-        $this->assertSame(0, Vehicle::count());
+        $this->signedIn($this->dealerOwner())->post('/autodeal/vehicles', $this->payload([$this->jpeg()]))
+            ->assertSessionHasNoErrors()->assertRedirect();
+
+        $photo = Vehicle::with('photos')->sole()->photos->sole();
+        $this->assertStringStartsWith('autodeal/vehicles/', $photo->file_path);
+        Storage::disk('public')->assertExists($photo->file_path);
+        Log::shouldHaveReceived('warning')->withArgs(fn ($m) => str_contains($m, 'Invalid Signature'))->once();
     }
 
     public function test_without_cloudinary_photos_stay_on_the_server(): void

@@ -4,6 +4,7 @@ namespace App\AutoDeal\Support;
 
 use Illuminate\Http\File;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -22,7 +23,12 @@ class Uploads
         $name = Str::ulid()->toBase32();
         try {
             if (Cloudinary::enabled()) {
-                return [Cloudinary::upload($fitted, "vehicles/{$vehicleId}", $name), $kb];
+                try {
+                    return [Cloudinary::upload($fitted, "vehicles/{$vehicleId}", $name), $kb];
+                } catch (\Throwable $e) {
+                    // Cloudinary down / wrong key / blocked: keep the photo on this server so the work is not lost
+                    Log::warning('Cloudinary upload failed, photo kept on the server: '.$e->getMessage());
+                }
             }
             $ext = $fitted === $file->getRealPath() ? self::ext($file) : 'jpg';
 
