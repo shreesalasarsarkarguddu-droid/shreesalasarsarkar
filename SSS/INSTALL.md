@@ -115,10 +115,48 @@ A migration that adds a column to a data table must add it to its restore-point 
 - Screens: on the PC `cd frontend && npm run build:split` (API address in `.env.split`) writes `dist/` with an `.htaccess`;
   upload the contents of `dist/` (including `.htaccess`) into `~/domains/businesstradecore.in/public_html`.
 
+## Auto Deal (used-vehicle stock and sales, `/autodeal`)
+
+Part of the backend (`app/AutoDeal`, `routes/autodeal.php`, `resources/autodeal`, tables `ad_*`). It uses the SSS login:
+admins are owners (cost, profit, reports, delete); other users need the "Auto Deal" power on the Users page and never see cost
+or profit. Its screens are already built in `backend/public/autodeal-build` (committed), so the server needs no Node.
+
+After `git pull` on the server:
+
+```bash
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force          # creates the ad_* tables (and their rp_ad_* restore copies)
+php artisan storage:link             # once: vehicle photos are served from public/storage
+php artisan config:cache && php artisan route:cache && php artisan view:clear
+```
+
+Optional `.env` lines (defaults in `config/autodeal.php`):
+
+```
+AUTODEAL_ENABLED=true                # false hides the screens and the menu link; the data stays
+DEALER_NAME="Shree Salasar Sarkar · Auto Deal"
+DEALER_ADDRESS=...
+DEALER_PHONE=...
+DEALER_GSTIN=...
+```
+
+Links: split hosting → `https://api.businesstradecore.in/autodeal/vehicles` (the menu link in both apps goes there; the
+Next.js site can change it with `NEXT_PUBLIC_AUTODEAL_URL`, empty hides it). Public catalogue: `/autodeal/catalogue`.
+
+Backups: the backup zip and restore points include the `ad_*` tables. Photos and ID proofs are files, not rows: Settings →
+Data → "Download Auto Deal photos & documents", and the nightly job keeps the last 3 `autodeal-files-DATE.zip` in
+`storage/app/backups`.
+
+Removing it for good: `php artisan autodeal:remove` saves a backup zip and the files zip in `storage/app/backups`, drops the
+`ad_*` tables and prints the files to delete (`app/AutoDeal`, `routes/autodeal.php`, ...). Just hiding it: `AUTODEAL_ENABLED=false`.
+
+Changing its screens: `cd backend && npm install && npm run build` (writes `public/autodeal-build`, commit it); `npm run dev`
+for hot reload.
+
 ## Local development
 
 ```bash
 cd backend && php artisan serve            # API on 127.0.0.1:8000
-cd frontend && npm run dev                 # screens on localhost:5173 (calls the API through the Vite proxy)
+cd frontend && npm run dev                 # screens on localhost:5173 (calls the API through the Vite proxy; /autodeal too)
 php artisan test                               # feature tests (on the local copy, rolled back)
 ```

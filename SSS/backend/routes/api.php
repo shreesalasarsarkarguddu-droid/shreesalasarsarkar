@@ -48,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/activity', [\App\Http\Controllers\AdminController::class, 'activity']);
     Route::get('/notification-log', [\App\Http\Controllers\AdminController::class, 'notificationLog']);
     Route::get('/backup', [\App\Http\Controllers\AdminController::class, 'backup']);
+    Route::get('/backup/autodeal-files', [\App\Http\Controllers\AdminController::class, 'backupAutodealFiles']);
 
     // collecting payments
     Route::get('/payments/pending', [PaymentsController::class, 'pending']);

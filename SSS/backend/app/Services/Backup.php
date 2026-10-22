@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\AutoDeal\Support\Module;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 /**
@@ -17,6 +19,12 @@ final class Backup
     /** Tables in the zip; "staff" is the logins without email or password. */
     public const TABLES = ['legacy_accounts', 'legacy_payments', 'borrowers', 'loans', 'payments', 'seizures', 'adjustments', 'receipt_books', 'cash_closings',
         'collection_assignments', 'pending_payments', 'staff', 'import_batches', 'zones', 'receipt_series', 'visit_remarks'];
+
+    /** The tables in the zip, with Auto Deal's (ad_*) when it is installed. */
+    public static function tables(): array
+    {
+        return Module::installed() ? [...self::TABLES, ...Module::TABLES] : self::TABLES;
+    }
 
     private static function cell(mixed $v): string
     {
@@ -36,7 +44,7 @@ final class Backup
         } else {
             $cols = array_column(DB::select('select column_name as c from information_schema.columns where table_schema = database() and table_name = ?
                 and coalesce(generation_expression, \'\') = \'\' order by ordinal_position', [$table]), 'c');
-            $q = DB::table($table)->orderBy('id')->select($cols);
+            $q = DB::table($table)->orderBy($cols[0])->select($cols);
         }
         $lines = [implode(',', $cols)];
         $n = 0;
@@ -54,7 +62,7 @@ final class Backup
     {
         $z = new ZipWriter;
         $summary = [];
-        foreach (self::TABLES as $t) {
+        foreach (self::tables() as $t) {
             [$csv, $n] = self::csv($t);
             $z->add("$t.csv", $csv);
             $summary[] = "$t: $n rows";
@@ -62,6 +70,26 @@ final class Backup
         $z->add('README.txt', 'Backup taken '.now()->format('Y-m-d H:i:s')." India time\r\n\r\n".implode("\r\n", $summary)."\r\n");
 
         return $z->bytes();
+    }
+
+    /**
+     * Auto Deal's uploaded files (vehicle photos, KYC documents) as a zip at $path: public/autodeal/... and
+     * private/autodeal/..., the same folders under storage/app. Returns how many files.
+     */
+    public static function filesZip(string $path): int
+    {
+        $z = new ZipFileWriter($path);
+        foreach (['public' => Storage::disk('public')->path('autodeal'), 'private' => Storage::disk('local')->path('autodeal')] as $label => $dir) {
+            if (! is_dir($dir)) {
+                continue;
+            }
+            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS)) as $f) {
+                $rel = str_replace(DIRECTORY_SEPARATOR, '/', substr($f->getPathname(), strlen($dir) + 1));
+                $z->addFile("$label/autodeal/$rel", $f->getPathname());
+            }
+        }
+
+        return $z->close();
     }
 
     /** Same format as "openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt" (the Data page can open it with the password). */
@@ -111,6 +139,15 @@ final class Backup
         rsort($files);
         foreach (array_slice($files, 7) as $old) {
             @unlink($old);
+        }
+        // Auto Deal's photos and documents: kept on the server only (too big for Telegram), the last 3
+        if (Module::installed()) {
+            self::filesZip("$dir/autodeal-files-".now()->format('Y-m-d').'.zip');
+            $files = glob("$dir/autodeal-files-*") ?: [];
+            rsort($files);
+            foreach (array_slice($files, 3) as $old) {
+                @unlink($old);
+            }
         }
 
         $token = (string) config('services.backup.telegram_token');

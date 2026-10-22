@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\AutoDeal\Support\DealerUser;
+use App\AutoDeal\Support\Module;
 use App\Support\Perm;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -11,7 +13,7 @@ use Laravel\Sanctum\HasApiTokens;
 /** A staff login. Admins can do everything; staff only what their permissions allow (see App\Support\Perm). */
 class User extends Authenticatable
 {
-    use HasApiTokens, HasUuids, Notifiable;
+    use DealerUser, HasApiTokens, HasUuids, Notifiable; // DealerUser: Auto Deal roles (remove with the module)
 
     protected $fillable = ['email', 'password', 'full_name', 'role', 'active', 'permissions'];
 
@@ -48,6 +50,7 @@ class User extends Authenticatable
             'full_name' => $this->full_name,
             'role' => $this->role,
             'permissions' => array_values($this->permissions ?? []),
+            'modules' => ['autodeal' => Module::enabled() && Module::installed()],
         ];
     }
 }

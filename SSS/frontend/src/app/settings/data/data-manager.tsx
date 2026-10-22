@@ -9,6 +9,7 @@ import { rpc } from "@/lib/rpc";
 import { ImportError, parseAll, type FileKey, type Files } from "@/lib/legacy/parse";
 import { commitImport, createRestorePoint, deleteData, restore, restoreFromFile, stageRows, type Result } from "./actions";
 import { API } from "@/lib/api";
+import { useStaff } from "@/lib/auth";
 
 /** A server function's answer, or its message as an error. */
 async function call<T>(name: string, params: Record<string, unknown>): Promise<T> {
@@ -113,6 +114,7 @@ function describe(a: Overview["audit"][number]) {
 }
 
 function BackupCard() {
+  const autodeal = useStaff().modules?.autodeal;
   const [r, setR] = useState<Result | null>(null);
   const [pending, start] = useTransition();
   return (
@@ -133,6 +135,11 @@ function BackupCard() {
         >
           {pending ? "Saving…" : "Save restore point now"}
         </button>
+        {autodeal && (
+          <a href={`${API}/api/backup/autodeal-files`} className={`${btn} inline-flex items-center bg-white text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50`}>
+            Download Auto Deal photos &amp; documents (.zip)
+          </a>
+        )}
       </div>
       <Msg r={r} />
     </Section>
@@ -184,11 +191,18 @@ function RestoreCard({ points }: { points: Overview["restore_points"] }) {
 const DATA_TABLES = [
   "import_batches", "legacy_accounts", "legacy_payments", "borrowers", "loans", "payments", "seizures", "adjustments",
   "receipt_books", "cash_closings", "collection_assignments", "pending_payments", "zones", "receipt_series", "visit_remarks",
+  // Auto Deal
+  "ad_branches", "ad_sellers", "ad_buyers", "ad_vehicles", "ad_vehicle_photos", "ad_vehicle_transfers", "ad_sales", "ad_sale_documents",
+  "ad_sale_payments", "ad_branch_user", "ad_activity_logs",
 ];
 const TABLE_LABEL: Record<string, string> = {
   import_batches: "Import history", legacy_accounts: "Old accounts", legacy_payments: "Old receipts", borrowers: "Borrowers",
   loans: "New loans", payments: "Payments (app)", seizures: "Seizures", adjustments: "Late fees / discounts",
   receipt_books: "Receipt books", cash_closings: "Cash closings", collection_assignments: "Collection lists", pending_payments: "Waiting payments", zones: "Zones", receipt_series: "Zone receipt books", visit_remarks: "Visit remarks",
+  ad_branches: "Auto Deal yards", ad_sellers: "Auto Deal sellers", ad_buyers: "Auto Deal buyers", ad_vehicles: "Auto Deal vehicles",
+  ad_vehicle_photos: "Auto Deal photos", ad_vehicle_transfers: "Auto Deal yard moves", ad_sales: "Auto Deal sales",
+  ad_sale_documents: "Auto Deal sale papers", ad_sale_payments: "Auto Deal payments", ad_branch_user: "Auto Deal staff yards",
+  ad_activity_logs: "Auto Deal activity",
 };
 type FilePreview = {
   file: string; taken: string; unknown_people: number; has_accounts: boolean;

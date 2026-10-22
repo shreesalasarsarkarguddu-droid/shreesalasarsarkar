@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getStaff } from "@/lib/staff";
 import { signOut } from "@/app/login/actions";
 import { PasswordForm } from "./password-form";
+import { autodealUrl } from "@/lib/autodeal";
 import { can, controlLinks } from "@/lib/permissions";
 
 export const metadata: Metadata = { title: "Profile · Shree Salasar Sarkar" };
@@ -41,6 +42,16 @@ export default async function ProfilePage() {
             <span aria-hidden className="text-slate-400">›</span>
           </Link>
         ))}
+
+      {autodealUrl(staff) && (
+        <a href={autodealUrl(staff)!} className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
+          <span>
+            <span className="block font-semibold text-blue-700">Auto Deal</span>
+            <span className="block text-sm text-slate-500">Used-vehicle stock, sales and payments.</span>
+          </span>
+          <span aria-hidden className="text-slate-400">›</span>
+        </a>
+      )}
 
       {staff && staff.role !== "admin" && can(staff, "backup") && (
         <a href="/settings/backup" className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">

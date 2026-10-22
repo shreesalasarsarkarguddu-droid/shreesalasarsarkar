@@ -8,4 +8,4 @@ Route::get('/{any?}', function () {
     abort_unless(is_file($index), 404, 'Build the frontend first (SSS/frontend: npm run build).');
 
     return response()->file($index, ['Cache-Control' => 'no-cache']);
-})->where('any', '^(?!api|sanctum|up).*$');
+})->where('any', '^(?!api|sanctum|up|autodeal|storage).*$');

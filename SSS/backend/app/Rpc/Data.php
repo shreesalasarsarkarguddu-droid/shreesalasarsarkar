@@ -203,7 +203,7 @@ class Data
     {
         $j = self::job($p, 'backup', $u);
         $t = (string) ($p['p_tbl'] ?? '');
-        if (! in_array($t, DataStore::TABLES, true)) {
+        if (! in_array($t, DataStore::tables(), true)) {
             throw RpcError::bad("unknown table $t");
         }
 
@@ -217,7 +217,7 @@ class Data
         $people = DB::table('users')->pluck('id')->flip();
         $unknown = [];
         $tables = [];
-        foreach (DataStore::TABLES as $t) {
+        foreach (DataStore::tables() as $t) {
             $n = DB::table('staging_rows')->where('job', $j->id)->where('tbl', $t)->count();
             $first = DB::table('staging_rows')->where('job', $j->id)->where('tbl', $t)->where('n', 1)->value('row');
             $all = array_keys(collect(DB::select('select column_name as c from information_schema.columns where table_schema = database() and table_name = ?', [$t]))
@@ -257,7 +257,7 @@ class Data
         DataStore::withoutKeys(function () use ($j, $u, $people) {
             DataStore::wipe();
             $problems = [];
-            foreach (DataStore::TABLES as $t) {
+            foreach (DataStore::tables() as $t) {
                 $want = 0;
                 self::rows($j->id, $t, function ($rows) use ($t, $u, $people, &$want) {
                     $want += count($rows);

@@ -30,3 +30,6 @@ __pycache__/
 Thumbs.db
 *.log
 supabase/.temp/
+
+# the original stand-alone Auto Deal app (now SSS/backend/app/AutoDeal); kept locally for reference only
+/autodeal/

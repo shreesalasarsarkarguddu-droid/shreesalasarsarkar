@@ -25,3 +25,6 @@ Thumbs.db
 
 # built React app (npm run build in SSS/frontend writes it)
 /public/app
+
+# Auto Deal dev server (npm run dev)
+/public/autodeal.hot

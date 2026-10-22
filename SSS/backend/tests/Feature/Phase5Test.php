@@ -60,7 +60,7 @@ class Phase5Test extends TestCase
         $this->assertStringStartsWith("PK\x03\x04", $zip);
         // the end record lists all 17 files (16 tables + README)
         $end = substr($zip, strrpos($zip, "PK\x05\x06"));
-        $this->assertSame(count(Backup::TABLES) + 1, unpack('v', substr($end, 10, 2))[1]);
+        $this->assertSame(count(Backup::tables()) + 1, unpack('v', substr($end, 10, 2))[1]);
 
         $enc = Backup::encrypt('hello backup', 'pass-1');
         $this->assertStringStartsWith('Salted__', $enc);
@@ -80,7 +80,7 @@ class Phase5Test extends TestCase
         $text = fn ($r) => array_map(fn ($v) => $v === null ? '' : (string) $v, (array) $r);
         $job = $this->rpc('admin_backup_begin', ['p_file' => 'salasar-backup.zip', 'p_taken' => 'Backup taken today'])->assertOk()->json('data');
         $this->rpc('admin_backup_stage', ['p_job' => $job, 'p_tbl' => 'users', 'p_rows' => [['id' => 'x']]])->assertStatus(422);
-        foreach (DataStore::TABLES as $t) {
+        foreach (DataStore::tables() as $t) {
             $rows = DB::table($t)->orderBy('id')->get()->map($text)->all();
             if ($t === 'zones' && $rows) {
                 $rows[0]['old_column'] = 'x';

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { autodealUrl } from "@/lib/autodeal";
 import { can, controlLinks, type Access, type Permission } from "@/lib/permissions";
 
 // Top bar on computers: drop-down groups. Bottom bar on phones keeps one-tap buttons.
@@ -101,6 +102,7 @@ export function TopNav({ access }: { access: Access }) {
   const reports = ITEMS.find((i) => i.href === "/reports")!;
   const profile = ITEMS.find((i) => i.href === "/profile")!;
   const control = controlLinks(access);
+  const autodeal = autodealUrl(access);
   return (
     <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
       {finance.length > 0 && <Dropdown label={FINANCE.label} active={financeActive} items={finance} pathname={pathname} />}
@@ -123,6 +125,11 @@ export function TopNav({ access }: { access: Access }) {
       </Link>
       {control.length > 0 && (
         <Dropdown label="Control" active={control.some((c) => isActive(pathname, c.href))} items={control} pathname={pathname} />
+      )}
+      {autodeal && (
+        <a href={autodeal} className="flex h-10 items-center rounded-lg px-3 text-sm font-medium text-slate-600 hover:bg-slate-100">
+          Auto Deal
+        </a>
       )}
     </nav>
   );

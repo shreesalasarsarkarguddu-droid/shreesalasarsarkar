@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\AutoDeal\Support\Module;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -28,10 +29,16 @@ final class DataStore
 
     private static array $cols = [];
 
+    /** The data tables, with Auto Deal's (ad_*) when it is installed. */
+    public static function tables(): array
+    {
+        return Module::installed() ? [...self::TABLES, ...Module::TABLES] : self::TABLES;
+    }
+
     public static function counts(): array
     {
         $out = [];
-        foreach (self::TABLES as $t) {
+        foreach (self::tables() as $t) {
             $out[$t] = DB::table($t)->count();
         }
 
@@ -69,13 +76,13 @@ final class DataStore
             'created_at' => now()->format('Y-m-d H:i:s.u'), 'created_by' => $u?->id, 'by_name' => $u?->full_name,
             'reason' => mb_substr($reason, 0, 200), 'counts' => json_encode(self::counts()),
         ]);
-        foreach (self::TABLES as $t) {
+        foreach (self::tables() as $t) {
             $cols = self::list(self::shared($t));
             DB::insert("insert into `rp_$t` (`rp_id`, $cols) select ?, $cols from `$t`", [$id]);
         }
         $old = DB::table('restore_points')->orderByDesc('id')->offset(self::KEEP)->limit(1000)->pluck('id')->all();
         if ($old) {
-            foreach (self::TABLES as $t) {
+            foreach (self::tables() as $t) {
                 DB::table("rp_$t")->whereIn('rp_id', $old)->delete();
             }
             DB::table('restore_points')->whereIn('id', $old)->delete();
@@ -98,7 +105,7 @@ final class DataStore
     /** Empty every data table (inside the caller's transaction: plain deletes, no TRUNCATE, so it can be rolled back). */
     public static function wipe(): void
     {
-        foreach (array_reverse(self::TABLES) as $t) {
+        foreach (array_reverse(self::tables()) as $t) {
             DB::table($t)->delete();
         }
     }
@@ -108,7 +115,7 @@ final class DataStore
     {
         self::withoutKeys(function () use ($id) {
             self::wipe();
-            foreach (self::TABLES as $t) {
+            foreach (self::tables() as $t) {
                 $cols = self::list(self::shared($t));
                 DB::insert("insert into `$t` ($cols) select $cols from `rp_$t` where `rp_id` = ? order by `id`", [$id]);
             }

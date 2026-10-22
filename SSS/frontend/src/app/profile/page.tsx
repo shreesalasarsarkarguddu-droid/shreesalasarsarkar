@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useAuth, useStaff } from "@/lib/auth";
 import { PasswordForm } from "./password-form";
+import { autodealUrl } from "@/lib/autodeal";
 import { can, controlLinks } from "@/lib/permissions";
 import { API } from "@/lib/api";
 
@@ -36,6 +37,16 @@ export default function ProfilePage() {
           <span aria-hidden className="text-slate-400">›</span>
         </Link>
       ))}
+
+      {autodealUrl(staff) && (
+        <a href={autodealUrl(staff)!} className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">
+          <span>
+            <span className="block font-semibold text-blue-700">Auto Deal</span>
+            <span className="block text-sm text-slate-500">Used-vehicle stock, sales and payments.</span>
+          </span>
+          <span aria-hidden className="text-slate-400">›</span>
+        </a>
+      )}
 
       {staff.role !== "admin" && can(staff, "backup") && (
         <a href={`${API}/api/backup`} className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:bg-slate-50">

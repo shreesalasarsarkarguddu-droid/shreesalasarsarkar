@@ -5,7 +5,7 @@ import { queryClient } from "@/lib/query";
 import type { Access } from "@/lib/permissions";
 
 /** The person signed in (null = not signed in). */
-export type Staff = Access & { id: string; email: string; full_name: string };
+export type Staff = Access & { id: string; email: string; full_name: string; modules?: { autodeal?: boolean } };
 
 type AuthState = {
   staff: Staff | null;

@@ -67,4 +67,17 @@ class AdminController extends Controller
             'Cache-Control' => 'no-store',
         ]);
     }
+
+    /** GET /api/backup/autodeal-files — Auto Deal's vehicle photos and KYC documents, zipped (people with the "backup" power). */
+    public function backupAutodealFiles()
+    {
+        Perm::need('backup');
+        abort_unless(\App\AutoDeal\Support\Module::installed(), 404);
+        set_time_limit(300);
+        $tmp = tempnam(sys_get_temp_dir(), 'adf');
+        \App\Services\Backup::filesZip($tmp);
+
+        return response()->download($tmp, 'autodeal-files-'.now()->format('Y-m-d').'.zip', ['Content-Type' => 'application/zip', 'Cache-Control' => 'no-store'])
+            ->deleteFileAfterSend();
+    }
 }

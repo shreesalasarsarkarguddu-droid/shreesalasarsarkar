@@ -10,7 +10,7 @@ final class Perm
 {
     public const KEYS = [
         'view_accounts', 'collect', 'new_loan', 'seize', 'reports', 'assign', 'backdate', 'approve', 'cash',
-        'fix_entries', 'money', 'activity', 'backup',
+        'fix_entries', 'money', 'activity', 'backup', 'autodeal',
     ];
 
     public static function can(?User $u, string $p): bool

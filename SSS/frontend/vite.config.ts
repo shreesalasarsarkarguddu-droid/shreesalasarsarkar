@@ -55,6 +55,9 @@ export default defineConfig(({ command, mode }) => {
       proxy: {
         "/api": "http://127.0.0.1:8000",
         "/sanctum": "http://127.0.0.1:8000",
+        // Auto Deal screens and their build (Laravel, same login); keeps the host so its links and assets stay on :5173
+        "/autodeal": { target: "http://127.0.0.1:8000", changeOrigin: false },
+        "/storage": "http://127.0.0.1:8000",
       },
     },
     build: {

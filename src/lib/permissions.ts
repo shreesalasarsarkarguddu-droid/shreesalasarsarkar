@@ -16,6 +16,7 @@ export const PERMISSIONS = [
   { key: "money", label: "Late fees & discounts", text: "Add late fees, give discounts, reschedule EMIs, close accounts.", group: "Extra powers" },
   { key: "activity", label: "Activity log", text: "See who did what and when.", group: "Extra powers" },
   { key: "backup", label: "Download backup", text: "Download the backup zip (it has every customer's details).", group: "Extra powers" },
+  { key: "autodeal", label: "Auto Deal", text: "Used-vehicle stock, sales and payments (Auto Deal). Staff never see cost or profit.", group: "Extra powers" },
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number]["key"];

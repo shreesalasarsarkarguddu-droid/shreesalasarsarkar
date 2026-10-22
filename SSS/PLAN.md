@@ -7,6 +7,8 @@ The Next.js site keeps running until this one is complete and the data is moved.
 
 - `backend/`  Laravel 12 (PHP 8.2+). JSON API under `/api`, login with Sanctum (SPA cookie + CSRF).
 - `frontend/` React 19 + TypeScript + Vite + Tailwind 4 + React Router + TanStack Query. Same screens and classes as the Next app.
+- `backend/app/AutoDeal` + `routes/autodeal.php` + `resources/autodeal/` the Auto Deal module (Inertia + React screens under
+  `/autodeal`, tables `ad_*`, own build in `public/autodeal-build`). Switch: AUTODEAL_ENABLED; removal: `php artisan autodeal:remove`.
 - `reference/` the live Supabase schema (`pg-schema.txt`) and every function / view (`pg-functions.sql`): the source of truth when porting logic.
 - `scripts/`  one-off tools (data move from Supabase, checks).
 
@@ -77,3 +79,10 @@ non-API path. Document root = `backend/public`. Cron: `php artisan schedule:run`
   Checks: 43 feature tests (Phase5Test: 6); real FoxPro files imported on the local copy: 2,707 accounts / 25,602 receipts,
   totals matched, preview 0 changed; backup zip downloaded and read back in the browser (preview counts match); the encrypted
   backup opens with `openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000` and the other way round.
+
+- 2026-10-22 Auto Deal (the stand-alone `autodeal/` app) moved in as a module. Its own login, users, backups and install prompt
+  removed: SSS login (admins = owners, staff need the new "autodeal" power; staff may be limited to one yard on its Account
+  page). Tables renamed `ad_*` with user columns as UUIDs to `users`; backup zip, restore points and restore-from-file include
+  them; photos / documents in a separate files zip (Data page + nightly). Menu link in both apps (`/api/me` says if the module is
+  on); Supabase migration 044 lets the Next.js Users page give the power. Checks: 72 feature tests (23 Auto Deal); browser:
+  SSS login -> Auto Deal, intake, sale with part payment, receipt, reports, account, Data page link.
