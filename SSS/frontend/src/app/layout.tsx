@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router";
 import { useAuth } from "@/lib/auth";
-import { BottomNav, TopNav } from "./nav";
+import { BottomNav, MenuButton, TopNav } from "./nav";
 import { InstallBanner } from "./install-banner";
 import Loading from "./loading";
 
@@ -29,6 +29,15 @@ export default function AppLayout() {
               Sign out
             </button>
           </div>
+          <MenuButton
+            access={staff}
+            name={staff.full_name}
+            signOut={
+              <button onClick={() => void signOut()} className="h-11 w-full rounded-lg text-sm font-semibold text-red-700 ring-1 ring-slate-300 hover:bg-red-50">
+                Sign out
+              </button>
+            }
+          />
         </div>
       </header>
       <main className="mx-auto max-w-screen-2xl px-4 pb-28 pt-4 md:pb-16 lg:px-6 print:max-w-none print:p-0">

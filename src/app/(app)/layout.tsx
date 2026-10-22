@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getStaff } from "@/lib/staff";
 import { signOut } from "@/app/login/actions";
-import { BottomNav, TopNav } from "./nav";
+import { BottomNav, MenuButton, TopNav } from "./nav";
 import { InstallBanner } from "./install-banner";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -33,6 +33,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               </button>
             </form>
           </div>
+          {staff && (
+            <MenuButton
+              access={staff}
+              name={staff.full_name}
+              signOut={
+                <form action={signOut}>
+                  <button className="h-11 w-full rounded-lg text-sm font-semibold text-red-700 ring-1 ring-slate-300 hover:bg-red-50">Sign out</button>
+                </form>
+              }
+            />
+          )}
         </div>
       </header>
       <main className="mx-auto max-w-screen-2xl px-4 pb-28 pt-4 md:pb-16 lg:px-6 print:max-w-none print:p-0">
