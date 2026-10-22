@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { autodealUrl } from "@/lib/autodeal";
 import { can, controlLinks, type Access, type Permission } from "@/lib/permissions";
 
@@ -281,8 +282,9 @@ export function MenuButton({ access, name, signOut }: { access: Access; name: st
           <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
         </svg>
       </button>
-      {open && (
-        <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label="Menu">
+      {/* on <body>: the header's backdrop blur would otherwise squeeze the panel into the header */}
+      {open && createPortal(
+        <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
           <button type="button" aria-label="Close menu" onClick={() => setOpen(false)} className="absolute inset-0 bg-slate-900/50" />
           <nav className="absolute inset-y-0 right-0 flex w-[85%] max-w-sm flex-col bg-white shadow-xl">
             <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
@@ -331,7 +333,8 @@ export function MenuButton({ access, name, signOut }: { access: Access; name: st
             </div>
             <div className="border-t border-slate-200 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">{signOut}</div>
           </nav>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
