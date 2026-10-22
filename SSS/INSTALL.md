@@ -127,6 +127,7 @@ After `git pull` on the server:
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force          # creates the ad_* tables (and their rp_ad_* restore copies)
 php artisan storage:link             # once: vehicle photos are served from public/storage
+                                     # Hostinger (exec / symlink switched off): ln -s ../storage/app/public public/storage
 php artisan config:cache && php artisan route:cache && php artisan view:clear
 ```
 
