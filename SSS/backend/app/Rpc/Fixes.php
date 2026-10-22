@@ -4,6 +4,7 @@ namespace App\Rpc;
 
 use App\Models\User;
 use App\Services\AccountMath;
+use App\Services\DataStore;
 use App\Services\LoanRules;
 use App\Services\Notify;
 use App\Services\PaymentError;
@@ -14,6 +15,7 @@ use App\Support\Audit;
 use App\Support\Money;
 use App\Support\Perm;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /** Admin fixes: payments, late fees / discounts / close / reschedule, loans, seize / release. */
@@ -369,6 +371,63 @@ class Fixes
         Notify::text('new_loan', "🗑 Loan deleted\n".($r['subject'] ?? '?')."\nTotal ".Money::inr(Money::paise($l->total_amount))."\nReason: $reason\n".self::by($u), 'loan_deleted');
 
         return ['deleted' => $id];
+    }
+
+    /**
+     * public.admin_purge_loan(p_loan, p_reason, p_folio, p_pin): admin only, a loan with everything on it (payments, waiting
+     * payments, late fees, seize history, remarks, collection lists). A restore point first, a full copy in the activity log.
+     */
+    public function purgeLoan(array $in, User $u): array
+    {
+        if (! $u->isAdmin()) {
+            throw RpcError::notAllowed('only admin');
+        }
+        $reason = PaymentFixes::needReason($in['p_reason'] ?? null);
+        $id = (int) ($in['p_loan'] ?? 0);
+        $l = DB::table('loans')->where('id', $id)->lockForUpdate()->first();
+        if (! $l) {
+            throw RpcError::notFound('loan not found');
+        }
+        if (strtoupper(trim((string) ($in['p_folio'] ?? ''))) !== strtoupper(trim($l->folio_no))) {
+            throw RpcError::bad("type the folio number {$l->folio_no} to confirm");
+        }
+        $hash = DB::table('app_secrets')->where('key', 'delete_pin')->value('value');
+        if (! $hash || ! Hash::check((string) ($in['p_pin'] ?? ''), $hash)) {
+            throw RpcError::bad('wrong PIN');
+        }
+
+        $b = DB::table('borrowers')->where('id', $l->borrower_id)->first();
+        $r = Audit::acctRef(null, $id);
+        $rows = fn ($q) => $q->get()->map(fn ($x) => (array) $x)->all();
+        $copy = [
+            'payments' => $rows(DB::table('payments')->where('loan_id', $id)->orderBy('installment_no')),
+            'waiting' => $rows(DB::table('pending_payments')->where('source', 'new')->where('ref_id', $id)),
+            'adjustments' => $rows(DB::table('adjustments')->where('loan_id', $id)),
+            'seizures' => $rows(DB::table('seizures')->where('loan_id', $id)),
+            'remarks' => $rows(DB::table('visit_remarks')->where('source', 'new')->where('ref_id', $id)),
+            'assignments' => $rows(DB::table('collection_assignments')->where('source', 'new')->where('ref_id', $id)),
+        ];
+        $paid = array_sum(array_map(fn ($p) => Money::paise($p['paid_amount']), $copy['payments']));
+        $rp = DataStore::makePoint("Before deleting loan folio {$l->folio_no}");
+
+        DB::table('payments')->where('loan_id', $id)->delete();
+        DB::table('pending_payments')->where('source', 'new')->where('ref_id', $id)->delete();
+        DB::table('adjustments')->where('loan_id', $id)->delete();
+        DB::table('seizures')->where('loan_id', $id)->delete();
+        DB::table('visit_remarks')->where('source', 'new')->where('ref_id', $id)->delete();
+        DB::table('collection_assignments')->where('source', 'new')->where('ref_id', $id)->delete();
+        DB::table('loans')->where('id', $id)->delete();
+        if (! DB::table('loans')->where('borrower_id', $b->id)->exists()) {
+            DB::table('borrowers')->where('id', $b->id)->delete();
+        }
+        DataStore::changed();
+
+        Audit::log('loan_purged', $r['subject'], null, ['reason' => $reason, 'restore_point' => $rp, 'paid' => $paid / 100,
+            'counts' => array_map('count', $copy), 'loan' => (array) $l, 'borrower' => (array) $b] + $copy);
+        Notify::text('new_loan', "🗑 Loan deleted completely\n".($r['subject'] ?? '?')."\nTotal ".Money::inr(Money::paise($l->total_amount))
+            .' · '.count($copy['payments']).' payment(s) '.Money::inr($paid)."\nReason: $reason\n".self::by($u), 'loan_purged');
+
+        return ['deleted' => $id, 'payments' => count($copy['payments']), 'paid' => $paid / 100, 'restore_point' => $rp];
     }
 
     // ---------------------------------------------------------------- seize / release

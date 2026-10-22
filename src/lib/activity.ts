@@ -19,6 +19,7 @@ export const ACTIONS: { key: string; label: string; group: string }[] = [
   { key: "new_loan", label: "New loan", group: "Loans" },
   { key: "loan_edited", label: "Loan edited", group: "Fixes" },
   { key: "loan_deleted", label: "Loan deleted", group: "Fixes" },
+  { key: "loan_purged", label: "Loan deleted completely", group: "Fixes" },
   { key: "old_account_edited", label: "Old account edited", group: "Fixes" },
   { key: "old_receipt_edited", label: "Old receipt edited", group: "Fixes" },
   { key: "old_receipt_cancelled", label: "Old receipt cancelled", group: "Fixes" },
@@ -153,6 +154,10 @@ export function describe(a: AuditRow): string {
       return `${changesText(d.changes)} · Reason: ${val(d.reason)}`;
     case "loan_deleted":
       return `Reason: ${val(d.reason)}`;
+    case "loan_purged": {
+      const n = (d.counts ?? {}) as Record<string, number>;
+      return `${n.payments ?? 0} payment(s) ${rs(d.paid)} removed with it · undo: restore point #${val(d.restore_point)} · Reason: ${val(d.reason)}`;
+    }
     case "old_account_edited":
       return `${changesText(d.changes)} · Reason: ${val(d.reason)}`;
     case "old_receipt_edited":

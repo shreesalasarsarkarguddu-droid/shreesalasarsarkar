@@ -40,6 +40,7 @@ class RpcController extends Controller
         'admin_cancel_adjustment' => [\App\Rpc\Fixes::class, 'cancelAdjustment'],
         'admin_edit_loan' => [\App\Rpc\Fixes::class, 'editLoan'],
         'admin_delete_loan' => [\App\Rpc\Fixes::class, 'deleteLoan'],
+        'admin_purge_loan' => [\App\Rpc\Fixes::class, 'purgeLoan'],
         'set_seized' => [\App\Rpc\Fixes::class, 'seize'],
         'admin_edit_legacy_account' => [\App\Rpc\OldData::class, 'editAccount'],
         'admin_edit_legacy_payment' => [\App\Rpc\OldData::class, 'editReceipt'],

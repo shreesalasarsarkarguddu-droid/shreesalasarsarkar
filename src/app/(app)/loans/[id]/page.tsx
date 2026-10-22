@@ -15,6 +15,7 @@ import { PaymentFixes } from "../../payment-fixes";
 import { RemarkHistory, RemarkPanel } from "../../remark-panel";
 import { ZonePicker } from "../../zone-picker";
 import { DeleteLoan } from "./delete-loan";
+import { PurgeLoan } from "./purge-loan";
 import { MoneyActions } from "../../money-actions";
 import { ADJ_COLUMNS, adjText, suggestLateFee, summarizeAdjustments, type Adjustment } from "@/lib/adjustments";
 import { todayIST } from "@/lib/schedule";
@@ -259,7 +260,17 @@ export default async function LoanPage({ params, searchParams }: PageProps<"/loa
       />
 
       {can(staff, "fix_entries") && <PaymentFixes payments={l.payments} path={`/loans/${l.id}`} />}
-      {can(staff, "fix_entries") && l.payments.length === 0 && <DeleteLoan id={l.id} folio={l.folio_no} />}
+      {staff.role === "admin" ? (
+        <PurgeLoan
+          id={l.id}
+          folio={l.folio_no}
+          name={b.full_name}
+          payments={l.payments.length}
+          paid={fromPaise(l.payments.reduce((t, p) => t + toPaise(p.paid_amount), 0n))}
+        />
+      ) : (
+        can(staff, "fix_entries") && l.payments.length === 0 && <DeleteLoan id={l.id} folio={l.folio_no} />
+      )}
     </div>
   );
 }

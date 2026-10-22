@@ -181,6 +181,24 @@ export async function editLoan(id: number, values: Record<string, string>, why: 
   return { ok: true, id };
 }
 
+/** Admin only: delete a loan with everything on it (payments too), after the reason, the folio no. and the delete PIN. */
+export async function purgeLoan(id: number, why: string, folio: string, pin: string): Promise<FixResult> {
+  const staff = await getStaff();
+  if (staff?.role !== "admin") return { ok: false, error: "Only an admin can delete a loan completely." };
+  const r = reason.safeParse(why);
+  if (!r.success) return { ok: false, error: r.error.issues[0].message, fieldErrors: { reason: r.error.issues[0].message } };
+  if (!/^\d{4,8}$/.test(pin.trim())) return { ok: false, error: "Enter the PIN.", fieldErrors: { pin: "Enter the PIN" } };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_purge_loan", { p_loan: id, p_reason: r.data, p_folio: folio, p_pin: pin.trim() });
+  if (error) {
+    if (error.message === "wrong PIN") return { ok: false, error: "Wrong PIN. Nothing was deleted.", fieldErrors: { pin: "Wrong PIN" } };
+    return dbError(error, "Could not delete the loan.");
+  }
+  refresh("/accounts");
+  const d = data as { payments: number; restore_point: number };
+  return { ok: true, message: `Loan deleted with its ${d.payments} payment(s). To undo, restore #${d.restore_point} in Settings → Data.` };
+}
+
 export async function deleteLoan(id: number, why: string, confirm: string): Promise<FixResult> {
   const denied = await allowed("fix_entries");
   if (denied) return denied;
