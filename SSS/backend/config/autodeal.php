@@ -15,10 +15,20 @@ return [
     'business_phone' => env('DEALER_PHONE', ''),
     'business_gstin' => env('DEALER_GSTIN', ''),
 
-    // Upload limits (KB). The phone compresses photos to ~300 KB, so these are safety nets.
-    'max_photo_kb' => (int) env('MAX_PHOTO_KB', 4096),
+    // Every stored image (vehicle photos, ID proofs, sale papers) is at most this size: the phone shrinks it first and
+    // the server shrinks it again (GD) if a bigger one arrives. PDFs are kept as they are.
+    'image_kb' => (int) env('AUTODEAL_IMAGE_KB', 200),
+
+    // Largest file accepted before shrinking (KB).
+    'max_photo_kb' => (int) env('MAX_PHOTO_KB', 8192),
     'max_document_kb' => (int) env('MAX_DOCUMENT_KB', 5120),
     'max_photos' => 12,
+
+    // Vehicle photos on Cloudinary when set: CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
+    // (Cloudinary dashboard -> API Keys). Not set: photos stay on this server (storage/app/public/autodeal).
+    // ID proofs and sale papers always stay on this server (private).
+    'cloudinary_url' => env('CLOUDINARY_URL', ''),
+    'cloudinary_folder' => env('CLOUDINARY_FOLDER', 'autodeal'),
 
     // Public catalogue at /autodeal/catalogue (only vehicles the owner marks as listed).
     'catalogue_enabled' => (bool) env('CATALOGUE_ENABLED', true),

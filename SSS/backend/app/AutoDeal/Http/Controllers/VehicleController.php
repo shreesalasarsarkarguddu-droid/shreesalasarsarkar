@@ -234,8 +234,8 @@ class VehicleController extends Controller
     public function destroyPhoto(Vehicle $vehicle, VehiclePhoto $photo): RedirectResponse
     {
         abort_unless($photo->vehicle_id === $vehicle->id, 404);
-        Storage::disk('public')->delete($photo->file_path);
         $photo->delete();
+        Uploads::deletePhoto($photo->file_path);
         ActivityLog::record('vehicle.photos', $vehicle, "Removed a {$photo->photo_type} photo");
 
         return back()->with('success', 'Photo removed.');
@@ -289,7 +289,7 @@ class VehicleController extends Controller
             });
         } catch (\Throwable $e) {
             foreach ($stored as [$disk, $path]) {
-                Storage::disk($disk)->delete($path);
+                $disk === 'photo' ? Uploads::deletePhoto($path) : Storage::disk($disk)->delete($path);
             }
             throw $e;
         }
@@ -345,13 +345,13 @@ class VehicleController extends Controller
             if (! $file) {
                 continue;
             }
-            $path = Uploads::vehiclePhoto($file, $vehicle->id);
-            $stored[] = ['public', $path];
+            [$path, $kb] = Uploads::vehiclePhoto($file, $vehicle->id);
+            $stored[] = ['photo', $path];
 
             $vehicle->photos()->create([
                 'file_path' => $path,
                 'photo_type' => $photo['type'] ?? 'other',
-                'size_kb' => (int) ceil($file->getSize() / 1024),
+                'size_kb' => $kb,
             ]);
         }
     }

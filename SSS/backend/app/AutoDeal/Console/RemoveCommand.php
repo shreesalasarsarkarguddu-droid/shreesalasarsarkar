@@ -52,6 +52,7 @@ class RemoveCommand extends Command
             Storage::disk($disk)->deleteDirectory($folder);
         }
         $this->info('Auto Deal tables and files removed. SSS data is unchanged.');
+        $this->line('Photos on Cloudinary are in the backup above; delete the "'.config('autodeal.cloudinary_folder').'" folder in the Cloudinary Media Library yourself.');
         $this->line('To take the code out too, delete: app/AutoDeal, routes/autodeal.php, config/autodeal.php, resources/autodeal,');
         $this->line('database/migrations/autodeal, public/autodeal-build, tests/Feature/AutoDeal; then remove AutoDealServiceProvider from');
         $this->line('bootstrap/providers.php, "DealerUser" from app/Models/User.php, "autodeal" from App\\Support\\Perm::KEYS and the menu link.');

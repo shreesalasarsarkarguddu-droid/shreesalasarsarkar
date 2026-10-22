@@ -2,9 +2,9 @@
 
 namespace App\AutoDeal\Models;
 
+use App\AutoDeal\Support\Uploads;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
 
 class VehiclePhoto extends Model
 {
@@ -23,6 +23,6 @@ class VehiclePhoto extends Model
 
     public function getUrlAttribute(): string
     {
-        return Storage::disk('public')->url($this->file_path);
+        return Uploads::photoUrl($this->file_path);
     }
 }

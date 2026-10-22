@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\AutoDeal\Support\Cloudinary;
 use App\AutoDeal\Support\Module;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -74,7 +75,8 @@ final class Backup
 
     /**
      * Auto Deal's uploaded files (vehicle photos, KYC documents) as a zip at $path: public/autodeal/... and
-     * private/autodeal/..., the same folders under storage/app. Returns how many files.
+     * private/autodeal/..., the same folders under storage/app, and cloudinary/<public id> for photos kept on
+     * Cloudinary (downloaded back; one that cannot be fetched is listed in cloudinary-missing.txt). Returns how many files.
      */
     public static function filesZip(string $path): int
     {
@@ -87,6 +89,18 @@ final class Backup
                 $rel = str_replace(DIRECTORY_SEPARATOR, '/', substr($f->getPathname(), strlen($dir) + 1));
                 $z->addFile("$label/autodeal/$rel", $f->getPathname());
             }
+        }
+        $missing = [];
+        $cloud = Module::installed() ? DB::table('ad_vehicle_photos')->where('file_path', 'like', Cloudinary::PREFIX.'%')->orderBy('id')->pluck('file_path') : [];
+        foreach ($cloud as $p) {
+            try {
+                $z->addBytes('cloudinary/'.substr($p, strlen(Cloudinary::PREFIX)), Http::timeout(30)->get(Cloudinary::url($p))->throw()->body());
+            } catch (\Throwable) {
+                $missing[] = $p;
+            }
+        }
+        if ($missing) {
+            $z->addBytes('cloudinary-missing.txt', implode("\r\n", $missing)."\r\n");
         }
 
         return $z->close();

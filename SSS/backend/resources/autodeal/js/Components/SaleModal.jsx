@@ -66,7 +66,7 @@ export default function SaleModal({ vehicle, onClose }) {
     async function addDocs(e) {
         const picked = Array.from(e.target.files || []);
         e.target.value = ''; // allow re-picking the same file
-        const files = await Promise.all(picked.map((f) => compressImage(f, { maxSize: 2000, quality: 0.8 })));
+        const files = await Promise.all(picked.map((f) => compressImage(f)));
         setData('documents', [...data.documents, ...files].slice(0, 4));
     }
 

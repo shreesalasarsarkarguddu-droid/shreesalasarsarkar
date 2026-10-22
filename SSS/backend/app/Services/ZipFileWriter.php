@@ -30,9 +30,13 @@ final class ZipFileWriter
 
     public function addFile(string $name, string $file): void
     {
-        $content = (string) file_get_contents($file);
+        $this->addBytes($name, (string) file_get_contents($file), (int) filemtime($file));
+    }
+
+    public function addBytes(string $name, string $content, ?int $mtime = null): void
+    {
         $len = strlen($content);
-        $d = getdate((int) filemtime($file));
+        $d = getdate($mtime ?? time());
         $time = ($d['hours'] << 11) | ($d['minutes'] << 5) | intdiv($d['seconds'], 2);
         $date = (($d['year'] - 1980) << 9) | ($d['mon'] << 5) | $d['mday'];
         $common = pack('vvvvvVVVv', 20, 0x0800, 0, $time, $date, crc32($content), $len, $len, strlen($name));

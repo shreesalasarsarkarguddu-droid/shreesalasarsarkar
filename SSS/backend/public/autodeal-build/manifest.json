@@ -1,26 +1,26 @@
 {
-  "_ChangeList-B1Ou1S0G.js": {
-    "file": "assets/ChangeList-B1Ou1S0G.js",
+  "_ChangeList-BNtDMYQb.js": {
+    "file": "assets/ChangeList-BNtDMYQb.js",
     "name": "ChangeList",
     "imports": [
       "resources/autodeal/js/app.jsx"
     ]
   },
-  "_PriceHint-C6-Ur0d5.js": {
-    "file": "assets/PriceHint-C6-Ur0d5.js",
+  "_PriceHint-B87lGAhc.js": {
+    "file": "assets/PriceHint-B87lGAhc.js",
     "name": "PriceHint",
     "imports": [
       "resources/autodeal/js/app.jsx",
       "_vendor-fAzMWPcM.js"
     ]
   },
-  "_SaleModal-D1EdusFw.js": {
-    "file": "assets/SaleModal-D1EdusFw.js",
+  "_SaleModal-DS_9Yy_q.js": {
+    "file": "assets/SaleModal-DS_9Yy_q.js",
     "name": "SaleModal",
     "imports": [
       "resources/autodeal/js/app.jsx",
       "_vendor-fAzMWPcM.js",
-      "_PriceHint-C6-Ur0d5.js"
+      "_PriceHint-B87lGAhc.js"
     ]
   },
   "_vendor-fAzMWPcM.js": {
@@ -28,7 +28,7 @@
     "name": "vendor"
   },
   "resources/autodeal/js/Pages/Account/Index.jsx": {
-    "file": "assets/Index-DmHzgEgA.js",
+    "file": "assets/Index-BuDgVwTC.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Account/Index.jsx",
     "isDynamicEntry": true,
@@ -38,18 +38,18 @@
     ]
   },
   "resources/autodeal/js/Pages/Activity/Index.jsx": {
-    "file": "assets/Index-D7pYU-Uw.js",
+    "file": "assets/Index-DaQJzxue.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Activity/Index.jsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/autodeal/js/app.jsx",
       "_vendor-fAzMWPcM.js",
-      "_ChangeList-B1Ou1S0G.js"
+      "_ChangeList-BNtDMYQb.js"
     ]
   },
   "resources/autodeal/js/Pages/Branches/Index.jsx": {
-    "file": "assets/Index-CsHRkSvB.js",
+    "file": "assets/Index-D5WNJmS6.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Branches/Index.jsx",
     "isDynamicEntry": true,
@@ -59,7 +59,7 @@
     ]
   },
   "resources/autodeal/js/Pages/Catalogue/Index.jsx": {
-    "file": "assets/Index-BmQYJg2o.js",
+    "file": "assets/Index-DrkbA1jP.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Catalogue/Index.jsx",
     "isDynamicEntry": true,
@@ -69,7 +69,7 @@
     ]
   },
   "resources/autodeal/js/Pages/Catalogue/Show.jsx": {
-    "file": "assets/Show-rYY-4QVk.js",
+    "file": "assets/Show-CtKXH5pU.js",
     "name": "Show",
     "src": "resources/autodeal/js/Pages/Catalogue/Show.jsx",
     "isDynamicEntry": true,
@@ -79,7 +79,7 @@
     ]
   },
   "resources/autodeal/js/Pages/Error.jsx": {
-    "file": "assets/Error-DtaVwfCM.js",
+    "file": "assets/Error-Pnnkt9Bj.js",
     "name": "Error",
     "src": "resources/autodeal/js/Pages/Error.jsx",
     "isDynamicEntry": true,
@@ -89,7 +89,7 @@
     ]
   },
   "resources/autodeal/js/Pages/Reports/Index.jsx": {
-    "file": "assets/Index-CMuYYBD3.js",
+    "file": "assets/Index-DayXxhOg.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Reports/Index.jsx",
     "isDynamicEntry": true,
@@ -99,7 +99,7 @@
     ]
   },
   "resources/autodeal/js/Pages/Sales/Index.jsx": {
-    "file": "assets/Index-DsUp3Z7z.js",
+    "file": "assets/Index-CChn0TMk.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Sales/Index.jsx",
     "isDynamicEntry": true,
@@ -109,43 +109,43 @@
     ]
   },
   "resources/autodeal/js/Pages/Vehicles/Form.jsx": {
-    "file": "assets/Form-sHIORPWn.js",
+    "file": "assets/Form-DSHZJqJB.js",
     "name": "Form",
     "src": "resources/autodeal/js/Pages/Vehicles/Form.jsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/autodeal/js/app.jsx",
       "_vendor-fAzMWPcM.js",
-      "_PriceHint-C6-Ur0d5.js"
+      "_PriceHint-B87lGAhc.js"
     ]
   },
   "resources/autodeal/js/Pages/Vehicles/Index.jsx": {
-    "file": "assets/Index-K3R1TVSc.js",
+    "file": "assets/Index-z1Sz-lOv.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Vehicles/Index.jsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/autodeal/js/app.jsx",
       "_vendor-fAzMWPcM.js",
-      "_SaleModal-D1EdusFw.js",
-      "_PriceHint-C6-Ur0d5.js"
+      "_SaleModal-DS_9Yy_q.js",
+      "_PriceHint-B87lGAhc.js"
     ]
   },
   "resources/autodeal/js/Pages/Vehicles/Show.jsx": {
-    "file": "assets/Show-DeKvz-GF.js",
+    "file": "assets/Show-BJUa0LPb.js",
     "name": "Show",
     "src": "resources/autodeal/js/Pages/Vehicles/Show.jsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/autodeal/js/app.jsx",
       "_vendor-fAzMWPcM.js",
-      "_ChangeList-B1Ou1S0G.js",
-      "_PriceHint-C6-Ur0d5.js",
-      "_SaleModal-D1EdusFw.js"
+      "_ChangeList-BNtDMYQb.js",
+      "_PriceHint-B87lGAhc.js",
+      "_SaleModal-DS_9Yy_q.js"
     ]
   },
   "resources/autodeal/js/app.jsx": {
-    "file": "assets/app-qrJiQ7-P.js",
+    "file": "assets/app-CwhsWJhO.js",
     "name": "app",
     "src": "resources/autodeal/js/app.jsx",
     "isEntry": true,
@@ -166,7 +166,7 @@
       "resources/autodeal/js/Pages/Vehicles/Show.jsx"
     ],
     "css": [
-      "assets/app-CWh5WzU5.css"
+      "assets/app-DtnEREKb.css"
     ]
   }
 }

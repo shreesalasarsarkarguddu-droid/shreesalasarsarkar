@@ -96,7 +96,7 @@ export function DocumentCapture({ value, onChange, label = 'Upload ID proof', ex
         e.target.value = '';
         if (!f) return;
         setBusy(true);
-        onChange(await compressImage(f, { maxSize: 2000, quality: 0.8 }));
+        onChange(await compressImage(f));
         setBusy(false);
     }
 

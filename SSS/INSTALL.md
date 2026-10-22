@@ -139,13 +139,20 @@ DEALER_NAME="Shree Salasar Sarkar · Auto Deal"
 DEALER_ADDRESS=...
 DEALER_PHONE=...
 DEALER_GSTIN=...
+CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>   # vehicle photos on Cloudinary (Dashboard -> API Keys)
+AUTODEAL_IMAGE_KB=200                # largest stored image
 ```
+
+Photos: every image (vehicle photos, ID proofs, sale papers) is shrunk to 200 KB or less, on the phone first and again on
+the server (PHP GD) if a bigger one arrives. With `CLOUDINARY_URL` set, new vehicle photos go to Cloudinary (folder
+`autodeal/vehicles/<id>`) and are deleted there when removed; without it they stay in `storage/app/public/autodeal`.
+Photos added earlier stay where they are. ID proofs and sale papers always stay on this server (private).
 
 Links: split hosting → `https://api.businesstradecore.in/autodeal/vehicles` (the menu link in both apps goes there; the
 Next.js site can change it with `NEXT_PUBLIC_AUTODEAL_URL`, empty hides it). Public catalogue: `/autodeal/catalogue`.
 
 Backups: the backup zip and restore points include the `ad_*` tables. Photos and ID proofs are files, not rows: Settings →
-Data → "Download Auto Deal photos & documents", and the nightly job keeps the last 3 `autodeal-files-DATE.zip` in
+Data → "Download Auto Deal photos & documents" (Cloudinary photos are downloaded into it too), and the nightly job keeps the last 3 `autodeal-files-DATE.zip` in
 `storage/app/backups`.
 
 Removing it for good: `php artisan autodeal:remove` saves a backup zip and the files zip in `storage/app/backups`, drops the

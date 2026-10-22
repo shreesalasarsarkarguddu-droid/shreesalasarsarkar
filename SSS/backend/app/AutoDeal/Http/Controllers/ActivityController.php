@@ -3,8 +3,8 @@
 namespace App\AutoDeal\Http\Controllers;
 
 use App\AutoDeal\Models\ActivityLog;
-use App\Models\User;
 use App\AutoDeal\Models\Vehicle;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
