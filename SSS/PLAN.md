@@ -86,3 +86,10 @@ non-API path. Document root = `backend/public`. Cron: `php artisan schedule:run`
   them; photos / documents in a separate files zip (Data page + nightly). Menu link in both apps (`/api/me` says if the module is
   on); Supabase migration 044 lets the Next.js Users page give the power. Checks: 72 feature tests (23 Auto Deal); browser:
   SSS login -> Auto Deal, intake, sale with part payment, receipt, reports, account, Data page link.
+
+- 2026-10-22 Charges on a payment (both apps; Supabase migration 045): OD = days since the oldest unpaid EMI's due date x
+  app_settings.od_per_day (Rs 10, Settings -> Staff controls; only the admin may change it on a payment; only when the screen
+  sends od_amount), seize charge, other + note. paid_amount stays the EMI part (balance); money received = paid_amount + charges
+  in the Day Book (EMI / OD / Seize / Other lines), cash count, approvals, daily summary, staff report, Telegram. A seized
+  vehicle offers "Release now?" to the admin after the payment. Checks: 78 feature tests (ChargesTest: 3); live Supabase in a
+  rolled-back transaction; browser on the local copy (OD Rs 200 for 20 days, Rs 750 receipt, Day Book lines).

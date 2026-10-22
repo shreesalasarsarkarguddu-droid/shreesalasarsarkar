@@ -10,7 +10,8 @@ use Illuminate\Support\Facades\DB;
 final class AccountData
 {
     public const NEW_PAYMENT_COLUMNS = ['id', 'installment_no', 'due_date', 'paid_date', 'delay_days', 'payment_mode', 'reference_no', 'bank_name',
-        'receipt_no', 'installments_covered', 'due_amount', 'paid_amount', 'balance_after', 'created_at', 'parts', 'receipt_book'];
+        'receipt_no', 'installments_covered', 'due_amount', 'paid_amount', 'balance_after', 'created_at', 'parts', 'receipt_book',
+        'od_amount', 'od_days', 'seize_amount', 'other_amount', 'other_note', 'charges'];
 
     public const LEGACY_PAYMENT_COLUMNS = ['id', 'ledger', 'installment_no', 'due_date', 'paid_date', 'delay_days', 'payment_mode', 'cheque_no',
         'receipt_no', 'data_flags', 'due_amount', 'paid_amount', 'balance_after', 'receipt_book'];
@@ -102,8 +103,30 @@ final class AccountData
     public static function waiting(string $source, int $ref): array
     {
         return DB::table('pending_payments')->where('source', $source)->where('ref_id', $ref)->orderBy('created_at')
-            ->get(['receipt_no', 'receipt_book', 'paid_amount', 'paid_date', 'payment_mode', 'bank_name', 'parts', 'created_at'])
+            ->get(['receipt_no', 'receipt_book', 'paid_amount', 'paid_date', 'payment_mode', 'bank_name', 'parts', 'created_at', 'charges'])
             ->map(fn ($r) => self::clean($r, ['parts']))->all();
+    }
+
+    /** For the charges in the payment window: OD rate and its start, seizure, admin or not (public.charge_info). */
+    public static function chargeInfo(string $source, int $ref, User $u): array
+    {
+        if ($source === 'old') {
+            $a = DB::table('legacy_accounts')->where('sno', $ref)->first(['id', 'seized']);
+            $e = $a ? DB::table('seizures')->where('legacy_account_id', $a->id)->orderByDesc('created_at')->orderByDesc('id')->first(['action', 'action_date']) : null;
+            $seized = $a !== null && ($e !== null ? $e->action === 'seize' : (bool) $a->seized); // the latest seize / release wins
+            $last = $e?->action_date;
+        } else {
+            $seized = DB::table('loans')->where('id', $ref)->value('status') === 'seized';
+            $last = DB::table('seizures')->where('loan_id', $ref)->orderByDesc('created_at')->orderByDesc('id')->value('action_date');
+        }
+
+        return [
+            'od_rate' => (float) DB::table('app_settings')->where('id', 1)->value('od_per_day'),
+            'od_from' => AccountMath::odFrom($source, $ref),
+            'seized' => $seized,
+            'seized_on' => $seized ? $last : null,
+            'admin' => $u->isAdmin(),
+        ];
     }
 
     /** Any payment (counted or waiting) entered after this moment (app_private.paid_after). */

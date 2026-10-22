@@ -10,7 +10,6 @@ use App\Services\Payments;
 use App\Services\Receipts;
 use App\Support\Perm;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 /** The Collect screens: accounts that can pay, one account's ledger data, and saving a payment. */
@@ -61,6 +60,7 @@ class PaymentsController extends Controller
             'receiptHint' => Receipts::hint($source, $ref, $u->id),
             'remarks' => AccountData::remarks($source, $ref, $u),
             'zoneInfo' => AccountData::zoneInfo($source, $ref, $u),
+            'charges' => AccountData::chargeInfo($source, $ref, $u),
             'canFix' => $u->isAdmin(),
         ]);
     }
@@ -90,7 +90,15 @@ class PaymentsController extends Controller
             'bank_name' => ['nullable', 'string', 'max:60'],
             'installments_covered' => ['required', 'integer', 'min:1', 'max:360'],
             'parts' => ['nullable', 'array', 'max:4'],
+            'od_amount' => ['nullable', 'regex:/^\d{1,9}(\.\d{1,2})?$/'],
+            'seize_amount' => ['nullable', 'regex:/^\d{1,9}(\.\d{1,2})?$/'],
+            'other_amount' => ['nullable', 'regex:/^\d{1,9}(\.\d{1,2})?$/'],
+            'other_note' => ['nullable', 'string', 'max:100'],
         ], [
+            'od_amount.*' => 'Enter the amount (numbers only)',
+            'seize_amount.*' => 'Enter the amount (numbers only)',
+            'other_amount.*' => 'Enter the amount (numbers only)',
+            'other_note.*' => 'Too long',
             'paid_amount.*' => 'Enter the amount (numbers only, up to 2 decimals)',
             'paid_date.*' => 'Enter the paid date',
             'payment_mode.*' => 'Choose payment mode',
@@ -115,6 +123,8 @@ class PaymentsController extends Controller
                 'receipt_no' => $in['receipt_no'], 'reference_no' => $in['reference_no'] ?? null,
                 'bank_name' => $mode === 'BANK' ? ($in['bank_name'] ?? null) : null,
                 'installments_covered' => (int) $in['installments_covered'],
+                'od_amount' => $in['od_amount'] ?? null, 'seize_amount' => $in['seize_amount'] ?? null,
+                'other_amount' => $in['other_amount'] ?? null, 'other_note' => $in['other_note'] ?? null,
                 'parts' => $mode === 'SPLIT' ? array_map(fn ($x) => [
                     'mode' => $x['mode'] ?? null, 'amount' => $x['amount'] ?? null,
                     'bank_name' => ($x['mode'] ?? '') === 'BANK' ? ($x['bank_name'] ?? '') : '',

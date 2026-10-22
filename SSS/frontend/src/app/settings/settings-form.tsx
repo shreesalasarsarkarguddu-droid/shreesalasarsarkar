@@ -25,6 +25,8 @@ export type Settings = {
   wa_reminder_template: string;
   review_backdate_days: number;
   review_above: number | string;
+  /** OD (delay charge) per day late, from the oldest unpaid EMI's due date */
+  od_per_day: number | string;
   require_receipt_books: boolean;
   restrict_to_assigned: boolean;
   updated_at: string | null;
@@ -227,6 +229,14 @@ export function SettingsForm({ initial }: { initial: Settings }) {
               inputMode="decimal"
               value={String(s.review_above)}
               onChange={(e) => set("review_above", e.target.value.replace(/[^\d.]/g, "").replace(/^0+(?=\d)/, "") || "0")}
+            />
+          </Field>
+          <Field label="OD (delay charge) per day late (₹)" hint="Counted from the oldest unpaid EMI's due date to the paid date. Only the admin can change it on a payment. 0 = no OD.">
+            <input
+              className={input + " num"}
+              inputMode="decimal"
+              value={String(s.od_per_day ?? 10)}
+              onChange={(e) => set("od_per_day", e.target.value.replace(/[^\d.]/g, "").replace(/^0+(?=\d)/, "") || "0")}
             />
           </Field>
         </div>

@@ -140,14 +140,23 @@ final class Notify
                 [$name, $folio, $mobile] = [$l->full_name, $l->folio_no, $l->mobile];
             }
             $rcpt = ($p->receipt_book ? "{$p->receipt_book}/" : '').$p->receipt_no;
+            $got = Money::paise($p->paid_amount) + Money::paise($p->charges);
+            // the charges on the same receipt, after the EMI part
+            $charges = Money::paise($p->charges) > 0
+                ? 'EMI '.Money::inr(Money::paise($p->paid_amount))
+                    .(Money::paise($p->od_amount) > 0 ? ' + OD '.Money::inr(Money::paise($p->od_amount))." ({$p->od_days} days)" : '')
+                    .(Money::paise($p->seize_amount) > 0 ? ' + Seize '.Money::inr(Money::paise($p->seize_amount)) : '')
+                    .(Money::paise($p->other_amount) > 0 ? ' + '.($p->other_note ?? 'Other').' '.Money::inr(Money::paise($p->other_amount)) : '')."\n"
+                : '';
             if ($s->tg_on_payment) {
                 self::telegram("💰 Payment received\n".($name ?? '?').' · Folio '.($folio ?? '?')."\n"
-                    .Money::inr(Money::paise($p->paid_amount)).' · '.Approvals::modeText($p->payment_mode, $p->bank_name, $p->parts)." · Rcpt $rcpt"
+                    .Money::inr($got).' · '.Approvals::modeText($p->payment_mode, $p->bank_name, $p->parts)." · Rcpt $rcpt"
                     .($p->installments_covered > 1 ? " · {$p->installments_covered} EMIs" : '')."\n"
+                    .$charges
                     .'Balance '.Money::inr(Money::paise($p->balance_after))."\nBy ".(Audit::staffName($p->created_by) ?? '—'), 'payment', "tg-pay-$id");
             }
             if ($s->wa_receipt) {
-                self::whatsapp($mobile, self::fill($s->wa_receipt_template, ['name' => $name, 'folio' => $folio, 'amount' => Money::inr(Money::paise($p->paid_amount)),
+                self::whatsapp($mobile, self::fill($s->wa_receipt_template, ['name' => $name, 'folio' => $folio, 'amount' => Money::inr($got),
                     'date' => date('d/m/Y', strtotime($p->paid_date)), 'receipt' => $rcpt, 'balance' => Money::inr(Money::paise($p->balance_after)),
                     'business' => $s->business_name]), 'receipt', "wa-pay-$id");
             }
@@ -199,15 +208,16 @@ final class Notify
     /** The evening summary to the staff group (app_private.daily_summary). */
     public static function dailySummary(string $day, ?string $dedupe, bool $force = false): ?int
     {
-        $pays = DB::table('payments')->where('paid_date', $day)->get(['paid_amount', 'payment_mode', 'parts']);
+        $pays = DB::table('payments')->where('paid_date', $day)->get(['paid_amount', 'charges', 'payment_mode', 'parts']);
         $sum = 0;
         $modes = [];
         foreach ($pays as $p) {
-            $sum += Money::paise($p->paid_amount);
+            $got = Money::paise($p->paid_amount) + Money::paise($p->charges); // EMI part + charges
+            $sum += $got;
             foreach (['CASH', 'CHEQUE', 'SBI', 'BANK'] as $m) {
                 $part = $p->payment_mode === 'SPLIT'
                     ? array_sum(array_map(fn ($x) => ($x['mode'] ?? '') === $m ? Money::paise((string) $x['amount']) : 0, json_decode((string) $p->parts, true) ?? []))
-                    : ($p->payment_mode === $m ? Money::paise($p->paid_amount) : 0);
+                    : ($p->payment_mode === $m ? $got : 0);
                 $modes[$m] = ($modes[$m] ?? 0) + $part;
             }
         }

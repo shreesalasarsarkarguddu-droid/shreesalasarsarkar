@@ -46,7 +46,7 @@ class Phase4Test extends TestCase
         $this->assertSame('SPLIT', DB::table('payments')->where('id', $pid)->value('payment_mode'));
         $split['parts'][1]['amount'] = '1000';
         $this->rpc('admin_edit_payment', ['p_id' => $pid, 'p' => $split, 'p_reason' => 'x x x'])->assertStatus(422)
-            ->assertJsonPath('error.message', 'the parts must add up to the amount');
+            ->assertJsonPath('error.message', 'the parts must add up to the EMI amount and the charges');
         $this->rpc('admin_edit_payment', ['p_id' => $pid, 'p' => $base, 'p_reason' => 'back to cash'])->assertOk();
         $this->rpc('admin_edit_payment', ['p_id' => $pid, 'p' => $base, 'p_reason' => 'again'])->assertStatus(422)->assertJsonPath('error.message', 'nothing was changed');
         $this->rpc('admin_edit_payment', ['p_id' => $pid, 'p' => ['receipt_no' => '188'] + $base, 'p_reason' => 'number'])->assertStatus(422); // used in the old software

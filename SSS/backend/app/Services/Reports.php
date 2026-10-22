@@ -62,9 +62,10 @@ final class Reports
             ->selectRaw($cashSql('lp.paid_amount', 'lp.payment_mode'))->first();
         $dr = Money::paise((string) $old->total);
         $cashDr = Money::paise((string) $old->cash);
-        foreach (DB::table('payments')->where('paid_date', '<', $from)->get(['payment_mode', 'paid_amount', 'parts']) as $p) {
-            $dr += Money::paise($p->paid_amount);
-            $cashDr += self::cashPart($p->payment_mode, $p->paid_amount, $p->parts);
+        foreach (DB::table('payments')->where('paid_date', '<', $from)->get(['payment_mode', 'paid_amount', 'charges', 'parts']) as $p) {
+            $got = self::received($p);
+            $dr += Money::paise($got);
+            $cashDr += self::cashPart($p->payment_mode, $got, $p->parts);
         }
         $cr = $cashCr = 0;
         foreach ([DB::table('legacy_accounts')->whereNotNull('agreement_date')->where('agreement_date', '<', $from)->where('finance_amount', '>', 0)
@@ -80,6 +81,12 @@ final class Reports
         };
 
         return ['debit' => Money::str($dr), 'credit' => Money::str($cr), 'cash_debit' => Money::str($cashDr), 'cash_credit' => Money::str($cashCr)];
+    }
+
+    /** Money received on an app payment: the EMI part + the charges on the same receipt. */
+    public static function received(object $p): string
+    {
+        return Money::str(Money::paise($p->paid_amount) + Money::paise($p->charges ?? '0'));
     }
 
     private static function legacyReceipts(callable $where): array
@@ -98,6 +105,7 @@ final class Reports
                 'delay_days' => $r->delay_days, 'im' => $emi > 0 ? AccountMath::imOf(Money::paise($r->paid_amount), $emi) : null,
                 'mode' => $r->payment_mode ?? 'CASH', 'receipt_no' => $r->receipt_no, 'debit' => Money::dec($r->paid_amount), 'credit' => '0.00',
                 'source' => 'old', 'ref_id' => (int) $r->sno, 'receipt_book' => $r->receipt_book,
+                'emi' => Money::dec($r->paid_amount), 'od' => '0.00', 'seize' => '0.00', 'other' => '0.00', 'other_note' => null,
             ] + self::parts($r->payment_mode, $r->paid_amount);
         }
 
@@ -110,7 +118,8 @@ final class Reports
             ->leftJoin('loans as l', 'l.id', '=', 'p.loan_id')->leftJoin('borrowers as b', 'b.id', '=', 'l.borrower_id');
         $where($q);
         $out = [];
-        foreach ($q->get(['p.paid_date', 'p.paid_amount', 'p.due_amount', 'p.due_date', 'p.delay_days', 'p.payment_mode', 'p.parts', 'p.receipt_no',
+        foreach ($q->get(['p.paid_date', 'p.paid_amount', 'p.charges', 'p.od_amount', 'p.seize_amount', 'p.other_amount', 'p.other_note',
+            'p.due_amount', 'p.due_date', 'p.delay_days', 'p.payment_mode', 'p.parts', 'p.receipt_no',
             'p.receipt_book', 'p.loan_id', 'a.sno', 'a.borrower_name', 'a.registration_no', 'a.fno', 'a.emi_amount', 'b.full_name', 'l.vehicle_no',
             'l.folio_no', 'l.emi_amount as loan_emi', 'l.id as lid']) as $r) {
             $emi = Money::paise($r->emi_amount ?? $r->loan_emi);
@@ -123,10 +132,13 @@ final class Reports
                 'particulars' => ($r->borrower_name ?? $r->full_name).($veh !== null ? ' '.$veh : ''),
                 'folio' => $r->fno !== null ? (string) $r->fno : $r->folio_no, 'due_amount' => $r->due_amount, 'due_date' => $r->due_date,
                 'delay_days' => $r->delay_days, 'im' => $emi > 0 ? AccountMath::imOf(Money::paise($r->paid_amount), $emi) : null,
-                'mode' => $mode, 'receipt_no' => (int) $r->receipt_no, 'debit' => Money::dec($r->paid_amount), 'credit' => '0.00',
+                'mode' => $mode, 'receipt_no' => (int) $r->receipt_no, 'debit' => Money::dec($got = self::received($r)), 'credit' => '0.00',
                 'source' => $r->loan_id === null ? 'old' : 'new', 'ref_id' => (int) ($r->sno ?? $r->lid), 'receipt_book' => $r->receipt_book,
-                'cash' => Money::str($cash = self::cashPart($r->payment_mode, $r->paid_amount, $r->parts)),
-                'bank' => Money::str(Money::paise($r->paid_amount) - $cash),
+                'cash' => Money::str($cash = self::cashPart($r->payment_mode, $got, $r->parts)),
+                'bank' => Money::str(Money::paise($got) - $cash),
+                // the EMI part and the charges on the same receipt
+                'emi' => Money::dec($r->paid_amount), 'od' => Money::dec($r->od_amount), 'seize' => Money::dec($r->seize_amount),
+                'other' => Money::dec($r->other_amount), 'other_note' => $r->other_note,
             ];
         }
 
@@ -339,10 +351,10 @@ final class Reports
     {
         $by = fn ($rows) => collect($rows)->keyBy('uid');
         $p = $by(DB::table('payments')->whereRaw('date(created_at) between ? and ?', [$from, $to])->groupBy('created_by')
-            ->selectRaw("created_by as uid, count(*) as n, sum(paid_amount) as amt, max(created_at) as last")->get());
+            ->selectRaw('created_by as uid, count(*) as n, sum(paid_amount + charges) as amt, max(created_at) as last')->get());
         $cash = [];
-        foreach (DB::table('payments')->whereRaw('date(created_at) between ? and ?', [$from, $to])->get(['created_by', 'payment_mode', 'paid_amount', 'parts']) as $x) {
-            $cash[$x->created_by] = ($cash[$x->created_by] ?? 0) + self::cashPart($x->payment_mode, $x->paid_amount, $x->parts);
+        foreach (DB::table('payments')->whereRaw('date(created_at) between ? and ?', [$from, $to])->get(['created_by', 'payment_mode', 'paid_amount', 'charges', 'parts']) as $x) {
+            $cash[$x->created_by] = ($cash[$x->created_by] ?? 0) + self::cashPart($x->payment_mode, self::received($x), $x->parts);
         }
         $l = $by(DB::table('loans')->whereRaw('date(created_at) between ? and ?', [$from, $to])->groupBy('created_by')
             ->selectRaw('created_by as uid, count(*) as n, sum(finance_amount) as amt')->get());
@@ -353,8 +365,8 @@ final class Reports
         $open = [];
         foreach (DB::table('payments as x')->whereRaw('date(x.created_at) between ? and ?', [$from, $to])
             ->whereNotExists(fn ($q) => $q->from('cash_closings as cc')->whereColumn('cc.user_id', 'x.created_by')->whereRaw('cc.day = date(x.created_at)'))
-            ->get(['x.created_by', 'x.created_at', 'x.payment_mode', 'x.paid_amount', 'x.parts']) as $x) {
-            if (self::cashPart($x->payment_mode, $x->paid_amount, $x->parts) > 0) {
+            ->get(['x.created_by', 'x.created_at', 'x.payment_mode', 'x.paid_amount', 'x.charges', 'x.parts']) as $x) {
+            if (self::cashPart($x->payment_mode, self::received($x), $x->parts) > 0) {
                 $open[$x->created_by][substr($x->created_at, 0, 10)] = true;
             }
         }

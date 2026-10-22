@@ -10,7 +10,6 @@ use App\Services\Notify;
 use App\Services\PaymentError;
 use App\Services\PaymentFixes;
 use App\Services\Payments;
-use App\Services\Receipts;
 use App\Support\Audit;
 use App\Support\Money;
 use App\Support\Perm;
@@ -90,8 +89,9 @@ class Fixes
             } catch (PaymentError $e) {
                 throw RpcError::bad(lcfirst(rtrim($e->getMessage(), '.')));
             }
-            if (array_sum(array_map(fn ($x) => Money::paise((string) $x['amount']), $parts)) !== $amount) {
-                throw RpcError::bad('the parts must add up to the amount');
+            // the charges on this receipt stay: the parts cover the EMI amount and the charges
+            if (array_sum(array_map(fn ($x) => Money::paise((string) $x['amount']), $parts)) !== $amount + Money::paise($o->charges)) {
+                throw RpcError::bad('the parts must add up to the EMI amount and the charges');
             }
         }
         if (! in_array($mode, ['CASH', 'CHEQUE', 'SBI', 'BANK', 'SPLIT'], true)) {

@@ -6,6 +6,9 @@ import { getLedger, type Ledger } from "@/lib/ledger";
 import { todayIST } from "@/lib/schedule";
 import { PAYMENT_MODES } from "@/lib/payment";
 
+const money = z.string().trim().regex(/^\d{1,9}(\.\d{1,2})?$/, { error: "Enter the amount (numbers only, up to 2 decimals)" });
+const paise = (v: string | undefined) => (v ? Math.round(Number(v) * 100) : 0);
+
 const ref = z.object({ source: z.enum(["old", "new"]), refId: z.number().int().positive() });
 
 export async function loadLedger(source: string, refId: number): Promise<{ ok: true; ledger: Ledger } | { ok: false; error: string }> {
@@ -50,13 +53,22 @@ const paymentSchema = z.object({
     )
     .max(4)
     .optional(),
+  // charges on the same receipt: OD (the database works it out; only the admin may change it), seize, other + note
+  od_amount: money.optional(),
+  seize_amount: money.or(z.literal("")).optional(),
+  other_amount: money.or(z.literal("")).optional(),
+  other_note: z.string().trim().max(100, { error: "Too long" }).optional(),
 })
+  .refine((v) => paise(v.other_amount) === 0 || !!v.other_note, { error: "Write what the other charge is for", path: ["other_note"] })
   .refine((v) => v.payment_mode !== "CHEQUE" || v.reference_no !== "", { error: "Enter the cheque number", path: ["reference_no"] })
   .refine((v) => v.payment_mode !== "BANK" || v.bank_name !== "", { error: "Enter the bank name", path: ["bank_name"] })
   .refine((v) => v.payment_mode !== "SPLIT" || (v.parts?.length ?? 0) >= 2, { error: "A split payment needs 2 parts", path: ["parts"] })
   .refine(
-    (v) => v.payment_mode !== "SPLIT" || !v.parts || Math.round(v.parts.reduce((t, p) => t + Number(p.amount), 0) * 100) === Math.round(Number(v.paid_amount) * 100),
-    { error: "The parts must add up to the amount", path: ["parts"] },
+    (v) =>
+      v.payment_mode !== "SPLIT" ||
+      !v.parts ||
+      v.parts.reduce((t, p) => t + paise(p.amount), 0) === paise(v.paid_amount) + paise(v.od_amount) + paise(v.seize_amount) + paise(v.other_amount),
+    { error: "The parts must add up to the total (EMI + charges)", path: ["parts"] },
   )
   .refine((v) => v.payment_mode !== "SPLIT" || !v.parts?.some((p) => p.mode === "BANK" && !p.bank_name), { error: "Enter the bank name for the bank part", path: ["parts"] })
   .refine((v) => v.payment_mode !== "SPLIT" || !v.parts?.some((p) => p.mode === "CHEQUE" && !p.reference_no), { error: "Enter the cheque number for the cheque part", path: ["parts"] });
@@ -74,8 +86,14 @@ export type PaymentInput = {
   bank_name: string;
   installments_covered: number;
   parts?: { mode: string; amount: string; bank_name: string; reference_no: string }[];
+  od_amount?: string;
+  seize_amount?: string;
+  other_amount?: string;
+  other_note?: string;
 };
-export type PaymentField = "paid_amount" | "paid_date" | "payment_mode" | "receipt_no" | "reference_no" | "bank_name" | "installments_covered" | "parts";
+export type PaymentField =
+  | "paid_amount" | "paid_date" | "payment_mode" | "receipt_no" | "reference_no" | "bank_name" | "installments_covered" | "parts"
+  | "od_amount" | "seize_amount" | "other_amount" | "other_note";
 export type RecordResult =
   | { ok: true; receiptNo: number; installmentNo: number; ledger: Ledger | null; review: string | null; pending: boolean }
   | { ok: false; error: string; fieldErrors?: Partial<Record<PaymentField, string>> };
@@ -103,6 +121,10 @@ export async function recordPayment(input: PaymentInput): Promise<RecordResult> 
       reference_no: v.reference_no,
       bank_name: v.payment_mode === "BANK" ? v.bank_name : "",
       installments_covered: v.installments_covered,
+      ...(v.od_amount !== undefined ? { od_amount: v.od_amount } : {}),
+      seize_amount: v.seize_amount || "0",
+      other_amount: v.other_amount || "0",
+      other_note: v.other_note ?? "",
       ...(v.payment_mode === "SPLIT"
         ? {
             parts: v.parts!.map((p) => ({

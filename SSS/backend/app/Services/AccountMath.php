@@ -173,6 +173,17 @@ final class AccountMath
     }
 
     /**
+     * The due date of the oldest unpaid EMI (the next payment's due date), where OD is counted from
+     * (app_private.od_from); null when the account is not open or nothing is left to pay.
+     */
+    public static function odFrom(string $source, int $ref): ?string
+    {
+        $c = self::nextPayment($source, $ref, 0, now()->toDateString(), 1);
+
+        return $c === null || Money::paise($c['balance_after']) <= 0 ? null : $c['due_date'];
+    }
+
+    /**
      * Recalculate number, due date, EMI, balance and delay of every app payment on an account
      * after one was edited or cancelled (app_private.reflow_payments).
      */

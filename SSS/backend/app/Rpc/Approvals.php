@@ -50,9 +50,9 @@ class Approvals
             ->orderBy('p.created_by')->orderBy('p.created_at')->get(['p.*', 's.full_name'])
             ->map(fn ($r) => [
                 'id' => $r->id, 'user_id' => $r->created_by, 'subject' => self::subject($r->source, (int) $r->ref_id), 'source' => $r->source,
-                'ref_id' => (int) $r->ref_id, 'paid_amount' => (float) $r->paid_amount, 'paid_date' => $r->paid_date, 'receipt_no' => (int) $r->receipt_no,
+                'ref_id' => (int) $r->ref_id, 'paid_amount' => (float) $r->paid_amount + (float) $r->charges, 'paid_date' => $r->paid_date, 'receipt_no' => (int) $r->receipt_no,
                 'payment_mode' => self::modeText($r->payment_mode, $r->bank_name, $r->parts), 'reason' => $r->note, 'by_name' => $r->full_name ?? '—',
-                'created_at' => $r->created_at, 'cash_part' => Reports::cashPart($r->payment_mode, $r->paid_amount, $r->parts) / 100,
+                'created_at' => $r->created_at, 'cash_part' => Reports::cashPart($r->payment_mode, Money::str(Money::paise($r->paid_amount) + Money::paise($r->charges)), $r->parts) / 100,
                 'receipt_book' => $r->receipt_book,
             ])->all();
     }
@@ -80,11 +80,13 @@ class Approvals
                             'reference_no' => $r->reference_no, 'bank_name' => $r->bank_name, 'receipt_no' => (int) $r->receipt_no,
                             'installments_covered' => (int) $r->installments_covered, 'idempotency_key' => $r->idempotency_key, 'parts' => $r->parts,
                             'series_id' => (int) $r->series_id, 'receipt_book' => $r->receipt_book,
+                            'od_amount' => $r->od_amount, 'od_days' => (int) $r->od_days, 'seize_amount' => $r->seize_amount,
+                            'other_amount' => $r->other_amount, 'other_note' => $r->other_note, 'charges' => $r->charges,
                         ], $r->created_by, $r->created_at);
                         DB::table('pending_payments')->where('id', $r->id)->delete();
                     });
                     $done++;
-                    $amt += Money::paise($r->paid_amount);
+                    $amt += Money::paise($r->paid_amount) + Money::paise($r->charges);
                     $who[Audit::staffName($r->created_by) ?? '—'] = true;
                 } catch (Throwable $e) {
                     $failed[] = ['id' => $r->id, 'receipt_no' => (int) $r->receipt_no, 'reason' => $e->getMessage()];
@@ -96,7 +98,7 @@ class Approvals
                     'collected_by' => Audit::staffName($r->created_by),
                 ]);
                 $done++;
-                $amt += Money::paise($r->paid_amount);
+                $amt += Money::paise($r->paid_amount) + Money::paise($r->charges);
             }
         }
         if ($approve && $done > 0) {

@@ -50,6 +50,8 @@ const paymentFix = z
     bank_name: z.string().trim().max(60, { error: "Too long" }),
     installments_covered: z.string().trim().regex(/^\d{1,3}$/, { error: "1 or more" }).refine((v) => Number(v) >= 1 && Number(v) <= 360, { error: "1 or more" }),
     reason,
+    // charges already on this receipt (OD / seize / other): they stay; a split covers EMI + charges
+    charges: z.string().trim().regex(/^\d{1,9}(\.\d{1,2})?$/).optional(),
     // split payment: e.g. cash + bank on one receipt
     parts: z
       .array(
@@ -67,8 +69,11 @@ const paymentFix = z
   .refine((v) => v.payment_mode !== "BANK" || v.bank_name !== "", { error: "Enter the bank name", path: ["bank_name"] })
   .refine((v) => v.payment_mode !== "SPLIT" || (v.parts?.length ?? 0) >= 2, { error: "A split payment needs 2 parts", path: ["parts"] })
   .refine(
-    (v) => v.payment_mode !== "SPLIT" || !v.parts || Math.round(v.parts.reduce((t, p) => t + Number(p.amount), 0) * 100) === Math.round(Number(v.paid_amount) * 100),
-    { error: "The parts must add up to the amount", path: ["parts"] },
+    (v) =>
+      v.payment_mode !== "SPLIT" ||
+      !v.parts ||
+      Math.round(v.parts.reduce((t, p) => t + Number(p.amount), 0) * 100) === Math.round(Number(v.paid_amount) * 100) + Math.round(Number(v.charges ?? 0) * 100),
+    { error: "The parts must add up to the amount (EMI + charges)", path: ["parts"] },
   )
   .refine((v) => v.payment_mode !== "SPLIT" || !v.parts?.some((p) => p.mode === "BANK" && !p.bank_name), { error: "Enter the bank name for the bank part", path: ["parts"] })
   .refine((v) => v.payment_mode !== "SPLIT" || !v.parts?.some((p) => p.mode === "CHEQUE" && !p.reference_no), { error: "Enter the cheque number for the cheque part", path: ["parts"] });
@@ -84,7 +89,7 @@ export async function editPayment(id: number, path: string, input: PaymentFixInp
     for (const i of parsed.error.issues) fieldErrors[String(i.path[0])] ??= i.message;
     return { ok: false, error: "Please fix the highlighted fields.", fieldErrors };
   }
-  const { reason: why, parts, ...p } = parsed.data;
+  const { reason: why, parts, ...p } = parsed.data; // p.charges is only for the check above (the database keeps the charges)
   const supabase = await createClient();
   const { error } = await supabase.rpc("admin_edit_payment", {
     p_id: id,

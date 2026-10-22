@@ -3,6 +3,7 @@ import type { LedgerRow, LedgerSummary } from "@/lib/schedule";
 import { modeText } from "../installments";
 import { remarksFor, type Remark } from "@/lib/remarks";
 import { RemarkLines } from "../remark-lines";
+import { chargesText } from "@/lib/payment";
 
 /** ₹ with 2 decimals: 3630 -> ₹3,630.00 */
 const inr2 = (v: string | null | undefined) => (v == null ? "—" : inr(v).replace(/^(-?₹[\d,]+)$/, "$1.00"));
@@ -53,6 +54,7 @@ export function LedgerCards({ rows, summary, remarks }: { rows: LedgerRow[]; sum
                 Rcpt {rcpt(r.payment.receipt_no, r.payment.receipt_book)} · {modeText(r.payment)}
                 {r.payment.cheque_no && <> · {r.payment.cheque_no}</>}
               </p>
+              {chargesText(r.payment.charges) && <p className="text-xs font-medium text-amber-800">+ {chargesText(r.payment.charges)} (charges)</p>}
               <p className="text-xs text-slate-500">
                 P {inr2(r.principal)} · I {inr2(r.interest)} · Bal <b className="text-slate-700">{inr2(r.payment.balance_after)}</b>
               </p>
@@ -116,7 +118,14 @@ export function LedgerGrid({ rows, summary, remarks }: { rows: LedgerRow[]; summ
               <td className={td}>{rcpt(r.payment.receipt_no, r.payment.receipt_book)}</td>
               <td className={td}>{modeText(r.payment)}</td>
               <td className={td}>{r.payment.cheque_no ?? ""}</td>
-              <td className={`${td} text-right font-semibold text-emerald-700`}>{inr2(r.payment.paid_amount)}</td>
+              <td className={`${td} text-right font-semibold text-emerald-700`}>
+                {inr2(r.payment.paid_amount)}
+                {chargesText(r.payment.charges) && (
+                  <span className="block text-[11px] font-medium text-amber-800" title="Charges on the same receipt (not in the balance)">
+                    + {chargesText(r.payment.charges)}
+                  </span>
+                )}
+              </td>
               <td className={`${td} text-center ${r.im > 1 ? "font-bold text-blue-700" : ""}`}>{r.im}</td>
               <td className={td}>{dmy(r.payment.paid_date)}</td>
               <td className={`${td} text-right`}>{inr2(r.principal)}</td>

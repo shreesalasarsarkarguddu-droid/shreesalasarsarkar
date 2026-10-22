@@ -1,11 +1,11 @@
 import { buildLedger, fromPaise, toPaise, type LedgerRow, type LedgerSummary, type PaymentRow } from "@/lib/schedule";
 import { summarizeAdjustments, type Adjustment } from "@/lib/adjustments";
-import type { PaymentPart } from "@/lib/payment";
+import type { Charges, PaymentPart } from "@/lib/payment";
 import type { Remark } from "@/lib/remarks";
 import type { ZoneInfo } from "@/lib/zones";
 import { get } from "@/lib/api";
 
-export type NewPaymentRecord = {
+export type NewPaymentRecord = Charges & {
   id: number;
   installment_no: number;
   due_date: string | null;
@@ -45,6 +45,7 @@ export function mapNewPayment(p: NewPaymentRecord): PaymentRow {
     data_flags: [],
     created_at: p.created_at,
     parts: p.parts,
+    charges: Number(p.charges) > 0 ? p : null,
   };
 }
 
@@ -61,6 +62,8 @@ export const byInstallment = <T extends { installment_no: number }>(a: T, b: T) 
 export type WaitingPayment = {
   receipt_no: number; receipt_book: string | null; paid_amount: string; paid_date: string; payment_mode: string; bank_name: string | null;
   parts: PaymentPart[] | null; created_at: string;
+  /** OD / seize / other on the same receipt */
+  charges: string;
 };
 /**
  * Receipt numbers for the payment window, inside the account's receipt book (its zone's open book, else MAIN):
@@ -71,7 +74,12 @@ export type ReceiptHint = {
   series?: { code: string; zone: string; book_no: number; start: number; last: number | null; next: number } | null;
 };
 
+/** For the charges in the payment window: OD rate and its start (oldest unpaid EMI's due date), seizure, admin or not. */
+export type ChargeInfo = { od_rate: number; od_from: string | null; seized: boolean; seized_on: string | null; admin: boolean };
+
 export type Ledger = {
+  /** OD rate, seizure (null when it could not be read: then no charges are offered) */
+  charges: ChargeInfo | null;
   /** admin only: edit / cancel the payments taken in this app from the Collect window */
   canFix: boolean;
   /** payments taken in this app on this account (for edit / cancel) */
@@ -100,17 +108,17 @@ export type Ledger = {
 /** What the API sends for the Collect window (GET /api/ledger/{source}/{ref}); the rows are built here. */
 type LedgerResponse = {
   source: "old" | "new"; refId: number; raw: unknown; waiting: WaitingPayment[]; receiptHint: ReceiptHint | null; remarks: Remark[];
-  zoneInfo: ZoneInfo | null; canFix: boolean;
+  zoneInfo: ZoneInfo | null; canFix: boolean; charges?: ChargeInfo | null;
 };
 
 /** Everything the Collect Payment window needs for one pending account (null when it can no longer take payments). */
 export async function getLedger(source: "old" | "new", refId: number): Promise<Ledger | null> {
   const r = await get<LedgerResponse>(`/ledger/${source}/${refId}`);
   const ledger = ledgerOnly(r.raw, source, refId);
-  return ledger ? { ...ledger, waiting: r.waiting, receiptHint: r.receiptHint, remarks: r.remarks, zoneInfo: r.zoneInfo, canFix: r.canFix } : null;
+  return ledger ? { ...ledger, waiting: r.waiting, receiptHint: r.receiptHint, remarks: r.remarks, zoneInfo: r.zoneInfo, charges: r.charges ?? null, canFix: r.canFix } : null;
 }
 
-function ledgerOnly(raw: unknown, source: "old" | "new", refId: number): Omit<Ledger, "waiting" | "receiptHint" | "remarks" | "zoneInfo" | "canFix"> | null {
+function ledgerOnly(raw: unknown, source: "old" | "new", refId: number): Omit<Ledger, "waiting" | "receiptHint" | "remarks" | "zoneInfo" | "canFix" | "charges"> | null {
   if (source === "old") {
     const a = raw;
     if (!a) return null;

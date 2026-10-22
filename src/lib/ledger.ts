@@ -2,16 +2,17 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildLedger, fromPaise, toPaise, type LedgerRow, type LedgerSummary, type PaymentRow } from "@/lib/schedule";
 import { ADJ_COLUMNS, summarizeAdjustments, type Adjustment } from "@/lib/adjustments";
-import type { PaymentPart } from "@/lib/payment";
+import type { Charges, PaymentPart } from "@/lib/payment";
 import type { Remark } from "@/lib/remarks";
 import type { ZoneInfo } from "@/lib/zones";
 import { getStaff } from "@/lib/staff";
 
 export const NEW_PAYMENT_COLUMNS =
   "id, installment_no, due_date, paid_date, delay_days, payment_mode, reference_no, bank_name, receipt_no, installments_covered," +
-  " due_amount::text, paid_amount::text, balance_after::text, created_at, parts, receipt_book";
+  " due_amount::text, paid_amount::text, balance_after::text, created_at, parts, receipt_book," +
+  " od_amount::text, od_days, seize_amount::text, other_amount::text, other_note, charges::text";
 
-export type NewPaymentRecord = {
+export type NewPaymentRecord = Charges & {
   id: number;
   installment_no: number;
   due_date: string | null;
@@ -51,6 +52,7 @@ export function mapNewPayment(p: NewPaymentRecord): PaymentRow {
     data_flags: [],
     created_at: p.created_at,
     parts: p.parts,
+    charges: Number(p.charges) > 0 ? p : null,
   };
 }
 
@@ -71,6 +73,8 @@ export const byInstallment = <T extends { installment_no: number }>(a: T, b: T) 
 export type WaitingPayment = {
   receipt_no: number; receipt_book: string | null; paid_amount: string; paid_date: string; payment_mode: string; bank_name: string | null;
   parts: PaymentPart[] | null; created_at: string;
+  /** OD / seize / other on the same receipt */
+  charges: string;
 };
 /**
  * Receipt numbers for the payment window, inside the account's receipt book (its zone's open book, else MAIN):
@@ -84,7 +88,7 @@ export type ReceiptHint = {
 export async function getWaiting(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<WaitingPayment[]> {
   const { data } = await supabase
     .from("pending_payments")
-    .select("receipt_no, receipt_book, paid_amount::text, paid_date, payment_mode, bank_name, parts, created_at")
+    .select("receipt_no, receipt_book, paid_amount::text, paid_date, payment_mode, bank_name, parts, created_at, charges::text")
     .eq("source", source)
     .eq("ref_id", refId)
     .order("created_at");
@@ -108,7 +112,17 @@ export async function getZoneInfo(supabase: SupabaseClient, source: "old" | "new
   return (data as ZoneInfo | null) ?? null;
 }
 
+/** For the charges in the payment window: OD rate and its start (oldest unpaid EMI's due date), seizure, admin or not. */
+export type ChargeInfo = { od_rate: number; od_from: string | null; seized: boolean; seized_on: string | null; admin: boolean };
+
+export async function getChargeInfo(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<ChargeInfo | null> {
+  const { data } = await supabase.rpc("charge_info", { p_source: source, p_ref: refId });
+  return (data as ChargeInfo | null) ?? null;
+}
+
 export type Ledger = {
+  /** OD rate, seizure (null when it could not be read: then no charges are offered) */
+  charges: ChargeInfo | null;
   /** admin only: edit / cancel the payments taken in this app from the Collect window */
   canFix: boolean;
   /** payments taken in this app on this account (for edit / cancel) */
@@ -136,18 +150,19 @@ export type Ledger = {
 
 /** Everything the Collect Payment window needs for one pending account. RLS applies. */
 export async function getLedger(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<Ledger | null> {
-  const [ledger, waiting, receiptHint, remarks, zoneInfo, staff] = await Promise.all([
+  const [ledger, waiting, receiptHint, remarks, zoneInfo, staff, charges] = await Promise.all([
     ledgerOnly(supabase, source, refId),
     getWaiting(supabase, source, refId),
     getReceiptHint(supabase, source, refId),
     getRemarks(supabase, source, refId),
     getZoneInfo(supabase, source, refId),
     getStaff(),
+    getChargeInfo(supabase, source, refId),
   ]);
-  return ledger ? { ...ledger, waiting, receiptHint, remarks, zoneInfo, canFix: staff?.role === "admin" } : null;
+  return ledger ? { ...ledger, waiting, receiptHint, remarks, zoneInfo, charges, canFix: staff?.role === "admin" } : null;
 }
 
-async function ledgerOnly(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<Omit<Ledger, "waiting" | "receiptHint" | "remarks" | "zoneInfo" | "canFix"> | null> {
+async function ledgerOnly(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<Omit<Ledger, "waiting" | "receiptHint" | "remarks" | "zoneInfo" | "canFix" | "charges"> | null> {
   if (source === "old") {
     // One request: account + its legacy payments + its new-system payments.
     const { data: a, error } = await supabase

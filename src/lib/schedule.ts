@@ -10,7 +10,7 @@
 //   * Arrears = EMIs due up to today x EMI - total paid (never below 0, never above the balance).
 // Money is kept as "1234.50" strings and calculated in integer paise (bigint) - never floats.
 
-import type { PaymentPart } from "@/lib/payment";
+import type { Charges, PaymentPart } from "@/lib/payment";
 
 export type PaymentRow = {
   id: number;
@@ -33,6 +33,8 @@ export type PaymentRow = {
   created_at?: string | null;
   /** split payment (cash + online on one receipt) */
   parts?: PaymentPart[] | null;
+  /** OD / seize / other charges taken on the same receipt (not part of paid_amount) */
+  charges?: Charges | null;
 };
 
 /** A reschedule in force: new EMI from a new next due date for what was left (see the adjustments table). */

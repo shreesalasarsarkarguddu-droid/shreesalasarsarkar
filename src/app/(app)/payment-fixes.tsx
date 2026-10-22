@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { dmy, inr, rcpt } from "@/lib/format";
-import { PAYMENT_MODES, paymentModeText } from "@/lib/payment";
+import { PAYMENT_MODES, chargesText, paymentModeText } from "@/lib/payment";
 import { todayIST } from "@/lib/schedule";
 import { DateInput } from "@/components/date-input";
 import type { NewPaymentRecord } from "@/lib/ledger";
@@ -39,6 +39,7 @@ export function PaymentFixes({ payments, path, onChanged }: { payments: NewPayme
               <p className="num min-w-0 flex-1 text-sm">
                 <b>#{p.installment_no}</b> · <span className="font-semibold text-emerald-700">{inr(p.paid_amount)}</span> · {dmy(p.paid_date)} ·{" "}
                 {paymentModeText(p.payment_mode, p.bank_name, p.parts)} · Rcpt {rcpt(p.receipt_no, p.receipt_book)}
+                {chargesText(p) && <span className="text-amber-800"> · + {chargesText(p)}</span>}
                 {p.installments_covered > 1 && ` · ${p.installments_covered} EMIs`}
               </p>
               <button
@@ -119,7 +120,8 @@ function EditForm({ p, path, onDone }: { p: NewPaymentRecord; path: string; onDo
   const err = (k: string) => (r && !r.ok ? r.fieldErrors?.[k] : undefined);
   const set = (k: keyof PaymentFixInput, v: string) => setF((o) => ({ ...o, [k]: v }));
   const split = f.payment_mode === "SPLIT";
-  const rest = Math.round((Number(f.paid_amount || 0) - Number(parts[0].amount || 0)) * 100) / 100;
+  const charges = Number(p.charges ?? 0);
+  const rest = Math.round((Number(f.paid_amount || 0) + charges - Number(parts[0].amount || 0)) * 100) / 100;
   const setPart = (i: number, k: keyof Part, v: string) => setParts((ps) => ps.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const splitParts: Part[] = [parts[0], { ...parts[1], amount: rest > 0 ? String(rest) : "" }];
 
@@ -129,7 +131,7 @@ function EditForm({ p, path, onDone }: { p: NewPaymentRecord; path: string; onDo
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {
-          const res = await editPayment(p.id, path, split ? { ...f, parts: splitParts, reference_no: "", bank_name: "" } : f);
+          const res = await editPayment(p.id, path, split ? { ...f, parts: splitParts, reference_no: "", bank_name: "", charges: String(charges) } : f);
           setR(res);
           if (res.ok) {
             router.refresh();
@@ -139,7 +141,7 @@ function EditForm({ p, path, onDone }: { p: NewPaymentRecord; path: string; onDo
       }}
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <L label="Amount (₹)" error={err("paid_amount")}>
+        <L label={charges > 0 ? `EMI amount (₹) · charges ₹${charges} stay` : "Amount (₹)"} error={err("paid_amount")}>
           <input className={input} inputMode="decimal" value={f.paid_amount} onChange={(e) => set("paid_amount", e.target.value.replace(/[^\d.]/g, ""))} />
         </L>
         <L label="Mode" error={err("payment_mode")}>
@@ -178,7 +180,7 @@ function EditForm({ p, path, onDone }: { p: NewPaymentRecord; path: string; onDo
 
       {split && (
         <div className="space-y-2 rounded-lg bg-white p-3 ring-1 ring-slate-200">
-          <p className="text-sm font-medium text-slate-700">Split: part 1 + part 2 = {f.paid_amount ? `₹${f.paid_amount}` : "the amount"}</p>
+          <p className="text-sm font-medium text-slate-700">Split: part 1 + part 2 = {f.paid_amount ? `₹${Math.round((Number(f.paid_amount) + charges) * 100) / 100}` : "the amount"}{charges > 0 && " (EMI + charges)"}</p>
           {splitParts.map((x, i) => (
             <div key={i} className="grid gap-2 sm:grid-cols-4">
               <select className={input} value={x.mode} onChange={(e) => setPart(i, "mode", e.target.value)} aria-label={`Part ${i + 1} mode`}>

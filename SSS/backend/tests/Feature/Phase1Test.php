@@ -165,7 +165,7 @@ class Phase1Test extends TestCase
             ['mode' => 'CASH', 'amount' => '700', 'bank_name' => '', 'reference_no' => ''],
             ['mode' => 'BANK', 'amount' => '200', 'bank_name' => 'SBI', 'reference_no' => ''],
         ]]);
-        $this->postJson('/api/payments', $bad)->assertStatus(422)->assertJsonPath('fieldErrors.parts', 'The parts must add up to the amount.');
+        $this->postJson('/api/payments', $bad)->assertStatus(422)->assertJsonPath('fieldErrors.parts', 'The parts must add up to the EMI amount and the charges.');
         $bad['parts'][1]['amount'] = '300';
         $bad['parts'][1]['bank_name'] = '';
         $this->postJson('/api/payments', $bad)->assertStatus(422)->assertJsonPath('fieldErrors.parts', 'Enter the bank name for the bank part.');

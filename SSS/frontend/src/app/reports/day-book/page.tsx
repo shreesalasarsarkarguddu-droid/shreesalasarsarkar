@@ -27,6 +27,12 @@ type Entry = {
   bank: string;
   source: "old" | "new";
   ref_id: number;
+  /** receipts: EMI part and the charges on the same receipt (debit = emi + od + seize + other) */
+  emi: string | null;
+  od: string | null;
+  seize: string | null;
+  other: string | null;
+  other_note: string | null;
 };
 
 // ---- exact money (paise as bigint)
@@ -56,6 +62,18 @@ const MODE_LABEL: Record<Mode, string> = { all: "All", cash: "Cash", bank: "Bank
 /** Cash in / bank in (receipts) and cash out / bank out (loans given). */
 type Split = { cashIn: bigint; bankIn: bigint; cashOut: bigint; bankOut: bigint };
 const noSplit = (): Split => ({ cashIn: 0n, bankIn: 0n, cashOut: 0n, bankOut: 0n });
+/** OD / seize / other charges collected (shown under the totals when there were any). */
+type Chg = { od: bigint; seize: bigint; other: bigint };
+const noChg = (): Chg => ({ od: 0n, seize: 0n, other: 0n });
+function ChargesLine({ c }: { c: Chg }) {
+  if (c.od + c.seize + c.other === 0n) return null;
+  return (
+    <span className="block text-xs font-normal text-amber-800">
+      Charges in it: OD {amt(c.od)} · Seize {amt(c.seize)} · Other {amt(c.other)}
+    </span>
+  );
+}
+
 function SplitLine({ s }: { s: Split }) {
   return (
     <span className="block text-xs font-normal text-slate-600">
@@ -108,6 +126,7 @@ export default function DayBookPage() {
   let periodDr = 0n;
   let periodCr = 0n;
   const periodSplit = noSplit();
+  const periodChg = noChg();
 
   const cell = "px-3 py-2 align-top";
   return (
@@ -200,7 +219,15 @@ export default function DayBookPage() {
                 let dayDr = 0n;
                 let dayCr = 0n;
                 const daySplit = noSplit();
+                const dayChg = noChg();
                 const rows = list.map((e, i) => {
+                  const od = toPaise(e.od);
+                  const seize = toPaise(e.seize);
+                  const other = toPaise(e.other);
+                  const charged = od + seize + other > 0n;
+                  dayChg.od += od;
+                  dayChg.seize += seize;
+                  dayChg.other += other;
                   // with a mode chosen only that part of the entry counts (a split payment shows its cash or its bank part)
                   const cash = mode === "bank" ? 0n : toPaise(e.cash);
                   const bank = mode === "cash" ? 0n : toPaise(e.bank);
@@ -218,6 +245,18 @@ export default function DayBookPage() {
                   const part = cash > 0n && bank > 0n && (
                     <span className="block text-xs text-slate-500">
                       Cash {amt(cash)} · Bank {amt(bank)}
+                    </span>
+                  );
+                  const chargeLine = charged && (
+                    <span className="block text-xs text-amber-800">
+                      {[
+                        `EMI ${amt(toPaise(e.emi))}`,
+                        od > 0n && `OD ${amt(od)}`,
+                        seize > 0n && `Seize ${amt(seize)}`,
+                        other > 0n && `${e.other_note || "Other"} ${amt(other)}`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </span>
                   );
                   const href = e.source === "new" && e.kind === "loan" ? `/loans/${e.ref_id}` : e.source === "new" ? null : `/accounts/${e.ref_id}`;
@@ -249,10 +288,11 @@ export default function DayBookPage() {
                           </span>
                         )}
                       </td>
-                      <td className={`${cell} whitespace-nowrap`}>{e.kind === "receipt" ? `Instalment · ${e.mode ?? ""}` : `Loan · ${e.mode ?? ""}`}</td>
+                      <td className={`${cell} whitespace-nowrap`}>{e.kind === "receipt" ? `Instalment${charged ? " + charges" : ""} · ${e.mode ?? ""}` : `Loan · ${e.mode ?? ""}`}</td>
                       <td className={`${cell} text-right`}>
                         {dr ? amt(dr) : "—"}
                         {dr > 0n && part}
+                        {dr > 0n && chargeLine}
                       </td>
                       <td className={`${cell} text-right`}>
                         {cr ? amt(cr) : "—"}
@@ -268,6 +308,9 @@ export default function DayBookPage() {
                 periodSplit.bankIn += daySplit.bankIn;
                 periodSplit.cashOut += daySplit.cashOut;
                 periodSplit.bankOut += daySplit.bankOut;
+                periodChg.od += dayChg.od;
+                periodChg.seize += dayChg.seize;
+                periodChg.other += dayChg.other;
                 return [
                   ...rows,
                   <tr key={`${day}-total`} className="break-inside-avoid border-t border-slate-300 bg-emerald-50/60 font-semibold">
@@ -276,6 +319,7 @@ export default function DayBookPage() {
                       Total for {dmy(day)} ({list.length})
                       <span className="block text-xs font-normal text-slate-600">Closing balance {drcr(running)}</span>
                       {mode === "all" && <SplitLine s={daySplit} />}
+                      {mode === "all" && <ChargesLine c={dayChg} />}
                     </td>
                     <td className={`${cell} text-right`}>{amt(dayDr)}</td>
                     <td className={`${cell} text-right`}>{amt(dayCr)}</td>
@@ -289,6 +333,7 @@ export default function DayBookPage() {
                 <td className={cell} colSpan={2}>
                   Period total ({entries.length} entries)
                   {mode === "all" && <SplitLine s={periodSplit} />}
+                  {mode === "all" && <ChargesLine c={periodChg} />}
                 </td>
                 <td className={`${cell} text-right`}>{amt(periodDr)}</td>
                 <td className={`${cell} text-right`}>{amt(periodCr)}</td>

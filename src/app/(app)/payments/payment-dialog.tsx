@@ -12,6 +12,7 @@ import { RemarkPanel } from "../remark-panel";
 import { ZonePicker } from "../zone-picker";
 import { PaymentFixes } from "../payment-fixes";
 import { LedgerCards, LedgerGrid } from "./ledger-grid";
+import { ChargesBox, ReleaseOffer, chargeTotals, emptyCharges, type ChargeForm } from "./charges";
 import { loadLedger, recordPayment, type PaymentField } from "./actions";
 import type { PendingRow } from "./collect-list";
 
@@ -61,6 +62,8 @@ export function CollectPanel({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm);
   const [parts, setParts] = useState<SplitPart[]>(emptyParts);
+  const [charges, setCharges] = useState<ChargeForm>(emptyCharges);
+  const [releaseAfter, setReleaseAfter] = useState<number | null>(null);
   const [imTouched, setImTouched] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<PaymentField, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -124,8 +127,12 @@ export function CollectPanel({
     onClose?.(savedAny.current);
   }
 
-  // split payment: part 1 typed, part 2 = the rest of the amount
-  const total = isAmount(form.paid_amount) ? toPaise(form.paid_amount) : 0n;
+  // charges on the same receipt (OD from the oldest unpaid EMI's due date, seize, other)
+  const ct = chargeTotals(ledger?.charges ?? null, form.paid_date, charges);
+  const emiPaise = isAmount(form.paid_amount) ? toPaise(form.paid_amount) : 0n;
+
+  // split payment: part 1 typed, part 2 = the rest of the total (EMI + charges)
+  const total = emiPaise + ct.total;
   const firstPaise = isAmount(parts[0].amount) ? toPaise(parts[0].amount) : 0n;
   const restPaise = total - firstPaise;
   const splitParts = [
@@ -154,6 +161,7 @@ export function CollectPanel({
     if (!form.paid_date) errs.paid_date = "Enter the paid date";
     else if (form.paid_date > todayIST()) errs.paid_date = "Paid date cannot be in the future";
     if (!form.payment_mode) errs.payment_mode = "Choose payment mode";
+    if (ct.error) errs[ct.error.field] = ct.error.msg;
     if (!/^\d{1,12}$/.test(form.receipt_no.trim())) errs.receipt_no = "Enter the receipt number";
     if (form.payment_mode === "CHEQUE" && !form.reference_no.trim()) errs.reference_no = "Enter the cheque number";
     if (form.payment_mode === "BANK" && !form.bank_name.trim()) errs.bank_name = "Enter the bank name";
@@ -171,6 +179,10 @@ export function CollectPanel({
           ...form,
           installments_covered: Number(form.installments_covered) || 1,
           ...(form.payment_mode === "SPLIT" ? { parts: splitParts, reference_no: "", bank_name: "" } : {}),
+          ...(ct.odDays > 0 ? { od_amount: fromPaise(ct.od) } : {}),
+          seize_amount: fromPaise(ct.seize),
+          other_amount: fromPaise(ct.other),
+          other_note: ct.other > 0n ? charges.other_note.trim() : "",
         });
         if (!res.ok) {
           setFormError(res.error);
@@ -178,16 +190,19 @@ export function CollectPanel({
           return;
         }
         savedAny.current = true;
+        const took = inr(fromPaise(total)) + (ct.total > 0n ? ` (EMI ${inr(fromPaise(emiPaise))} + charges ${inr(fromPaise(ct.total))})` : "");
         setSaved(
           res.pending
-            ? `Saved ${inr(fromPaise(toPaise(form.paid_amount)))} · receipt ${res.receiptNo} · ⏳ waiting for approval — the balance changes after the admin counts the cash and approves`
-            : `Saved ${inr(fromPaise(toPaise(form.paid_amount)))} · receipt ${res.receiptNo} · ${form.installments_covered} EMI(s)` +
+            ? `Saved ${took} · receipt ${res.receiptNo} · ⏳ waiting for approval — the balance changes after the admin counts the cash and approves`
+            : `Saved ${took} · receipt ${res.receiptNo} · ${form.installments_covered} EMI(s)` +
                 (res.ledger ? ` · new balance ${inr(res.ledger.balance)}` : ""),
         );
+        if (ledger.charges?.seized && ledger.charges.admin) setReleaseAfter(res.receiptNo);
         if (res.ledger) setLedger(res.ledger);
         else void load();
         setForm(emptyForm());
         setParts(emptyParts());
+        setCharges(emptyCharges());
         setImTouched(false);
         setKey(crypto.randomUUID());
       } catch {
@@ -307,6 +322,17 @@ export function CollectPanel({
                     ✓ {saved}
                   </p>
                 )}
+                {releaseAfter != null && ledger.charges?.seized && (
+                  <ReleaseOffer
+                    source={ledger.source}
+                    refId={ledger.refId}
+                    receiptNo={releaseAfter}
+                    onDone={(released) => {
+                      setReleaseAfter(null);
+                      if (released) void load();
+                    }}
+                  />
+                )}
                 {formError && (
                   <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-800 ring-1 ring-red-200">
                     {formError}
@@ -315,7 +341,7 @@ export function CollectPanel({
                 {ledger.waiting.length > 0 && (
                   <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
                     <p className="font-semibold">
-                      ⏳ {inr(fromPaise(ledger.waiting.reduce((t, w) => t + toPaise(w.paid_amount), 0n)))} already collected, waiting for approval
+                      ⏳ {inr(fromPaise(ledger.waiting.reduce((t, w) => t + toPaise(w.paid_amount) + toPaise(w.charges ?? "0"), 0n)))} already collected, waiting for approval
                     </p>
                     <p className="num text-xs">
                       {ledger.waiting.map((w) => `Rcpt ${rcpt(w.receipt_no, w.receipt_book)} · ${inr(w.paid_amount)} · ${dmy(w.paid_date)}`).join(" | ")}
@@ -327,7 +353,7 @@ export function CollectPanel({
                 {/* amount, then 1 EMI, then full balance */}
                 <div>
                   <label htmlFor="pay-paid_amount" className="mb-1 block text-sm font-medium text-slate-700">
-                    Amount (₹) <span className="text-red-600">*</span>
+                    {ledger.charges ? "EMI amount (₹)" : "Amount (₹)"} <span className="text-red-600">*</span>
                   </label>
                   <input
                     id="pay-paid_amount"
@@ -380,6 +406,21 @@ export function CollectPanel({
                   <p className="mt-1 text-xs text-slate-500">EMI stays {inr(ledger.emi)}. Any extra or short amount stays in the balance.</p>
                 </div>
 
+                {ledger.charges && (
+                  <ChargesBox
+                    info={ledger.charges}
+                    totals={ct}
+                    form={charges}
+                    emi={emiPaise}
+                    errors={errors}
+                    onChange={(c) => {
+                      setCharges(c);
+                      setErrors((e) => ({ ...e, od_amount: undefined, seize_amount: undefined, other_amount: undefined, other_note: undefined, parts: undefined }));
+                      setSaved(null);
+                    }}
+                  />
+                )}
+
                 <div>
                   <span className="mb-1 block text-sm font-medium text-slate-700">
                     Mode <span className="text-red-600">*</span>
@@ -411,7 +452,7 @@ export function CollectPanel({
 
                 {form.payment_mode === "SPLIT" && (
                   <div id="pay-parts" tabIndex={-1} className="space-y-2 rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
-                    <p className="text-xs font-medium text-slate-600">One receipt, paid in two ways. The second part is the rest of the amount.</p>
+                    <p className="text-xs font-medium text-slate-600">One receipt, paid in two ways. The second part is the rest of the {ct.total > 0n ? "total (EMI + charges)" : "amount"}.</p>
                     {splitParts.map((p, i) => (
                       <div key={i} className="space-y-2 rounded-lg bg-white p-2 ring-1 ring-slate-200">
                         <div className="flex items-center gap-2">
@@ -511,7 +552,7 @@ export function CollectPanel({
                   disabled={saving}
                   className="h-12 w-full rounded-xl bg-emerald-700 text-base font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
                 >
-                  {saving ? "Saving…" : isAmount(form.paid_amount) ? `Save ${inr(fromPaise(toPaise(form.paid_amount)))}` : "Save payment"}
+                  {saving ? "Saving…" : isAmount(form.paid_amount) ? `Save ${inr(fromPaise(total))}` : "Save payment"}
                 </button>
               </form>
               <RemarkPanel source={ledger.source} refId={ledger.refId} installmentNo={dueRows[0]?.sno ?? null} onSaved={() => void load()} />

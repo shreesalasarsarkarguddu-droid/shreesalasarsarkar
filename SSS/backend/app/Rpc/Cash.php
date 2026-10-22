@@ -19,8 +19,9 @@ class Cash
         $rows = [];
         foreach (['payments' => false, 'pending_payments' => true] as $t => $waiting) {
             foreach (DB::table($t)->whereRaw('date(created_at) = ?', [$day])->when($user, fn ($q) => $q->where('created_by', $user))
-                ->get(['created_by', 'payment_mode', 'paid_amount', 'parts']) as $r) {
-                $rows[] = [$r->created_by, $r->payment_mode, $r->paid_amount, $r->parts, $waiting];
+                ->get(['created_by', 'payment_mode', 'paid_amount', 'charges', 'parts']) as $r) {
+                // money received: the EMI part + the charges on the same receipt
+                $rows[] = [$r->created_by, $r->payment_mode, Reports::received($r), $r->parts, $waiting];
             }
         }
 

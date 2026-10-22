@@ -29,6 +29,7 @@ class Settings
             $s[$k] = (bool) $s[$k];
         }
         $s['review_above'] = (float) $s['review_above'];
+        $s['od_per_day'] = (float) $s['od_per_day'];
         $s['telegram_bot_token'] = $s['telegram_bot_token'] ? '••••'.substr($s['telegram_bot_token'], -4) : '';
         $s['whatsapp_api_key'] = $s['whatsapp_api_key'] ? '••••'.substr($s['whatsapp_api_key'], -4) : '';
 
@@ -72,6 +73,9 @@ class Settings
         }
         if ($has('review_above') && $p['review_above'] !== '') {
             $row['review_above'] = Money::dec((string) $p['review_above']);
+        }
+        if ($has('od_per_day') && $p['od_per_day'] !== '') {
+            $row['od_per_day'] = Money::dec((string) $p['od_per_day']);
         }
         $row['updated_at'] = now()->format('Y-m-d H:i:s.u');
         $row['updated_by'] = $u->id;
