@@ -113,7 +113,13 @@ export async function getZoneInfo(supabase: SupabaseClient, source: "old" | "new
 }
 
 /** For the charges in the payment window: OD rate and its start (oldest unpaid EMI's due date), seizure, admin or not. */
-export type ChargeInfo = { od_rate: number; od_from: string | null; seized: boolean; seized_on: string | null; admin: boolean };
+export type ChargeInfo = {
+  od_rate: number; od_from: string | null; seized: boolean; seized_on: string | null; admin: boolean;
+  /** may type another OD (admin, "Late fees & discounts", or everyone while Settings allows collectors) */
+  can_change_od: boolean;
+  /** may give a seized vehicle back ("Seize vehicles") */
+  can_release: boolean;
+};
 
 export async function getChargeInfo(supabase: SupabaseClient, source: "old" | "new", refId: number): Promise<ChargeInfo | null> {
   const { data } = await supabase.rpc("charge_info", { p_source: source, p_ref: refId });

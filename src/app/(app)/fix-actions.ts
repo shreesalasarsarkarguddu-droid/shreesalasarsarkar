@@ -52,7 +52,11 @@ const paymentFix = z
     bank_name: z.string().trim().max(60, { error: "Too long" }),
     installments_covered: z.string().trim().regex(/^\d{1,3}$/, { error: "1 or more" }).refine((v) => Number(v) >= 1 && Number(v) <= 360, { error: "1 or more" }),
     reason,
-    // charges already on this receipt (OD / seize / other): they stay; a split covers EMI + charges
+    // the receipt's charges (OD / seize / other + note); a split covers EMI + charges (their sum)
+    od_amount: z.string().trim().regex(/^\d{1,9}(\.\d{1,2})?$/, { error: "Numbers only" }).optional(),
+    seize_amount: z.string().trim().regex(/^\d{1,9}(\.\d{1,2})?$/, { error: "Numbers only" }).optional(),
+    other_amount: z.string().trim().regex(/^\d{1,9}(\.\d{1,2})?$/, { error: "Numbers only" }).optional(),
+    other_note: z.string().trim().max(100, { error: "Too long" }).optional(),
     charges: z.string().trim().regex(/^\d{1,9}(\.\d{1,2})?$/).optional(),
     // split payment: e.g. cash + bank on one receipt
     parts: z

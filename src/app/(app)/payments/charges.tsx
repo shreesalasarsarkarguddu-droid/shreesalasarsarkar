@@ -21,7 +21,7 @@ const isAmount = (v: string) => /^\d{1,9}(\.\d{1,2})?$/.test(v);
 const plain = (p: bigint) => (p % 100n === 0n ? String(p / 100n) : fromPaise(p));
 const days = (from: string, to: string) => Math.round((Date.UTC(+to.slice(0, 4), +to.slice(5, 7) - 1, +to.slice(8, 10)) - Date.UTC(+from.slice(0, 4), +from.slice(5, 7) - 1, +from.slice(8, 10))) / 86400000);
 
-/** OD = days since the oldest unpaid EMI's due date (to the paid date) × the rate; the admin may type another amount. */
+/** OD = days since the oldest unpaid EMI's due date (to the paid date) × the rate; who may (info.can_change_od) can type another amount. */
 export function chargeTotals(info: ChargeInfo | null, paidDate: string, f: ChargeForm): ChargeTotals {
   const odDays = info?.od_from && paidDate && paidDate > info.od_from ? days(info.od_from, paidDate) : 0;
   const odAuto = BigInt(odDays) * BigInt(Math.round((info?.od_rate ?? 0) * 100));
@@ -34,14 +34,14 @@ export function chargeTotals(info: ChargeInfo | null, paidDate: string, f: Charg
     }
     return toPaise(v.trim());
   };
-  const od = odDays > 0 ? (info?.admin && f.od.trim() !== "" ? amt(f.od, "od_amount") : odAuto) : 0n;
+  const od = odDays > 0 ? (info?.can_change_od && f.od.trim() !== "" ? amt(f.od, "od_amount") : odAuto) : 0n;
   const seize = amt(f.seize, "seize_amount");
   const other = f.showOther ? amt(f.other, "other_amount") : 0n;
   if (other > 0n && !f.other_note.trim()) error ??= { field: "other_note", msg: "Write what the other charge is for" };
   return { odDays, odAuto, od, seize, other, total: od + seize + other, error };
 }
 
-/** The charges part of the payment form: OD (locked unless admin), seize charge (seized vehicles), other with a note. */
+/** The charges part of the payment form: OD (locked for those who may not change it), seize charge (seized vehicles), other with a note. */
 export function ChargesBox({
   info, totals, form, emi, errors, onChange,
 }: {
@@ -82,19 +82,21 @@ export function ChargesBox({
               id="pay-od_amount"
               inputMode="decimal"
               autoComplete="off"
-              disabled={!info.admin}
-              value={info.admin && form.od !== "" ? form.od : plain(totals.odAuto)}
+              disabled={!info.can_change_od}
+              value={info.can_change_od && form.od !== "" ? form.od : plain(totals.odAuto)}
               onChange={(e) => set("od", e.target.value.replace(/[^\d.]/g, ""))}
               aria-invalid={!!errors.od_amount}
               className={`num h-11 min-w-0 flex-1 rounded-lg border bg-white px-3 text-base font-semibold disabled:bg-slate-100 disabled:text-slate-600 ${errors.od_amount ? "border-red-500" : "border-slate-300"}`}
             />
-            {info.admin && form.od !== "" && (
+            {info.can_change_od && form.od !== "" && (
               <button type="button" onClick={() => set("od", "")} className="shrink-0 text-xs font-semibold text-blue-700">
                 Reset
               </button>
             )}
           </div>
-          <p className="mt-1 text-xs text-slate-500">{info.admin ? "You can change it (more or less)." : "🔒 Only the admin can change the OD."}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {info.can_change_od ? "You can change it (more, less or 0). A changed OD is shown in Activity." : "🔒 Only the admin can change the OD."}
+          </p>
           {errors.od_amount && <p className="mt-1 text-sm text-red-700">{errors.od_amount}</p>}
         </div>
       )}

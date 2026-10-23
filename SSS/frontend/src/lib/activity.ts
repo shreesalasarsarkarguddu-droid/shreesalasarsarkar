@@ -15,6 +15,7 @@ export type AuditRow = {
 export const ACTIONS: { key: string; label: string; group: string }[] = [
   { key: "payment", label: "Payment taken", group: "Money" },
   { key: "payment_edited", label: "Payment edited", group: "Fixes" },
+  { key: "od_changed", label: "OD changed", group: "Money" },
   { key: "payment_cancelled", label: "Payment cancelled", group: "Fixes" },
   { key: "new_loan", label: "New loan", group: "Loans" },
   { key: "loan_edited", label: "Loan edited", group: "Fixes" },
@@ -103,6 +104,8 @@ export function describe(a: AuditRow): string {
   switch (a.action) {
     case "payment":
       return `${rs(d.amount)} · Rcpt ${val(d.receipt_no)} · ${val(d.mode)}${Number(d.emis) > 1 ? ` · ${d.emis} EMIs` : ""}`;
+    case "od_changed":
+      return `Rcpt ${val(d.receipt_no)} · worked out ${rs(d.suggested)} (${val(d.days)} days × ${rs(d.rate)}) → taken ${rs(d.taken)}`;
     case "payment_edited":
       return `Rcpt ${val(d.receipt_no)}: ${changesText(d.changes)} · Reason: ${val(d.reason)}`;
     case "payment_pending":

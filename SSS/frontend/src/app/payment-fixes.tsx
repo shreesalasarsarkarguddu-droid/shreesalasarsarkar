@@ -103,6 +103,10 @@ function EditForm({ p, path, onDone }: { p: NewPaymentRecord; path: string; onDo
     bank_name: p.bank_name ?? "",
     installments_covered: String(p.installments_covered),
     reason: "",
+    od_amount: String(Number(p.od_amount ?? 0)),
+    seize_amount: String(Number(p.seize_amount ?? 0)),
+    other_amount: String(Number(p.other_amount ?? 0)),
+    other_note: p.other_note ?? "",
   });
   // split: part 1 typed, part 2 = the rest of the amount
   const [parts, setParts] = useState<Part[]>(() =>
@@ -118,7 +122,7 @@ function EditForm({ p, path, onDone }: { p: NewPaymentRecord; path: string; onDo
   const err = (k: string) => (r && !r.ok ? r.fieldErrors?.[k] : undefined);
   const set = (k: keyof PaymentFixInput, v: string) => setF((o) => ({ ...o, [k]: v }));
   const split = f.payment_mode === "SPLIT";
-  const charges = Number(p.charges ?? 0);
+  const charges = Math.round((Number(f.od_amount || 0) + Number(f.seize_amount || 0) + Number(f.other_amount || 0)) * 100) / 100;
   const rest = Math.round((Number(f.paid_amount || 0) + charges - Number(parts[0].amount || 0)) * 100) / 100;
   const setPart = (i: number, k: keyof Part, v: string) => setParts((ps) => ps.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const splitParts: Part[] = [parts[0], { ...parts[1], amount: rest > 0 ? String(rest) : "" }];
@@ -129,7 +133,7 @@ function EditForm({ p, path, onDone }: { p: NewPaymentRecord; path: string; onDo
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {
-          const res = await editPayment(p.id, path, split ? { ...f, parts: splitParts, reference_no: "", bank_name: "", charges: String(charges) } : f);
+          const res = await editPayment(p.id, path, split ? { ...f, parts: splitParts, reference_no: "", bank_name: "", charges: String(charges) } : { ...f, charges: String(charges) });
           setR(res);
           if (res.ok) {
             router.refresh();
@@ -139,7 +143,7 @@ function EditForm({ p, path, onDone }: { p: NewPaymentRecord; path: string; onDo
       }}
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <L label={charges > 0 ? `EMI amount (₹) · charges ₹${charges} stay` : "Amount (₹)"} error={err("paid_amount")}>
+        <L label="EMI amount (₹)" error={err("paid_amount")}>
           <input className={input} inputMode="decimal" value={f.paid_amount} onChange={(e) => set("paid_amount", e.target.value.replace(/[^\d.]/g, ""))} />
         </L>
         <L label="Mode" error={err("payment_mode")}>
@@ -174,6 +178,21 @@ function EditForm({ p, path, onDone }: { p: NewPaymentRecord; path: string; onDo
             onChange={(e) => set("installments_covered", e.target.value.replace(/\D/g, ""))}
           />
         </L>
+        {/* charges on the same receipt (not in the balance) */}
+        <L label={`OD (₹)${p.od_days ? ` · ${p.od_days} days late` : ""}`} error={err("od_amount")}>
+          <input className={input} inputMode="decimal" value={f.od_amount} onChange={(e) => set("od_amount", e.target.value.replace(/[^\d.]/g, ""))} />
+        </L>
+        <L label="Seize charge (₹)" error={err("seize_amount")}>
+          <input className={input} inputMode="decimal" value={f.seize_amount} onChange={(e) => set("seize_amount", e.target.value.replace(/[^\d.]/g, ""))} />
+        </L>
+        <L label="Other charge (₹)" error={err("other_amount")}>
+          <input className={input} inputMode="decimal" value={f.other_amount} onChange={(e) => set("other_amount", e.target.value.replace(/[^\d.]/g, ""))} />
+        </L>
+        {Number(f.other_amount || 0) > 0 && (
+          <L label="Other charge is for" error={err("other_note")}>
+            <input className={input} maxLength={100} value={f.other_note} onChange={(e) => set("other_note", e.target.value)} />
+          </L>
+        )}
       </div>
 
       {split && (

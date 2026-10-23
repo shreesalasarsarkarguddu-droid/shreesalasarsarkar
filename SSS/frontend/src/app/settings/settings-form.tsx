@@ -27,6 +27,8 @@ export type Settings = {
   review_above: number | string;
   /** OD (delay charge) per day late, from the oldest unpaid EMI's due date */
   od_per_day: number | string;
+  /** everyone who collects may change the OD on a payment (shown in Activity) */
+  collectors_change_od: boolean;
   require_receipt_books: boolean;
   restrict_to_assigned: boolean;
   updated_at: string | null;
@@ -240,6 +242,11 @@ export function SettingsForm({ initial }: { initial: Settings }) {
             />
           </Field>
         </div>
+        <Check
+          checked={s.collectors_change_od ?? true}
+          onChange={(v) => set("collectors_change_od", v)}
+          label="Collection men can change the OD on a payment (more, less or 0) — every change is shown in Activity (“OD changed”)"
+        />
         <Check
           checked={s.require_receipt_books}
           onChange={(v) => set("require_receipt_books", v)}

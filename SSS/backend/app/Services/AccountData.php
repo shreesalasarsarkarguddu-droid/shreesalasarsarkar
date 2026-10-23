@@ -126,6 +126,8 @@ final class AccountData
             'seized' => $seized,
             'seized_on' => $seized ? $last : null,
             'admin' => $u->isAdmin(),
+            'can_change_od' => Payments::canChangeOd($u),
+            'can_release' => Perm::can($u, 'seize'),
         ];
     }
 

@@ -195,7 +195,7 @@ export function CollectPanel({
             : `Saved ${took} · receipt ${res.receiptNo} · ${form.installments_covered} EMI(s)` +
                 (res.ledger ? ` · new balance ${inr(res.ledger.balance)}` : ""),
         );
-        if (ledger.charges?.seized && ledger.charges.admin) setReleaseAfter(res.receiptNo);
+        if (ledger.charges?.seized && ledger.charges.can_release) setReleaseAfter(res.receiptNo);
         if (res.ledger) setLedger(res.ledger);
         else void load();
         setForm(emptyForm());

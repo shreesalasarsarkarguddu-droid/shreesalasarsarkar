@@ -48,10 +48,11 @@ final class Payments
 
     /**
      * The charges on the same receipt (record_payment): OD = days since the oldest unpaid EMI's due date × the rate, only
-     * when the screen sends od_amount (only the admin may send another amount); seize and other as typed (other needs a note).
+     * when the screen sends od_amount (another amount: see canChangeOd; $odChange then says what was worked out and taken);
+     * seize and other as typed (other needs a note).
      * Returns the payment columns od_amount, od_days, seize_amount, other_amount, other_note, charges. Throws PaymentError.
      */
-    public static function charges(User $u, string $source, int $ref, ?string $date, array $p): array
+    public static function charges(User $u, string $source, int $ref, ?string $date, array $p, ?array &$odChange = null): array
     {
         $paise = function (string $k) use ($p): int {
             $v = trim((string) ($p[$k] ?? ''));
@@ -72,9 +73,11 @@ final class Payments
             $od = $days * Money::paise(DB::table('app_settings')->where('id', 1)->value('od_per_day') ?? 0);
             $sent = $paise('od_amount');
             if ($sent !== $od) {
-                if (! $u->isAdmin()) {
-                    throw new PaymentError('Only the admin can change the OD amount.', 'od_amount');
+                if (! self::canChangeOd($u)) {
+                    throw new PaymentError('You are not allowed to change the OD amount.', 'od_amount');
                 }
+                $odChange = ['suggested' => (float) Money::str($od), 'taken' => (float) Money::str($sent), 'days' => $days,
+                    'rate' => (float) DB::table('app_settings')->where('id', 1)->value('od_per_day'), 'paid_date' => $date];
                 $od = $sent;
             }
         }
@@ -92,6 +95,12 @@ final class Payments
             'od_amount' => Money::str($od), 'od_days' => $days, 'seize_amount' => Money::str($seize), 'other_amount' => Money::str($other),
             'other_note' => $other > 0 ? $note : null, 'charges' => Money::str($od + $seize + $other),
         ];
+    }
+
+    /** Admin, "Late fees & discounts", or anyone while Settings → "Collectors can change the OD" is on. */
+    public static function canChangeOd(User $u): bool
+    {
+        return $u->isAdmin() || Perm::can($u, 'money') || (bool) DB::table('app_settings')->where('id', 1)->value('collectors_change_od');
     }
 
     /**
@@ -118,7 +127,8 @@ final class Payments
         }
 
         // charges first: a SPLIT's parts cover the EMI amount and the charges
-        $charges = self::charges($u, (string) $source, $ref, $date, $p);
+        $odChange = null;
+        $charges = self::charges($u, (string) $source, $ref, $date, $p, $odChange);
         $chargePaise = Money::paise($charges['charges']);
 
         $parts = null;
@@ -150,7 +160,7 @@ final class Payments
             throw new PaymentError('Bad account.');
         }
 
-        return DB::transaction(function () use ($u, $p, $key, $source, $ref, $amount, $date, $im, $rno, $mode, $parts, $today, $charges) {
+        return DB::transaction(function () use ($u, $p, $key, $source, $ref, $amount, $date, $im, $rno, $mode, $parts, $today, $charges, $odChange) {
             // one payment at a time per account, and per receipt book (locks held until commit)
             if ($source === 'old') {
                 DB::table('legacy_accounts')->where('sno', $ref)->lockForUpdate()->first(['id']);
@@ -214,6 +224,13 @@ final class Payments
                 'series_id' => $series,
                 'receipt_book' => Receipts::code($series),
             ] + $charges;
+
+            // a changed OD goes to the activity log (to be looked at later)
+            if ($odChange !== null) {
+                $acct = $source === 'old' ? DB::table('legacy_accounts')->where('sno', $ref)->value('id') : null;
+                Audit::log('od_changed', Audit::acctRef($acct, $source === 'new' ? $ref : null)['subject'],
+                    ['source' => $source, 'ref_id' => $ref], $odChange + ['receipt_no' => $rno]);
+            }
 
             // people without "approve": wait for the night cash count
             if (! Perm::can($u, 'approve')) {

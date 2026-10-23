@@ -75,7 +75,13 @@ export type ReceiptHint = {
 };
 
 /** For the charges in the payment window: OD rate and its start (oldest unpaid EMI's due date), seizure, admin or not. */
-export type ChargeInfo = { od_rate: number; od_from: string | null; seized: boolean; seized_on: string | null; admin: boolean };
+export type ChargeInfo = {
+  od_rate: number; od_from: string | null; seized: boolean; seized_on: string | null; admin: boolean;
+  /** may type another OD (admin, "Late fees & discounts", or everyone while Settings allows collectors) */
+  can_change_od: boolean;
+  /** may give a seized vehicle back ("Seize vehicles") */
+  can_release: boolean;
+};
 
 export type Ledger = {
   /** OD rate, seizure (null when it could not be read: then no charges are offered) */

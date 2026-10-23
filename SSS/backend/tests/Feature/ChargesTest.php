@@ -67,11 +67,12 @@ class ChargesTest extends TestCase
             [$e['debit'], $e['cash'], $e['bank'], $e['emi'], $e['seize'], $e['other_note']]);
     }
 
-    public function test_only_the_admin_changes_the_od_and_old_screens_take_none(): void
+    public function test_who_changes_the_od_and_old_screens_take_none(): void
     {
         $this->as($this->admin());
         $loan = $this->lateLoan();
-        DB::table('app_settings')->where('id', 1)->update(['od_per_day' => 10, 'require_receipt_books' => false, 'restrict_to_assigned' => false]);
+        DB::table('app_settings')->where('id', 1)->update(['od_per_day' => 10, 'require_receipt_books' => false, 'restrict_to_assigned' => false,
+            'collectors_change_od' => false]);
 
         // a screen that sends no od_amount: no OD
         $this->postJson('/api/payments', $this->payment('new', $loan, '500', $this->freeReceipt()))->assertOk();
@@ -84,7 +85,7 @@ class ChargesTest extends TestCase
         $this->as($coll);
         $rno = $this->freeReceipt();
         $this->postJson('/api/payments', $this->payment('new', $loan, '500', $rno, ['od_amount' => '1']))
-            ->assertStatus(422)->assertJsonPath('fieldErrors.od_amount', 'Only the admin can change the OD amount.');
+            ->assertStatus(422)->assertJsonPath('fieldErrors.od_amount', 'You are not allowed to change the OD amount.');
         $this->postJson('/api/payments', $this->payment('new', $loan, '500', $rno, ['other_amount' => '50']))
             ->assertStatus(422)->assertJsonPath('fieldErrors.other_note', 'Write what the other charge is for.');
         $this->postJson('/api/payments', $this->payment('new', $loan, '500', $rno, ['od_amount' => (string) $od, 'other_amount' => '50', 'other_note' => 'Paper']))
@@ -117,5 +118,39 @@ class ChargesTest extends TestCase
         $this->as($this->admin());
         $this->rpc('save_notification_settings', ['p' => ['od_per_day' => '15']])->assertOk();
         $this->rpc('get_notification_settings')->assertOk()->assertJsonPath('data.od_per_day', 15);
+    }
+
+    public function test_collectors_change_the_od_when_allowed_and_it_is_logged(): void
+    {
+        $this->as($this->admin());
+        $loan = $this->lateLoan();
+        DB::table('app_settings')->where('id', 1)->update(['od_per_day' => 10, 'require_receipt_books' => false, 'restrict_to_assigned' => false,
+            'collectors_change_od' => true]);
+        $od = AccountMath::days(AccountMath::odFrom('new', $loan), now()->toDateString()) * 10;
+        $coll = $this->staff('staff', ['collect', 'approve', 'view_accounts']);
+        $this->as($coll);
+        $this->getJson("/api/ledger/new/$loan")->assertJsonPath('charges.can_change_od', true)->assertJsonPath('charges.can_release', false);
+
+        $rno = $this->freeReceipt();
+        $this->postJson('/api/payments', $this->payment('new', $loan, '500', $rno, ['od_amount' => '0']))->assertOk();
+        $p = DB::table('payments')->where('receipt_no', $rno)->sole();
+        $this->assertSame('0.00', $p->od_amount);
+        $log = DB::table('data_audit')->where('action', 'od_changed')->orderByDesc('id')->first();
+        $this->assertSame($coll->id, $log->by_user);
+        $d = json_decode($log->details, true);
+        $this->assertSame([(float) $od, 0.0, $rno], [(float) $d['suggested'], (float) $d['taken'], $d['receipt_no']]);
+        // the full OD is not a change: no log line
+        $n = DB::table('data_audit')->where('action', 'od_changed')->count();
+        $od2 = AccountMath::days(AccountMath::odFrom('new', $loan), now()->toDateString()) * 10;
+        $this->postJson('/api/payments', $this->payment('new', $loan, '500', $this->freeReceipt(), ['od_amount' => (string) $od2]))->assertOk();
+        $this->assertSame($n, DB::table('data_audit')->where('action', 'od_changed')->count());
+
+        // the admin puts an OD on that receipt later (Edit payment); it is in the edit's changes
+        $this->as($this->admin());
+        $this->rpc('admin_edit_payment', ['p_id' => $p->id, 'p_reason' => 'od was due', 'p' => ['paid_amount' => '500', 'paid_date' => now()->toDateString(),
+            'payment_mode' => 'CASH', 'receipt_no' => (string) $rno, 'installments_covered' => 1, 'od_amount' => '150']])->assertOk();
+        $this->assertSame(['150.00', '150.00'], array_values((array) DB::table('payments')->where('id', $p->id)->first(['od_amount', 'charges'])));
+        $edit = json_decode(DB::table('data_audit')->where('action', 'payment_edited')->orderByDesc('id')->value('details'), true);
+        $this->assertEquals(['from' => 0, 'to' => 150], $edit['changes']['od_amount']);
     }
 }

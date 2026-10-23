@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 /** Business name, Telegram, WhatsApp and staff-control settings (admin only). */
 class Settings
 {
-    private const BOOLS = ['telegram_enabled', 'tg_on_payment', 'tg_on_new_loan', 'tg_on_seizure', 'tg_daily_summary', 'whatsapp_enabled', 'wa_receipt',
+    private const BOOLS = ['collectors_change_od', 'telegram_enabled', 'tg_on_payment', 'tg_on_new_loan', 'tg_on_seizure', 'tg_daily_summary', 'whatsapp_enabled', 'wa_receipt',
         'wa_due_reminder', 'require_receipt_books', 'restrict_to_assigned'];
 
     private static function admin(User $u): void

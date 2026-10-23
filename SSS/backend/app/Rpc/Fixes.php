@@ -82,6 +82,26 @@ class Fixes
         if (! LoanRules::realDate($date) || $date > now()->toDateString()) {
             throw RpcError::bad('paid date cannot be in the future');
         }
+        // the charges of the receipt: changed when sent, else kept
+        $charge = function (string $k) use ($p, $o): int {
+            $v = trim((string) ($p[$k] ?? ''));
+            if ($v === '') {
+                return Money::paise($o->$k);
+            }
+            if (! preg_match('/^\d{1,9}(\.\d{1,2})?$/', $v)) {
+                throw RpcError::bad('charges cannot be less than 0');
+            }
+
+            return Money::paise($v);
+        };
+        [$od, $seize, $other] = [$charge('od_amount'), $charge('seize_amount'), $charge('other_amount')];
+        $onote = array_key_exists('other_note', $p) ? (trim((string) $p['other_note']) ?: null) : $o->other_note;
+        if ($other > 0 && $onote === null) {
+            throw RpcError::bad('write what the other charge is for');
+        }
+        if ($onote !== null && mb_strlen($onote) > 100) {
+            throw RpcError::bad('the other charge note is too long');
+        }
         $parts = null;
         if ($mode === 'SPLIT') {
             try {
@@ -89,8 +109,8 @@ class Fixes
             } catch (PaymentError $e) {
                 throw RpcError::bad(lcfirst(rtrim($e->getMessage(), '.')));
             }
-            // the charges on this receipt stay: the parts cover the EMI amount and the charges
-            if (array_sum(array_map(fn ($x) => Money::paise((string) $x['amount']), $parts)) !== $amount + Money::paise($o->charges)) {
+            // the parts cover the EMI amount and the charges
+            if (array_sum(array_map(fn ($x) => Money::paise((string) $x['amount']), $parts)) !== $amount + $od + $seize + $other) {
                 throw RpcError::bad('the parts must add up to the EMI amount and the charges');
             }
         }
@@ -123,11 +143,13 @@ class Fixes
             'reference_no' => $mode === 'SPLIT' ? null : (trim((string) ($p['reference_no'] ?? '')) ?: null),
             'bank_name' => $mode === 'BANK' ? $bank : null, 'receipt_no' => $rno, 'installments_covered' => $im,
             'parts' => $parts === null ? null : json_encode($parts),
+            'od_amount' => Money::str($od), 'seize_amount' => Money::str($seize), 'other_amount' => Money::str($other),
+            'other_note' => $other > 0 ? $onote : null, 'charges' => Money::str($od + $seize + $other),
         ]);
         AccountMath::reflow($o->legacy_account_id, $o->loan_id);
         $n = DB::table('payments')->where('id', $id)->first();
-        $d = self::diff((array) $o, (array) $n, ['paid_amount', 'paid_date', 'payment_mode', 'reference_no', 'bank_name', 'receipt_no', 'installments_covered', 'parts'],
-            ['paid_amount']);
+        $d = self::diff((array) $o, (array) $n, ['paid_amount', 'paid_date', 'payment_mode', 'reference_no', 'bank_name', 'receipt_no', 'installments_covered', 'parts',
+            'od_amount', 'seize_amount', 'other_amount', 'other_note'], ['paid_amount', 'od_amount', 'seize_amount', 'other_amount']);
         if (! $d) {
             throw RpcError::bad('nothing was changed');
         }
@@ -135,8 +157,8 @@ class Fixes
         Audit::log('payment_edited', $r['subject'], ['source' => $r['source'], 'ref_id' => $r['ref_id']],
             ['reason' => $reason, 'receipt_no' => (int) $o->receipt_no, 'changes' => $d]);
         Notify::text('payment', "✏️ Payment edited\n".($r['subject'] ?? '?')."\n"
-            .'Rcpt '.$o->receipt_no.': '.Money::inr(Money::paise($o->paid_amount)).' on '.date('d/m/Y', strtotime($o->paid_date))
-            .' → Rcpt '.$n->receipt_no.': '.Money::inr(Money::paise($n->paid_amount)).' on '.date('d/m/Y', strtotime($n->paid_date))."\n"
+            .'Rcpt '.$o->receipt_no.': '.Money::inr(Money::paise($o->paid_amount) + Money::paise($o->charges)).' on '.date('d/m/Y', strtotime($o->paid_date))
+            .' → Rcpt '.$n->receipt_no.': '.Money::inr(Money::paise($n->paid_amount) + Money::paise($n->charges)).' on '.date('d/m/Y', strtotime($n->paid_date))."\n"
             ."Reason: $reason\n".self::by($u), 'payment_edited');
 
         return ['id' => $id, 'receipt_no' => (int) $n->receipt_no, 'balance_after' => (float) $n->balance_after];
