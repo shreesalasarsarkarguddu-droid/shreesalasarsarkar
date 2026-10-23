@@ -1,0 +1,1 @@
+import{i as e}from"./api-C8VDvso6.js";async function t(t,n={}){let r=await e(`POST`,`/rpc/${t}`,n);if(r.ok)return{data:r.data??null,error:null};let i=r.error;return{data:null,error:typeof i==`object`&&i?i:{message:i||`Could not save. Check your internet and try again.`}}}async function n(){return{rpc:t}}export{t as n,n as t};

@@ -90,7 +90,7 @@ the new site use Settings → Data → Restore from a backup file. (Telegram / W
 
 ## 6. Updating later
 
-Build again on the PC (step 1), upload the changed files (`app/`, `routes/`, `database/`, `public/app/`, ...), then:
+With git on the server: `git pull` (the screens in `public/app` and `public/autodeal-build` are committed), then:
 
 ```bash
 php artisan migrate --force
@@ -101,7 +101,25 @@ php artisan route:cache
 A migration that adds a column to a data table must add it to its restore-point copy `rp_<table>` too
 (see `database/migrations/2026_10_21_000100_create_data_safety_tables.php`).
 
-## Screens and API on two domains (Hostinger: businesstradecore.in + api.businesstradecore.in)
+## Hostinger: everything on businesstradecore.in (screens, API, Auto Deal)
+
+Laravel serves the screens (`public/app`, committed) for every page that is not `/api`, `/sanctum`, `/autodeal` or `/storage`,
+so one domain does it all and the session cookie is never cross-site. The code is in `~/domains/api.businesstradecore.in/sss`.
+
+```bash
+cd ~/domains/businesstradecore.in
+mv public_html public_html_old                       # the old dist/ upload (delete it once all works)
+ln -s ~/domains/api.businesstradecore.in/sss/backend/public public_html
+cd ~/domains/api.businesstradecore.in/sss/backend
+sed -i 's#^APP_URL=.*#APP_URL=https://businesstradecore.in#' .env
+php artisan config:cache && php artisan route:cache && php artisan view:clear
+```
+
+Keep `SESSION_DOMAIN=.businesstradecore.in`, `FRONTEND_URL` and `SANCTUM_STATEFUL_DOMAINS` as below: people stay signed in, and
+api.businesstradecore.in keeps working for old links. After a change to the screens: `cd frontend && npm run build`
+(writes `backend/public/app`), commit, `git pull` on the server.
+
+## Screens and API on two domains (the older way: businesstradecore.in + api.businesstradecore.in)
 
 - API: clone into `~/domains/api.businesstradecore.in/sss`, replace that domain's `public_html` with a link to
   `sss/backend/public`, and add to `.env`:
@@ -148,8 +166,8 @@ the server (PHP GD) if a bigger one arrives. With `CLOUDINARY_URL` set, new vehi
 `autodeal/vehicles/<id>`) and are deleted there when removed; without it they stay in `storage/app/public/autodeal`.
 Photos added earlier stay where they are. ID proofs and sale papers always stay on this server (private).
 
-Links: split hosting → `https://api.businesstradecore.in/autodeal/vehicles` (the menu link in both apps goes there; the
-Next.js site can change it with `NEXT_PUBLIC_AUTODEAL_URL`, empty hides it). Public catalogue: `/autodeal/catalogue`.
+Links: `https://businesstradecore.in/autodeal/vehicles` (the Next.js site's menu link goes there; change it with
+`NEXT_PUBLIC_AUTODEAL_URL`, empty hides it). Public catalogue for customers: `https://businesstradecore.in/autodeal/catalogue`.
 
 Backups: the backup zip and restore points include the `ad_*` tables. Photos and ID proofs are files, not rows: Settings →
 Data → "Download Auto Deal photos & documents" (Cloudinary photos are downloaded into it too), and the nightly job keeps the last 3 `autodeal-files-DATE.zip` in

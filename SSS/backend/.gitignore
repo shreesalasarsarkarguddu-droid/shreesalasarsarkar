@@ -23,8 +23,7 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-# built React app (npm run build in SSS/frontend writes it)
-/public/app
+# public/app (the React screens, npm run build in SSS/frontend) is committed: the server only needs git pull
 
 # Auto Deal dev server (npm run dev)
 /public/autodeal.hot

@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-P-__L6mg.js";var t=e();function n(){return(0,t.jsx)(`button`,{type:`button`,onClick:()=>window.print(),className:`h-11 rounded-lg bg-white px-4 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50`,children:`Print`})}export{n as t};

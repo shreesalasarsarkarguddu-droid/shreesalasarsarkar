@@ -1,0 +1,1 @@
+import{o as e}from"./api-C8VDvso6.js";async function t(){return e.getQueryData([`me`])??null}export{t};

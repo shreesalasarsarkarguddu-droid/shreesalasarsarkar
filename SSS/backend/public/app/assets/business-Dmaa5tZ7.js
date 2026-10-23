@@ -1,0 +1,1 @@
+var e={name:`SHREE SALASAR SARKAR`,address:`Raipur Road, DHAMTARI (C.G.) 493 773`,phones:`9425204738 (Guddu), 9827226081 (Bhanu)`,lateFeePerDay:10,recoveryTravelExpense:1e3};export{e as t};
