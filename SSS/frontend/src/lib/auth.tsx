@@ -43,6 +43,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(SIGNED_OUT, onOut);
   }, []);
 
+  // Back / Forward can show this page as it was (browser's back-forward cache), e.g. the sign-in page from before
+  // signing in on Auto Deal: ask the server again who is signed in
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) void queryClient.invalidateQueries({ queryKey: ["me"] });
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
+
   const signIn = useCallback(async (email: string, password: string) => {
     const r = await act<{ ok: boolean; error?: string; user?: Staff }>("POST", "/login", { email, password });
     if (!r.ok || !r.user) return r.error ?? "Email or password is incorrect.";
