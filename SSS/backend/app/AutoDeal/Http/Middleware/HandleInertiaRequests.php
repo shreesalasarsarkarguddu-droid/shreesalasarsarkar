@@ -4,6 +4,7 @@ namespace App\AutoDeal\Http\Middleware;
 
 use App\AutoDeal\Models\Branch;
 use App\AutoDeal\Support\Module;
+use App\AutoDeal\Support\Shop;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -35,8 +36,8 @@ class HandleInertiaRequests extends Middleware
                 ],
             ],
             'app' => [
-                'name' => config('autodeal.business_name'),
-                'phone' => config('autodeal.business_phone'),
+                'name' => Shop::get()['name'],
+                'phone' => Shop::get()['phone'],
                 'home' => Module::homeUrl(), // back to the SSS screens
             ],
             // Branch UI only appears once a dealer has more than one active yard.

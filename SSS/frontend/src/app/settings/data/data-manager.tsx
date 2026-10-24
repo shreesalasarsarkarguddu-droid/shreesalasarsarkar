@@ -193,7 +193,7 @@ const DATA_TABLES = [
   "receipt_books", "cash_closings", "collection_assignments", "pending_payments", "zones", "receipt_series", "visit_remarks",
   // Auto Deal
   "ad_branches", "ad_sellers", "ad_buyers", "ad_vehicles", "ad_vehicle_photos", "ad_vehicle_transfers", "ad_sales", "ad_sale_documents",
-  "ad_sale_payments", "ad_branch_user", "ad_activity_logs",
+  "ad_sale_payments", "ad_branch_user", "ad_activity_logs", "ad_settings",
 ];
 const TABLE_LABEL: Record<string, string> = {
   import_batches: "Import history", legacy_accounts: "Old accounts", legacy_payments: "Old receipts", borrowers: "Borrowers",
@@ -202,7 +202,7 @@ const TABLE_LABEL: Record<string, string> = {
   ad_branches: "Auto Deal yards", ad_sellers: "Auto Deal sellers", ad_buyers: "Auto Deal buyers", ad_vehicles: "Auto Deal vehicles",
   ad_vehicle_photos: "Auto Deal photos", ad_vehicle_transfers: "Auto Deal yard moves", ad_sales: "Auto Deal sales",
   ad_sale_documents: "Auto Deal sale papers", ad_sale_payments: "Auto Deal payments", ad_branch_user: "Auto Deal staff yards",
-  ad_activity_logs: "Auto Deal activity",
+  ad_activity_logs: "Auto Deal activity", ad_settings: "Auto Deal shop details",
 };
 type FilePreview = {
   file: string; taken: string; unknown_people: number; has_accounts: boolean;

@@ -13,6 +13,7 @@ use App\AutoDeal\Http\Controllers\PriceHintController;
 use App\AutoDeal\Http\Controllers\ReceiptController;
 use App\AutoDeal\Http\Controllers\ReportController;
 use App\AutoDeal\Http\Controllers\SaleController;
+use App\AutoDeal\Http\Controllers\ShopController;
 use App\AutoDeal\Http\Controllers\VehicleController;
 use App\AutoDeal\Http\Middleware\DealerAccess;
 use App\AutoDeal\Http\Middleware\HandleInertiaRequests;
@@ -62,6 +63,8 @@ Route::middleware(HandleInertiaRequests::class)->group(function () {
             Route::get('activity', [ActivityController::class, 'index'])->name('activity.index');
 
             Route::put('account/users/{user}', [AccountController::class, 'updateUser'])->name('account.users.update');
+            Route::get('shop', [ShopController::class, 'edit'])->name('shop.edit');
+            Route::put('shop', [ShopController::class, 'update'])->name('shop.update');
             Route::get('branches', [BranchController::class, 'index'])->name('branches.index');
             Route::post('branches', [BranchController::class, 'store'])->name('branches.store');
             Route::put('branches/{branch}', [BranchController::class, 'update'])->name('branches.update');

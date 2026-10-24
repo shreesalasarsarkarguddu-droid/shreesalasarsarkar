@@ -18,6 +18,7 @@ class ActivityController extends Controller
         'staff' => 'Staff yards',
         'branch' => 'Branches',
         'export' => 'Exports',
+        'shop' => 'Shop details',
     ];
 
     public function index(Request $request): Response

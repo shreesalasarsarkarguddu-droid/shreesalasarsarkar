@@ -16,7 +16,7 @@ final class Module
 {
     /** In the order they can be filled (a row's references come first). */
     public const TABLES = ['ad_branches', 'ad_sellers', 'ad_buyers', 'ad_vehicles', 'ad_vehicle_photos', 'ad_vehicle_transfers',
-        'ad_sales', 'ad_sale_documents', 'ad_sale_payments', 'ad_branch_user', 'ad_activity_logs'];
+        'ad_sales', 'ad_sale_documents', 'ad_sale_payments', 'ad_branch_user', 'ad_activity_logs', 'ad_settings'];
 
     private static ?bool $installed = null;
 

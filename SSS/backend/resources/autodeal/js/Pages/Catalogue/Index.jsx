@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/Components/ui';
 import { inr } from '@/lib/format';
+import ShopContact, { waLink } from '@/Components/ShopContact';
 
 /** Public, customer-facing stock catalogue (no login). */
 export default function Catalogue({ vehicles, nextPageUrl, prevPageUrl, filters, companies, branches, dealer }) {
@@ -28,13 +29,20 @@ export default function Catalogue({ vehicles, nextPageUrl, prevPageUrl, filters,
                 <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-4">
                     <div className="min-w-0">
                         <h1 className="truncate text-lg font-bold">{dealer.name}</h1>
-                        {dealer.address && <p className="truncate text-xs text-slate-300">{dealer.address}</p>}
+                        <p className="truncate text-xs text-slate-300">{dealer.tagline || dealer.address}</p>
                     </div>
-                    {dealer.phone && (
-                        <a href={`tel:${dealer.phone}`} className="flex shrink-0 items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 text-sm font-semibold">
-                            <Icon name="phone" className="size-4" /> Call
-                        </a>
-                    )}
+                    <div className="flex shrink-0 gap-2">
+                        {dealer.whatsapp && (
+                            <a href={waLink(dealer.whatsapp, `Hi ${dealer.name}, I saw your vehicles online.`)} target="_blank" rel="noopener" className="flex items-center gap-1.5 rounded-xl bg-green-600 px-3 py-2 text-sm font-semibold">
+                                <Icon name="share" className="size-4" /> <span className="hidden sm:inline">WhatsApp</span>
+                            </a>
+                        )}
+                        {dealer.phone && (
+                            <a href={`tel:${dealer.phone}`} className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 text-sm font-semibold">
+                                <Icon name="phone" className="size-4" /> Call
+                            </a>
+                        )}
+                    </div>
                 </div>
             </header>
 
@@ -115,6 +123,7 @@ export default function Catalogue({ vehicles, nextPageUrl, prevPageUrl, filters,
                     {prevPageUrl ? <Link href={prevPageUrl} className="font-semibold text-brand-700">← Previous</Link> : <span />}
                     {nextPageUrl && <Link href={nextPageUrl} className="font-semibold text-brand-700">More vehicles →</Link>}
                 </div>
+                <ShopContact dealer={dealer} className="mt-6" />
             </main>
 
             <footer className="pb-8 text-center text-xs text-slate-400">Prices are indicative and may change. Subject to availability.</footer>

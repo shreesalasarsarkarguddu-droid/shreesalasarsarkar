@@ -16,7 +16,10 @@ export default function Account({ users, allBranches }) {
             </p>
 
             {owner && (
-                <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-semibold">
+                <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs font-semibold sm:grid-cols-4">
+                    <Link href={route('autodeal.shop.edit')} className="rounded-2xl bg-white px-2 py-3 ring-1 ring-slate-200">
+                        <Icon name="edit" className="mx-auto mb-1 size-5 text-slate-500" /> Shop details
+                    </Link>
                     <Link href={route('autodeal.activity.index')} className="rounded-2xl bg-white px-2 py-3 ring-1 ring-slate-200">
                         <Icon name="eye" className="mx-auto mb-1 size-5 text-slate-500" /> Activity log
                     </Link>

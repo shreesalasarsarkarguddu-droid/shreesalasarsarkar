@@ -1,6 +1,5 @@
 <?php
 
-use App\AutoDeal\Support\Module;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +11,9 @@ use Illuminate\Support\Facades\Schema;
  */
 return new class extends Migration
 {
+    private const TABLES = ['ad_branches', 'ad_sellers', 'ad_buyers', 'ad_vehicles', 'ad_vehicle_photos', 'ad_vehicle_transfers', 'ad_sales',
+        'ad_sale_documents', 'ad_sale_payments', 'ad_branch_user', 'ad_activity_logs'];
+
     public function up(): void
     {
         Schema::create('ad_branches', function (Blueprint $t) {
@@ -142,7 +144,7 @@ return new class extends Migration
         });
 
         // restore-point copies: same columns, no keys, plus rp_id
-        foreach (Module::TABLES as $table) {
+        foreach (self::TABLES as $table) {
             DB::statement("create table `rp_$table` as select * from `$table` where 1 = 0");
             DB::statement("alter table `rp_$table` add `rp_id` bigint unsigned not null first, add index (`rp_id`)");
         }
@@ -150,7 +152,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        foreach (array_reverse(Module::TABLES) as $table) {
+        foreach (array_reverse(self::TABLES) as $table) {
             Schema::dropIfExists("rp_$table");
             Schema::dropIfExists($table);
         }

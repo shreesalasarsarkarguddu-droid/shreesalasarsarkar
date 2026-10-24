@@ -2,13 +2,16 @@ import { Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
 import { Icon } from '@/Components/ui';
 import { inr, PHOTO_TYPES } from '@/lib/format';
+import ShopContact, { waLink } from '@/Components/ShopContact';
 
 /** Public vehicle page: photos, price and one-tap Call / WhatsApp to the right branch. */
 export default function CatalogueShow({ vehicle: v, dealer }) {
     const [active, setActive] = useState(0);
     const phone = v.branch?.phone || dealer.phone;
     const message = `Hi, I'm interested in the ${v.title}${v.price ? ` (${inr(v.price)})` : ''} – ${window.location.href}`;
-    const wa = phone ? `https://wa.me/91${String(phone).slice(-10)}?text=${encodeURIComponent(message)}` : null;
+    // the yard's own phone when it has one, else the shop's WhatsApp number
+    const waNumber = v.branch?.phone || dealer.whatsapp || dealer.phone;
+    const wa = waNumber ? waLink(waNumber, message) : null;
     const photo = v.photos[active];
 
     return (
@@ -67,6 +70,7 @@ export default function CatalogueShow({ vehicle: v, dealer }) {
                     </dl>
                     {v.branch?.address && <p className="mt-3 text-sm text-slate-600">📍 {v.branch.address}</p>}
                     <p className="mt-4 text-xs text-slate-400">Price is indicative and subject to availability. Documents available for inspection at the showroom.</p>
+                    <ShopContact dealer={dealer} className="mt-4" />
                 </div>
             </main>
 

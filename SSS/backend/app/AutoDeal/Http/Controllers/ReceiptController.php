@@ -4,6 +4,7 @@ namespace App\AutoDeal\Http\Controllers;
 
 use App\AutoDeal\Models\Sale;
 use App\AutoDeal\Models\Vehicle;
+use App\AutoDeal\Support\Shop;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
@@ -42,10 +43,14 @@ class ReceiptController extends Controller
     {
         // A branch's own address/phone (when set) replaces the head-office details on its paperwork.
         $branch = $data['vehicle']->branch;
+        $shop = Shop::get();
         $data['business'] = [
             ...config('autodeal'),
-            'business_address' => $branch?->address ?: config('autodeal.business_address'),
-            'business_phone' => $branch?->phone ?: config('autodeal.business_phone'),
+            'business_name' => $shop['name'],
+            'business_address' => $branch?->address ?: $shop['address'],
+            'business_phone' => $branch?->phone ?: collect([$shop['phone'], $shop['phone2']])->filter()->implode(', '),
+            'business_gstin' => $shop['gstin'],
+            'business_email' => $shop['email'],
         ];
         $data['pdf'] = $request->boolean('download');
 

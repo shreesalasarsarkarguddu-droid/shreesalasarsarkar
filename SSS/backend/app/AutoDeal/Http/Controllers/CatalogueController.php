@@ -5,6 +5,7 @@ namespace App\AutoDeal\Http\Controllers;
 use App\AutoDeal\Models\Branch;
 use App\AutoDeal\Models\Vehicle;
 use App\AutoDeal\Support\Money;
+use App\AutoDeal\Support\Shop;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -43,7 +44,7 @@ class CatalogueController extends Controller
             'branches' => Branch::active()->orderBy('name')->get(['id', 'name', 'address', 'phone']),
             'dealer' => $this->dealer(),
         ])->withViewData(['meta' => [
-            'title' => config('autodeal.business_name').' – Used cars & bikes in stock',
+            'title' => Shop::get()['name'].' – Used cars & bikes in stock',
             'description' => 'Browse available vehicles with photos and prices. Call or WhatsApp to book a test drive.',
             'image' => url('/icons/icon-512.png'),
         ]]);
@@ -62,7 +63,7 @@ class CatalogueController extends Controller
         ])->withViewData(['meta' => [
             // WhatsApp/Facebook link previews read these server-rendered tags.
             'title' => $data['title'].($data['price'] ? ' – '.Money::inr($data['price']) : ''),
-            'description' => collect([$data['color'], $data['registration'], $data['branch']['name'] ?? null, config('autodeal.business_name')])->filter()->implode(' · '),
+            'description' => collect([$data['color'], $data['registration'], $data['branch']['name'] ?? null, Shop::get()['name']])->filter()->implode(' · '),
             'image' => $data['photos'][0]['url'] ?? url('/icons/icon-512.png'),
         ]]);
     }
@@ -111,12 +112,9 @@ class CatalogueController extends Controller
         ];
     }
 
+    /** The shop's contact details (Account → Shop details), GSTIN left out. */
     private function dealer(): array
     {
-        return [
-            'name' => config('autodeal.business_name'),
-            'phone' => config('autodeal.business_phone'),
-            'address' => config('autodeal.business_address'),
-        ];
+        return collect(Shop::get())->except('gstin')->all();
     }
 }

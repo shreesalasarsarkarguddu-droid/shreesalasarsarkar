@@ -41,6 +41,7 @@
                 <div class="muted">{{ $business['business_address'] }}</div>
                 <div class="muted">
                     @if($business['business_phone']) Ph: {{ $business['business_phone'] }} @endif
+                    @if($business['business_email'] ?? null) &nbsp;|&nbsp; {{ $business['business_email'] }} @endif
                     @if($business['business_gstin']) &nbsp;|&nbsp; GSTIN: {{ $business['business_gstin'] }} @endif
                 </div>
             </td>

@@ -1,26 +1,33 @@
 {
-  "_ChangeList-BNtDMYQb.js": {
-    "file": "assets/ChangeList-BNtDMYQb.js",
+  "_ChangeList-Cnu1UP8N.js": {
+    "file": "assets/ChangeList-Cnu1UP8N.js",
     "name": "ChangeList",
     "imports": [
       "resources/autodeal/js/app.jsx"
     ]
   },
-  "_PriceHint-B87lGAhc.js": {
-    "file": "assets/PriceHint-B87lGAhc.js",
+  "_PriceHint-D6ojpJ60.js": {
+    "file": "assets/PriceHint-D6ojpJ60.js",
     "name": "PriceHint",
     "imports": [
       "resources/autodeal/js/app.jsx",
       "_vendor-fAzMWPcM.js"
     ]
   },
-  "_SaleModal-DS_9Yy_q.js": {
-    "file": "assets/SaleModal-DS_9Yy_q.js",
+  "_SaleModal-A1wa72mM.js": {
+    "file": "assets/SaleModal-A1wa72mM.js",
     "name": "SaleModal",
     "imports": [
       "resources/autodeal/js/app.jsx",
       "_vendor-fAzMWPcM.js",
-      "_PriceHint-B87lGAhc.js"
+      "_PriceHint-D6ojpJ60.js"
+    ]
+  },
+  "_ShopContact-BK8H6VnU.js": {
+    "file": "assets/ShopContact-BK8H6VnU.js",
+    "name": "ShopContact",
+    "imports": [
+      "resources/autodeal/js/app.jsx"
     ]
   },
   "_vendor-fAzMWPcM.js": {
@@ -28,7 +35,7 @@
     "name": "vendor"
   },
   "resources/autodeal/js/Pages/Account/Index.jsx": {
-    "file": "assets/Index-BuDgVwTC.js",
+    "file": "assets/Index-pCsDPJr7.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Account/Index.jsx",
     "isDynamicEntry": true,
@@ -38,18 +45,18 @@
     ]
   },
   "resources/autodeal/js/Pages/Activity/Index.jsx": {
-    "file": "assets/Index-DaQJzxue.js",
+    "file": "assets/Index-SAtC1dAd.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Activity/Index.jsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/autodeal/js/app.jsx",
       "_vendor-fAzMWPcM.js",
-      "_ChangeList-BNtDMYQb.js"
+      "_ChangeList-Cnu1UP8N.js"
     ]
   },
   "resources/autodeal/js/Pages/Branches/Index.jsx": {
-    "file": "assets/Index-D5WNJmS6.js",
+    "file": "assets/Index-D4qe_KLw.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Branches/Index.jsx",
     "isDynamicEntry": true,
@@ -59,27 +66,29 @@
     ]
   },
   "resources/autodeal/js/Pages/Catalogue/Index.jsx": {
-    "file": "assets/Index-DrkbA1jP.js",
+    "file": "assets/Index-CUphZfgW.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Catalogue/Index.jsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/autodeal/js/app.jsx",
-      "_vendor-fAzMWPcM.js"
+      "_vendor-fAzMWPcM.js",
+      "_ShopContact-BK8H6VnU.js"
     ]
   },
   "resources/autodeal/js/Pages/Catalogue/Show.jsx": {
-    "file": "assets/Show-CtKXH5pU.js",
+    "file": "assets/Show-B41Da_eO.js",
     "name": "Show",
     "src": "resources/autodeal/js/Pages/Catalogue/Show.jsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/autodeal/js/app.jsx",
-      "_vendor-fAzMWPcM.js"
+      "_vendor-fAzMWPcM.js",
+      "_ShopContact-BK8H6VnU.js"
     ]
   },
   "resources/autodeal/js/Pages/Error.jsx": {
-    "file": "assets/Error-Pnnkt9Bj.js",
+    "file": "assets/Error-Btd_xl_h.js",
     "name": "Error",
     "src": "resources/autodeal/js/Pages/Error.jsx",
     "isDynamicEntry": true,
@@ -89,7 +98,7 @@
     ]
   },
   "resources/autodeal/js/Pages/Reports/Index.jsx": {
-    "file": "assets/Index-DayXxhOg.js",
+    "file": "assets/Index-BTPR2P3p.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Reports/Index.jsx",
     "isDynamicEntry": true,
@@ -99,7 +108,7 @@
     ]
   },
   "resources/autodeal/js/Pages/Sales/Index.jsx": {
-    "file": "assets/Index-CChn0TMk.js",
+    "file": "assets/Index-DFAQd5Zw.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Sales/Index.jsx",
     "isDynamicEntry": true,
@@ -108,44 +117,54 @@
       "_vendor-fAzMWPcM.js"
     ]
   },
+  "resources/autodeal/js/Pages/Shop/Edit.jsx": {
+    "file": "assets/Edit-X4Hjkgm6.js",
+    "name": "Edit",
+    "src": "resources/autodeal/js/Pages/Shop/Edit.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/autodeal/js/app.jsx",
+      "_vendor-fAzMWPcM.js"
+    ]
+  },
   "resources/autodeal/js/Pages/Vehicles/Form.jsx": {
-    "file": "assets/Form-DSHZJqJB.js",
+    "file": "assets/Form-Dhg5rlpO.js",
     "name": "Form",
     "src": "resources/autodeal/js/Pages/Vehicles/Form.jsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/autodeal/js/app.jsx",
       "_vendor-fAzMWPcM.js",
-      "_PriceHint-B87lGAhc.js"
+      "_PriceHint-D6ojpJ60.js"
     ]
   },
   "resources/autodeal/js/Pages/Vehicles/Index.jsx": {
-    "file": "assets/Index-z1Sz-lOv.js",
+    "file": "assets/Index-BHACS20X.js",
     "name": "Index",
     "src": "resources/autodeal/js/Pages/Vehicles/Index.jsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/autodeal/js/app.jsx",
       "_vendor-fAzMWPcM.js",
-      "_SaleModal-DS_9Yy_q.js",
-      "_PriceHint-B87lGAhc.js"
+      "_SaleModal-A1wa72mM.js",
+      "_PriceHint-D6ojpJ60.js"
     ]
   },
   "resources/autodeal/js/Pages/Vehicles/Show.jsx": {
-    "file": "assets/Show-BJUa0LPb.js",
+    "file": "assets/Show-BbVbXIAf.js",
     "name": "Show",
     "src": "resources/autodeal/js/Pages/Vehicles/Show.jsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/autodeal/js/app.jsx",
       "_vendor-fAzMWPcM.js",
-      "_ChangeList-BNtDMYQb.js",
-      "_PriceHint-B87lGAhc.js",
-      "_SaleModal-DS_9Yy_q.js"
+      "_ChangeList-Cnu1UP8N.js",
+      "_PriceHint-D6ojpJ60.js",
+      "_SaleModal-A1wa72mM.js"
     ]
   },
   "resources/autodeal/js/app.jsx": {
-    "file": "assets/app-CwhsWJhO.js",
+    "file": "assets/app-DXdC6DWD.js",
     "name": "app",
     "src": "resources/autodeal/js/app.jsx",
     "isEntry": true,
@@ -161,12 +180,13 @@
       "resources/autodeal/js/Pages/Error.jsx",
       "resources/autodeal/js/Pages/Reports/Index.jsx",
       "resources/autodeal/js/Pages/Sales/Index.jsx",
+      "resources/autodeal/js/Pages/Shop/Edit.jsx",
       "resources/autodeal/js/Pages/Vehicles/Form.jsx",
       "resources/autodeal/js/Pages/Vehicles/Index.jsx",
       "resources/autodeal/js/Pages/Vehicles/Show.jsx"
     ],
     "css": [
-      "assets/app-DtnEREKb.css"
+      "assets/app-D3wPgnHr.css"
     ]
   }
 }
