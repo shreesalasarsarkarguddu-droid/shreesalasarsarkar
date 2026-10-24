@@ -131,10 +131,11 @@ final class Backup
     }
 
     /**
-     * Every night (scheduler, 22:00): keep the last 7 backups in storage/app/backups, and send an encrypted copy to the
-     * Telegram chat in .env (BACKUP_PASSWORD, BACKUP_TELEGRAM_TOKEN, BACKUP_TELEGRAM_CHAT_ID). Without a password nothing leaves the server.
+     * Every night (scheduler, 22:00) and the "Backup now" button: keep the last 7 backups in storage/app/backups, and send an
+     * encrypted copy to the Telegram chat in .env (BACKUP_PASSWORD, BACKUP_TELEGRAM_TOKEN, BACKUP_TELEGRAM_CHAT_ID). Without a
+     * password nothing leaves the server. Returns the file, its size, and telegram: 'sent', 'off' (not set up) or 'failed' (+ error).
      */
-    public static function nightly(): ?string
+    public static function nightly(): array
     {
         $dir = storage_path('app/backups');
         if (! is_dir($dir)) {
@@ -164,6 +165,7 @@ final class Backup
             }
         }
 
+        $out = ['file' => $name, 'path' => $path, 'size' => strlen($bytes), 'telegram' => 'off', 'error' => null];
         $token = (string) config('services.backup.telegram_token');
         $chat = (string) config('services.backup.telegram_chat_id');
         if ($pass !== '' && $token !== '' && $chat !== '') {
@@ -172,11 +174,14 @@ final class Backup
                     'chat_id' => $chat,
                     'caption' => "Encrypted backup $name (open it on Settings → Data → Restore from a backup file, with the backup password)",
                 ])->throw();
+                $out['telegram'] = 'sent';
             } catch (\Throwable $e) {
                 Log::warning('nightly backup: Telegram upload failed: '.$e->getMessage());
+                $out['telegram'] = 'failed';
+                $out['error'] = mb_substr(preg_replace('/bot[0-9]+:[A-Za-z0-9_-]+/', 'bot…', $e->getMessage()), 0, 300); // never the token
             }
         }
 
-        return $path;
+        return $out;
     }
 }

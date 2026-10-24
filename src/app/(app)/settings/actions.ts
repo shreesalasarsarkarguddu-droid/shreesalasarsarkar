@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getStaff } from "@/lib/staff";
+import { backupStamp, buildBackupZip, encryptBackup } from "@/lib/backup-zip";
 
 export type Result = { ok: boolean; message: string };
 
@@ -52,4 +54,39 @@ function explain(detail: string | null) {
   if (/kicked|not a member/i.test(d)) return "the bot is not in the group.";
   if (/resolve host|Could not resolve|Couldn't resolve/i.test(d)) return "gateway host not reachable — check the host.";
   return d.slice(0, 200) || "unknown error.";
+}
+
+/**
+ * "Backup now" (admin): the backup zip, encrypted like the nightly one, sent to the Telegram chat of the nightly backup.
+ * Needs BACKUP_PASSWORD, BACKUP_TELEGRAM_TOKEN and BACKUP_TELEGRAM_CHAT_ID in the site's environment (Vercel), the same
+ * values as the GitHub backup's secrets.
+ */
+export async function backupNow(): Promise<Result> {
+  const staff = await getStaff();
+  if (staff?.role !== "admin") return { ok: false, message: "Only an admin can do this." };
+  const pass = process.env.BACKUP_PASSWORD ?? "";
+  const token = process.env.BACKUP_TELEGRAM_TOKEN ?? "";
+  const chat = process.env.BACKUP_TELEGRAM_CHAT_ID ?? "";
+  if (!pass || !token || !chat) {
+    return { ok: false, message: "Not set up: add BACKUP_PASSWORD, BACKUP_TELEGRAM_TOKEN and BACKUP_TELEGRAM_CHAT_ID in Vercel → Settings → Environment Variables." };
+  }
+  let file: Buffer;
+  try {
+    file = encryptBackup(await buildBackupZip(await createClient()), pass);
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Could not make the backup." };
+  }
+  const name = `salasar-backup-${backupStamp()}.zip.enc`;
+  const form = new FormData();
+  form.append("chat_id", chat);
+  form.append("caption", `Encrypted backup ${name} (Backup now, by ${staff.full_name}). Open it on Settings → Data → Restore from a backup file, with the backup password.`);
+  form.append("document", new Blob([new Uint8Array(file)]), name);
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, { method: "POST", body: form });
+    const j = (await res.json().catch(() => null)) as { ok?: boolean; description?: string } | null;
+    if (!res.ok || !j?.ok) return { ok: false, message: `Backup made, but Telegram refused it: ${explain(j?.description ?? String(res.status))}` };
+  } catch {
+    return { ok: false, message: "Backup made, but Telegram could not be reached. Try again." };
+  }
+  return { ok: true, message: `Backup sent to Telegram ✓ (${name}, ${Math.round(file.length / 1024)} KB)` };
 }

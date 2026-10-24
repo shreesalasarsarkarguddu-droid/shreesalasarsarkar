@@ -51,3 +51,15 @@ function explain(detail: string | null) {
   if (/resolve host|Could not resolve|Couldn't resolve/i.test(d)) return "gateway host not reachable — check the host.";
   return d.slice(0, 200) || "unknown error.";
 }
+
+/** "Backup now" (admin): the nightly backup at once — a copy on the server, encrypted to Telegram when set up in .env. */
+export async function backupNow(): Promise<Result> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_backup_now");
+  if (error) return { ok: false, message: error.code === "42501" ? "Only an admin can do this." : "Could not make the backup." };
+  const r = data as { file: string; size: number; telegram: "sent" | "off" | "failed"; error: string | null };
+  const kb = `${r.file}, ${Math.round(r.size / 1024)} KB`;
+  if (r.telegram === "sent") return { ok: true, message: `Backup made and sent to Telegram ✓ (${kb})` };
+  if (r.telegram === "off") return { ok: true, message: `Backup made on the server (${kb}). Telegram is not set up: BACKUP_PASSWORD, BACKUP_TELEGRAM_TOKEN, BACKUP_TELEGRAM_CHAT_ID in .env.` };
+  return { ok: false, message: `Backup made on the server (${kb}), but Telegram refused it: ${explain(r.error)}` };
+}

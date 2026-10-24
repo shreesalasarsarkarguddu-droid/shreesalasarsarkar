@@ -3,6 +3,7 @@
 namespace App\Rpc;
 
 use App\Models\User;
+use App\Services\Backup;
 use App\Services\DataStore;
 use App\Services\LegacyImport;
 use App\Services\Receipts;
@@ -71,6 +72,16 @@ class Data
         self::audit('restore_point', ['restore_point' => $id]);
 
         return $id;
+    }
+
+    /** "Backup now" (Settings → Telegram): the nightly backup at once: a copy on the server, encrypted to Telegram when set up. */
+    public function backupNow(array $p, User $u): array
+    {
+        self::admin($u);
+        $r = Backup::nightly();
+        self::audit('backup_now', ['file' => $r['file'], 'size' => $r['size'], 'telegram' => $r['telegram']]);
+
+        return ['file' => $r['file'], 'size' => $r['size'], 'telegram' => $r['telegram'], 'error' => $r['error']];
     }
 
     /** public.admin_delete_data(p_scope, p_confirm) + password */

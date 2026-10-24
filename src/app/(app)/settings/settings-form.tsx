@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { dateTimeIST } from "@/lib/format";
 import { OnOff, Section } from "@/components/section";
-import { saveSettings, sendTest, type Result } from "./actions";
+import { backupNow, saveSettings, sendTest, type Result } from "./actions";
 
 export type Settings = {
   business_name: string;
@@ -110,6 +110,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
         <div className="flex flex-wrap gap-2">
           <TestButton channel="telegram" label="Send test message" />
           <TestButton channel="summary" label="Send today's summary now" />
+          <BackupNowButton />
         </div>
       </Section>
 
@@ -377,6 +378,25 @@ function TestButton({ channel, label }: { channel: "telegram" | "summary"; label
         className="h-10 rounded-lg bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50 disabled:opacity-60"
       >
         {pending ? "Sending…" : label}
+      </button>
+      {r && <Message r={r} />}
+    </div>
+  );
+}
+
+/** The nightly backup at once (encrypted, to the backup's Telegram chat); takes up to a minute. */
+function BackupNowButton() {
+  const [r, setR] = useState<Result | null>(null);
+  const [pending, start] = useTransition();
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => start(async () => setR(await backupNow()))}
+        className="h-10 rounded-lg bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50 disabled:opacity-60"
+      >
+        {pending ? "Making the backup… (up to a minute)" : "Backup now → Telegram"}
       </button>
       {r && <Message r={r} />}
     </div>

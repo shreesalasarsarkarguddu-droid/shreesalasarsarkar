@@ -58,6 +58,7 @@ class RpcController extends Controller
         'refresh_notification_log' => [\App\Rpc\Settings::class, 'refresh'],
         'admin_data_overview' => [\App\Rpc\Data::class, 'overview'],
         'admin_create_restore_point' => [\App\Rpc\Data::class, 'createPoint'],
+        'admin_backup_now' => [\App\Rpc\Data::class, 'backupNow'],
         'admin_delete_data' => [\App\Rpc\Data::class, 'delete'],
         'admin_restore' => [\App\Rpc\Data::class, 'restore'],
         'admin_backup_begin' => [\App\Rpc\Data::class, 'backupBegin'],
