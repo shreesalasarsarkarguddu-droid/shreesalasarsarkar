@@ -56,10 +56,10 @@
     <h2>Vehicle Details</h2>
     <table class="grid">
         <tr><td class="k">Make / Model</td><td>{{ $vehicle->company_name }} {{ $vehicle->model_name }} {{ $vehicle->variant }}</td></tr>
-        <tr><td class="k">Model Year / Colour</td><td>{{ $vehicle->model_year }} / {{ $vehicle->color ?: '-' }}</td></tr>
+        <tr><td class="k">Model Year / Colour</td><td>{{ $vehicle->model_year ?: '-' }} / {{ $vehicle->color ?: '-' }}</td></tr>
         <tr><td class="k">Registration No.</td><td>{{ $vehicle->registration_number ?: '-' }}</td></tr>
-        <tr><td class="k">Chassis No.</td><td><strong>{{ $vehicle->chassis_number }}</strong></td></tr>
-        <tr><td class="k">Engine No.</td><td><strong>{{ $vehicle->engine_number }}</strong></td></tr>
+        <tr><td class="k">Chassis No.</td><td><strong>{{ $vehicle->chassis_number ?: '-' }}</strong></td></tr>
+        <tr><td class="k">Engine No.</td><td><strong>{{ $vehicle->engine_number ?: '-' }}</strong></td></tr>
     </table>
 
     @yield('body')

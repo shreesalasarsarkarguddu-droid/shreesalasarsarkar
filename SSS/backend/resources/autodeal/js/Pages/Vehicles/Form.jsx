@@ -5,15 +5,15 @@ import PriceHint from '@/Components/PriceHint';
 import { Button, Field, Icon, Input, Select, Stepper, Textarea } from '@/Components/ui';
 import { COMPANIES, ID_PROOFS, inr, INTAKE, today } from '@/lib/format';
 
-const STEPS = ['Vehicle', 'Seller', 'Photos & Confirm'];
+const STEPS = ['Vehicle', 'Seller (optional)', 'Photos & Confirm'];
 
 const STEP_FIELDS = [
-    ['intake_type', 'company_name', 'model_name', 'variant', 'model_year', 'color', 'registration_number', 'chassis_number', 'engine_number', 'purchase_price', 'expected_price', 'intake_date', 'remarks'],
+    ['intake_type', 'source', 'company_name', 'model_name', 'variant', 'model_year', 'color', 'registration_number', 'chassis_number', 'engine_number', 'purchase_price', 'expected_price', 'intake_date', 'remarks'],
     ['seller', 'seller_id_proof'],
     ['photos'],
 ];
 
-export default function VehicleForm({ vehicle, photoTypes, defaultBranch }) {
+export default function VehicleForm({ vehicle, photoTypes, defaultBranch, sources = [] }) {
     const editing = !!vehicle;
     const { auth, branches } = usePage().props;
     const owner = auth.can.owner;
@@ -25,6 +25,7 @@ export default function VehicleForm({ vehicle, photoTypes, defaultBranch }) {
 
     const form = useForm({
         intake_type: vehicle?.intake_type ?? 'customer_buy',
+        source: vehicle?.source ?? '',
         company_name: vehicle?.company_name ?? '',
         model_name: vehicle?.model_name ?? '',
         variant: vehicle?.variant ?? '',
@@ -60,9 +61,10 @@ export default function VehicleForm({ vehicle, photoTypes, defaultBranch }) {
     const set = (k) => (e) => setData(k, e.target.value);
     const setSeller = (k) => (e) => setData('seller', { ...data.seller, [k]: e.target.value });
 
+    // needed: company, model, registration no., colour and the purchase price; everything else (and the seller) is optional
     const stepValid = [
-        data.company_name && data.model_name && data.model_year && data.chassis_number.length >= 5 && data.engine_number.length >= 4 && (!showCost || data.purchase_price !== '') && data.intake_date,
-        data.seller.name.trim() && data.seller.phone.replace(/\D/g, '').length >= 10,
+        data.company_name.trim() && data.model_name.trim() && data.registration_number.replace(/\s/g, '').length >= 4 && data.color.trim() && (!showCost || data.purchase_price !== ''),
+        true,
         true,
     ][step];
 
@@ -94,7 +96,7 @@ export default function VehicleForm({ vehicle, photoTypes, defaultBranch }) {
             <form onSubmit={(e) => e.preventDefault()} className="mt-4 space-y-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
                 {step === 0 && (
                     <>
-                        <Field label="Intake source *" error={err('intake_type')}>
+                        <Field label="Intake type *" error={err('intake_type')}>
                             <div className="grid grid-cols-2 gap-2">
                                 {Object.entries(INTAKE).map(([k, label]) => (
                                     <button
@@ -108,6 +110,14 @@ export default function VehicleForm({ vehicle, photoTypes, defaultBranch }) {
                                 ))}
                             </div>
                         </Field>
+                        {!isSeized && (
+                            <Field label="Source / showroom" error={err('source')} hint="Optional · where this vehicle came from (showroom, dealer, place)">
+                                <Input list="sources" value={data.source} onChange={set('source')} placeholder="e.g. Shree Hero Showroom, Dhamtari" maxLength={120} autoComplete="off" />
+                                <datalist id="sources">
+                                    {sources.map((s) => <option key={s} value={s} />)}
+                                </datalist>
+                            </Field>
+                        )}
 
                         <div className="grid grid-cols-2 gap-3">
                             <Field label="Company / Make *" error={err('company_name')} className="col-span-2 sm:col-span-1">
@@ -122,21 +132,21 @@ export default function VehicleForm({ vehicle, photoTypes, defaultBranch }) {
                             <Field label="Variant" error={err('variant')}>
                                 <Input value={data.variant} onChange={set('variant')} placeholder="VXi" />
                             </Field>
-                            <Field label="Model year *" error={err('model_year')}>
+                            <Field label="Model year" error={err('model_year')}>
                                 <Input type="number" inputMode="numeric" min="1980" max={new Date().getFullYear() + 1} value={data.model_year} onChange={set('model_year')} placeholder="2019" />
                             </Field>
-                            <Field label="Colour" error={err('color')}>
+                            <Field label="Colour *" error={err('color')}>
                                 <Input value={data.color} onChange={set('color')} placeholder="White" />
                             </Field>
-                            <Field label="Registration no." error={err('registration_number')}>
+                            <Field label="Registration no. *" error={err('registration_number')}>
                                 <Input value={data.registration_number} onChange={set('registration_number')} placeholder="CG04AB1234" className="uppercase" />
                             </Field>
                         </div>
 
-                        <Field label="Chassis number *" error={err('chassis_number')}>
+                        <Field label="Chassis number" error={err('chassis_number')}>
                             <Input value={data.chassis_number} onChange={set('chassis_number')} className="font-mono uppercase" autoCapitalize="characters" spellCheck={false} />
                         </Field>
-                        <Field label="Engine number *" error={err('engine_number')}>
+                        <Field label="Engine number" error={err('engine_number')}>
                             <Input value={data.engine_number} onChange={set('engine_number')} className="font-mono uppercase" autoCapitalize="characters" spellCheck={false} />
                         </Field>
 
@@ -163,7 +173,7 @@ export default function VehicleForm({ vehicle, photoTypes, defaultBranch }) {
                                 <Select options={branches.map((b) => [b.id, b.name])} value={data.branch_id} onChange={set('branch_id')} />
                             </Field>
                         )}
-                        <Field label="Intake date *" error={err('intake_date')}>
+                        <Field label="Intake date" error={err('intake_date')} hint="Empty = today">
                             <Input type="date" max={today()} value={data.intake_date} onChange={set('intake_date')} />
                         </Field>
                         <Field label="Remarks" error={err('remarks')}>
@@ -174,11 +184,14 @@ export default function VehicleForm({ vehicle, photoTypes, defaultBranch }) {
 
                 {step === 1 && (
                     <>
-                        <p className="text-sm text-slate-500">{isSeized ? 'Seizing authority / finance company, or the previous owner.' : 'The customer selling the vehicle.'}</p>
-                        <Field label={isSeized ? 'Authority / owner name *' : 'Seller name *'} error={err('seller.name')}>
+                        <p className="text-sm text-slate-500">
+                            {isSeized ? 'Seizing authority / finance company, or the previous owner.' : 'The customer selling the vehicle.'} Optional — fill in what you have, or tap
+                            Continue to skip.
+                        </p>
+                        <Field label={isSeized ? 'Authority / owner name' : 'Seller name'} error={err('seller.name')}>
                             <Input value={data.seller.name} onChange={setSeller('name')} autoComplete="off" />
                         </Field>
-                        <Field label="Mobile number *" error={err('seller.phone')}>
+                        <Field label="Mobile number" error={err('seller.phone')}>
                             <Input type="tel" inputMode="numeric" maxLength={14} value={data.seller.phone} onChange={setSeller('phone')} placeholder="98765 43210" />
                         </Field>
                         <Field label="Full address" error={err('seller.address')}>
@@ -203,11 +216,15 @@ export default function VehicleForm({ vehicle, photoTypes, defaultBranch }) {
                                 {data.model_year} {data.company_name} {data.model_name} {data.variant}
                             </p>
                             <p className="font-mono text-xs text-slate-600">
-                                CH {data.chassis_number} · EN {data.engine_number}
+                                {[data.registration_number.toUpperCase(), data.color, data.chassis_number && `CH ${data.chassis_number}`, data.engine_number && `EN ${data.engine_number}`]
+                                    .filter(Boolean)
+                                    .join(' · ')}
                             </p>
                             <p>
                                 {INTAKE[data.intake_type]}
-                                {showCost && ` · ${inr(data.purchase_price)}`} · from {data.seller.name}
+                                {!isSeized && data.source && ` · ${data.source}`}
+                                {showCost && ` · ${inr(data.purchase_price)}`}
+                                {data.seller.name && ` · from ${data.seller.name}`}
                             </p>
                         </div>
                     </>

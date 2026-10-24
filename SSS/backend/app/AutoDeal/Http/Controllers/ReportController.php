@@ -26,6 +26,7 @@ class ReportController extends Controller
             'ledger' => $this->ledger($year),
             'monthly' => $this->monthly($year),
             'intakeSplit' => $this->intakeSplit($year),
+            'sources' => $this->sources($year),
             'aging' => Inertia::defer(fn () => $this->aging()),
             'profitability' => Inertia::defer(fn () => $this->profitability($year)),
         ]);
@@ -107,6 +108,22 @@ class ReportController extends Controller
             ])->all();
     }
 
+    /** Direct purchases of the year by where they came from (source / showroom). */
+    private function sources(int $year): array
+    {
+        return $this->vehicles()
+            ->leftJoin('ad_sales', 'ad_sales.vehicle_id', '=', 'ad_vehicles.id')
+            ->whereYear('ad_vehicles.intake_date', $year)
+            ->where('ad_vehicles.intake_type', 'customer_buy')
+            ->groupBy('ad_vehicles.source')
+            ->selectRaw('ad_vehicles.source, COUNT(*) as units, SUM(ad_vehicles.purchase_price) as cost, COUNT(ad_sales.id) as sold_units,
+                COALESCE(SUM(CASE WHEN ad_sales.id IS NOT NULL THEN ad_sales.selling_price - ad_vehicles.purchase_price END),0) as profit')
+            ->orderByDesc('units')
+            ->get()
+            ->map(fn ($r) => ['source' => $r->source, 'units' => (int) $r->units, 'cost' => (float) $r->cost,
+                'sold_units' => (int) $r->sold_units, 'profit' => (float) $r->profit])->all();
+    }
+
     /** Unsold stock bucketed by days since intake – the oldest cars tie up the most cash. */
     private function aging(): array
     {
@@ -150,7 +167,7 @@ class ReportController extends Controller
                 return [
                     'sale_id' => $r->id,
                     'vehicle_id' => $r->vehicle_id,
-                    'title' => "{$r->model_year} {$r->company_name} {$r->model_name}",
+                    'title' => trim("{$r->model_year} {$r->company_name} {$r->model_name}"),
                     'intake_type' => $r->intake_type,
                     'sale_date' => substr((string) $r->sale_date, 0, 10),
                     'cost' => (float) $r->purchase_price,

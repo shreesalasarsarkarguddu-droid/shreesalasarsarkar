@@ -278,8 +278,8 @@ class OwnerFeaturesTest extends AutoDealTestCase
         $rows = array_map('str_getcsv', explode("\n", trim(substr($csv, 3))));
         $this->assertSame('Branch', $rows[0][0]);
         $this->assertCount(2, $rows); // header + the one unsold vehicle
-        $this->assertSame($v->chassis_number, $rows[1][11]);
-        $this->assertStringStartsWith("'=", $rows[1][16]); // formula injection neutralised
+        $this->assertSame($v->chassis_number, $rows[1][12]); // after the Source column
+        $this->assertStringStartsWith("'=", $rows[1][17]); // formula injection neutralised
 
         $sales = $this->get('/autodeal/exports/sales?branch='.$this->raipur->id)->streamedContent();
         $this->assertStringContainsString('80000.00', $sales); // profit column

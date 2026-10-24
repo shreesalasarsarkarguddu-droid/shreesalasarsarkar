@@ -156,11 +156,12 @@ export default function Show({ vehicle: v, photoTypes, activity }) {
             <Card className="mt-4">
                 <h2 className="mb-2 font-bold">Vehicle</h2>
                 <Row label="Registration">{v.registration_number}</Row>
+                {v.source && <Row label="Source / showroom">{v.source}</Row>}
                 <Row label="Chassis no.">
-                    <span className="font-mono">{v.chassis_number}</span>
+                    <span className="font-mono">{v.chassis_number || '—'}</span>
                 </Row>
                 <Row label="Engine no.">
-                    <span className="font-mono">{v.engine_number}</span>
+                    <span className="font-mono">{v.engine_number || '—'}</span>
                 </Row>
                 <Row label="Colour">{v.color}</Row>
                 <Row label="Intake date">{date(v.intake_date)}</Row>
@@ -184,14 +185,20 @@ export default function Show({ vehicle: v, photoTypes, activity }) {
 
             <Card className="mt-4">
                 <h2 className="mb-2 font-bold">{v.intake_type === 'seized' ? 'Seizing authority / owner' : 'Seller'}</h2>
-                <Row label="Name">{v.seller.name}</Row>
-                <Row label="Mobile">
-                    <a href={`tel:${v.seller.phone}`} className="text-brand-700">{v.seller.phone}</a>
-                </Row>
-                <Row label="Address">{v.seller.address}</Row>
-                <Row label="ID proof">
-                    {v.seller.has_id_proof ? <a className="text-brand-700" href={route('autodeal.files.seller', v.seller.id)} target="_blank">{ID_PROOFS[v.seller.id_proof_type] ?? 'View'}</a> : '—'}
-                </Row>
+                {v.seller ? (
+                    <>
+                        <Row label="Name">{v.seller.name}</Row>
+                        <Row label="Mobile">
+                            {v.seller.phone ? <a href={`tel:${v.seller.phone}`} className="text-brand-700">{v.seller.phone}</a> : '—'}
+                        </Row>
+                        <Row label="Address">{v.seller.address}</Row>
+                        <Row label="ID proof">
+                            {v.seller.has_id_proof ? <a className="text-brand-700" href={route('autodeal.files.seller', v.seller.id)} target="_blank">{ID_PROOFS[v.seller.id_proof_type] ?? 'View'}</a> : '—'}
+                        </Row>
+                    </>
+                ) : (
+                    <p className="text-sm text-slate-500">No seller details. Add them with Edit if you get them.</p>
+                )}
             </Card>
 
             {v.status !== 'sold' && (

@@ -9,10 +9,13 @@
 
     <h2>{{ $vehicle->intake_type === 'seized' ? 'Seizing Authority / Previous Owner' : 'Seller Details' }}</h2>
     <table class="grid">
-        <tr><td class="k">Name</td><td>{{ $vehicle->seller->name }}</td></tr>
-        <tr><td class="k">Mobile</td><td>{{ $vehicle->seller->phone }}</td></tr>
-        <tr><td class="k">Address</td><td>{{ $vehicle->seller->address ?: '-' }}</td></tr>
-        <tr><td class="k">ID Proof</td><td>{{ $vehicle->seller->id_proof_type ? strtoupper(str_replace('_', ' ', $vehicle->seller->id_proof_type)) : '-' }} {{ $vehicle->seller->id_proof_path ? '(on file)' : '' }}</td></tr>
+        @if($vehicle->source)
+            <tr><td class="k">Source / Showroom</td><td>{{ $vehicle->source }}</td></tr>
+        @endif
+        <tr><td class="k">Name</td><td>{{ $vehicle->seller?->name ?: '-' }}</td></tr>
+        <tr><td class="k">Mobile</td><td>{{ $vehicle->seller?->phone ?: '-' }}</td></tr>
+        <tr><td class="k">Address</td><td>{{ $vehicle->seller?->address ?: '-' }}</td></tr>
+        <tr><td class="k">ID Proof</td><td>{{ $vehicle->seller?->id_proof_type ? strtoupper(str_replace('_', ' ', $vehicle->seller->id_proof_type)) : '-' }} {{ $vehicle->seller?->id_proof_path ? '(on file)' : '' }}</td></tr>
     </table>
 
     <h2>Consideration</h2>

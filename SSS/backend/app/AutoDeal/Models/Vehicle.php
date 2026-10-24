@@ -23,7 +23,7 @@ class Vehicle extends Model
     public const INTAKE_TYPES = ['seized', 'customer_buy'];
 
     protected $fillable = [
-        'intake_type', 'company_name', 'model_name', 'variant', 'model_year', 'color',
+        'intake_type', 'source', 'company_name', 'model_name', 'variant', 'model_year', 'color',
         'registration_number', 'chassis_number', 'engine_number', 'purchase_price',
         'expected_price', 'status', 'intake_date', 'remarks', 'seller_id', 'created_by', 'branch_id', 'is_listed',
     ];
@@ -117,6 +117,7 @@ class Vehicle extends Model
                         ->orWhere('color', 'like', $like)
                         ->orWhere('registration_number', 'like', $like)
                         ->orWhere('chassis_number', 'like', $like)
+                        ->orWhere('source', 'like', $like)
                         ->orWhere('engine_number', 'like', $like)
                         ->when(preg_match('/^(19|20)\d{2}$/', $word), fn ($w) => $w->orWhere('model_year', (int) $word)));
                 }

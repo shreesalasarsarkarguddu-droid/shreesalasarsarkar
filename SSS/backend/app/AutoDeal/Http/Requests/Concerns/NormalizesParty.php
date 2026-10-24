@@ -22,13 +22,17 @@ trait NormalizesParty
         $this->merge([$key => $party]);
     }
 
-    protected function partyRules(string $key, string $fileKey): array
+    /** $optional (the intake's seller): all may be empty; a name is needed once anything else is filled in. */
+    protected function partyRules(string $key, string $fileKey, bool $optional = false): array
     {
         $maxDoc = config('autodeal.max_document_kb');
+        $name = $optional
+            ? ['nullable', "required_with:{$key}.phone,{$key}.address,{$fileKey}", 'string', 'max:120']
+            : ['required', 'string', 'max:120'];
 
         return [
-            "{$key}.name" => ['required', 'string', 'max:120'],
-            "{$key}.phone" => ['required', 'regex:/^[6-9]\d{9}$/'],
+            "{$key}.name" => $name,
+            "{$key}.phone" => [$optional ? 'nullable' : 'required', 'regex:/^[6-9]\d{9}$/'],
             "{$key}.address" => ['nullable', 'string', 'max:500'],
             "{$key}.id_proof_type" => ['nullable', 'in:aadhaar,driving_license,pan,voter_id,other'],
             $fileKey => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', "max:{$maxDoc}"],
@@ -39,6 +43,7 @@ trait NormalizesParty
     {
         return [
             "{$key}.phone.regex" => 'Enter a valid 10-digit Indian mobile number.',
+            "{$key}.name.required_with" => 'Enter the name too (or leave the seller empty).',
         ];
     }
 }

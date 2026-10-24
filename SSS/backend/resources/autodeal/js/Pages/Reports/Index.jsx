@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Card, Field, Icon, Input, Select } from '@/Components/ui';
 import { inr, inrShort, INTAKE, MONTHS } from '@/lib/format';
 
-export default function Reports({ year, branch, years, ledger, monthly, intakeSplit, aging, profitability }) {
+export default function Reports({ year, branch, years, ledger, monthly, intakeSplit, sources = [], aging, profitability }) {
     const { branches } = usePage().props;
     const go = (params) => router.get(route('autodeal.reports.index'), { year, branch: branch || undefined, ...params }, { preserveScroll: true });
 
@@ -71,6 +71,36 @@ export default function Reports({ year, branch, years, ledger, monthly, intakeSp
                     })}
                 </div>
             </Card>
+
+            {sources.length > 0 && (
+                <Card className="mt-4">
+                    <h2 className="font-bold">Direct purchases by source · {year}</h2>
+                    <div className="mt-2 overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="text-left text-xs text-slate-500">
+                                <tr>
+                                    <th className="py-1.5 pr-2">Source / showroom</th>
+                                    <th className="py-1.5 pr-2 text-right">Bought</th>
+                                    <th className="py-1.5 pr-2 text-right">Cost</th>
+                                    <th className="py-1.5 pr-2 text-right">Sold</th>
+                                    <th className="py-1.5 text-right">Profit</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {sources.map((s) => (
+                                    <tr key={s.source ?? ''}>
+                                        <td className="py-1.5 pr-2">{s.source ?? <span className="text-slate-400">Not given</span>}</td>
+                                        <td className="py-1.5 pr-2 text-right">{s.units}</td>
+                                        <td className="py-1.5 pr-2 text-right">{inrShort(s.cost)}</td>
+                                        <td className="py-1.5 pr-2 text-right">{s.sold_units}</td>
+                                        <td className={`py-1.5 text-right font-semibold ${s.profit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{inr(s.profit)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+            )}
 
             <Deferred data={['aging', 'profitability']} fallback={<div className="mt-4 h-40 animate-pulse rounded-2xl bg-white ring-1 ring-slate-200" />}>
                 <Aging aging={aging} />

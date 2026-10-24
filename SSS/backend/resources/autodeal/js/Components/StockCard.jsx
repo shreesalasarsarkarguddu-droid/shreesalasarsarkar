@@ -26,7 +26,7 @@ export default function StockCard({ vehicle: v, onSell }) {
                 <div className="min-w-0 flex-1">
                     <h3 className="truncate font-semibold">{vehicleTitle(v)}</h3>
                     <p className="truncate text-xs text-slate-500">
-                        CH {v.chassis_number} · deleted {date(v.deleted_at)}
+                        {v.registration_number || (v.chassis_number && `CH ${v.chassis_number}`) || '—'} · deleted {date(v.deleted_at)}
                     </p>
                 </div>
                 <button
@@ -58,7 +58,7 @@ export default function StockCard({ vehicle: v, onSell }) {
                         <StatusBadge status={v.status} />
                     </div>
                     <p className="mt-0.5 truncate text-xs text-slate-500">
-                        {v.registration_number || 'No reg.'} · {v.color || '—'} · CH …{v.chassis_number.slice(-6)}
+                        {[v.registration_number || 'No reg.', v.color || '—', v.chassis_number && `CH …${v.chassis_number.slice(-6)}`, v.source].filter(Boolean).join(' · ')}
                         {branchName && ` · ${branchName}`}
                     </p>
                     <div className="mt-1.5 flex items-end justify-between">

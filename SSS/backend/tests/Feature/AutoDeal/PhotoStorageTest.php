@@ -17,7 +17,8 @@ class PhotoStorageTest extends AutoDealTestCase
     private function payload(array $photos): array
     {
         return [
-            'intake_type' => 'customer_buy', 'company_name' => 'Honda', 'model_name' => 'Activa', 'model_year' => 2021,
+            'intake_type' => 'customer_buy', 'company_name' => 'Honda', 'model_name' => 'Activa', 'model_year' => 2021, 'color' => 'Grey',
+            'registration_number' => 'CG05AB0001',
             'chassis_number' => 'ME4JF50AXL0000001', 'engine_number' => 'JF50E0000001', 'purchase_price' => 40000,
             'intake_date' => now()->toDateString(), 'seller' => ['name' => 'Ramesh', 'phone' => '9876543210'],
             'photos' => array_map(fn ($f) => ['file' => $f, 'type' => 'front'], $photos),

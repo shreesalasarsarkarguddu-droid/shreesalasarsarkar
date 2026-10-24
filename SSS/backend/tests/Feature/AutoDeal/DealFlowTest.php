@@ -148,6 +148,7 @@ class DealFlowTest extends AutoDealTestCase
         ]);
         $this->post('/autodeal/vehicles', $this->intakePayload([
             'company_name' => 'Hyundai', 'model_name' => 'Creta', 'chassis_number' => 'MALCRETA00000001', 'engine_number' => 'G4FG000001',
+            'registration_number' => 'CG04CR0001',
         ]));
 
         $this->get('/autodeal/vehicles?q=suzuki+2019')->assertInertia(fn (Assert $p) => $p

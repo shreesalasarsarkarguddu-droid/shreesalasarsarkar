@@ -42,7 +42,8 @@ class ShopDetailsTest extends AutoDealTestCase
     {
         $this->signedIn($this->dealerOwner())->put('/autodeal/shop', $this->shop);
         $this->post('/autodeal/vehicles', [
-            'intake_type' => 'customer_buy', 'company_name' => 'Hero', 'model_name' => 'HF Deluxe', 'model_year' => 2023,
+            'intake_type' => 'customer_buy', 'company_name' => 'Hero', 'model_name' => 'HF Deluxe', 'model_year' => 2023, 'color' => 'Black',
+            'registration_number' => 'CG05AP8294',
             'chassis_number' => 'MBLHAR0000001', 'engine_number' => 'HA10E0000001', 'purchase_price' => 40000,
             'intake_date' => now()->toDateString(), 'seller' => ['name' => 'Ramesh', 'phone' => '9876543210'],
         ])->assertSessionHasNoErrors();

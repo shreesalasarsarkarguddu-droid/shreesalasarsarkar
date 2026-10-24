@@ -68,6 +68,7 @@ class VehicleController extends Controller
             'vehicle' => null,
             'photoTypes' => VehiclePhoto::TYPES,
             'defaultBranch' => $request->user()->dealerBranch() ?? Branch::active()->orderBy('id')->value('id'),
+            'sources' => $this->sources(),
         ]);
     }
 
@@ -77,14 +78,14 @@ class VehicleController extends Controller
         $user = $request->user();
 
         $vehicle = $this->withFileRollback(function (array &$stored) use ($request, $data, $user) {
-            $seller = $this->upsertSeller($data['seller'], $request, $stored);
+            $seller = $this->upsertSeller($data['seller'] ?? [], $request, $stored);
 
             $vehicle = Vehicle::create([
                 ...Arr::except($data, ['seller', 'seller_id_proof', 'photos']),
                 // Branch-bound staff always take stock into their own branch.
                 'branch_id' => $user->dealerBranch() ?? $data['branch_id'] ?? Branch::active()->orderBy('id')->value('id'),
                 'status' => 'in_stock',
-                'seller_id' => $seller->id,
+                'seller_id' => $seller?->id,
                 'created_by' => $user->id,
             ]);
             $this->storePhotos($vehicle, $request->input('photos', []), $request, $stored);
@@ -92,7 +93,7 @@ class VehicleController extends Controller
             return $vehicle;
         });
 
-        ActivityLog::record('vehicle.created', $vehicle, "Added {$vehicle->title} ({$vehicle->chassis_number})");
+        ActivityLog::record('vehicle.created', $vehicle, "Added {$vehicle->title} (".($vehicle->registration_number ?? $vehicle->chassis_number).')');
 
         return redirect()->route('autodeal.vehicles.show', $vehicle)->with('success', 'Vehicle added to stock.');
     }
@@ -132,6 +133,7 @@ class VehicleController extends Controller
             'vehicle' => $this->forViewer($vehicle),
             'photoTypes' => VehiclePhoto::TYPES,
             'defaultBranch' => $vehicle->branch_id,
+            'sources' => $this->sources(),
         ]);
     }
 
@@ -143,10 +145,10 @@ class VehicleController extends Controller
         $before = $vehicle->getRawOriginal();
 
         $this->withFileRollback(function (array &$stored) use ($request, $data, $vehicle) {
-            $seller = $this->upsertSeller($data['seller'], $request, $stored, $vehicle->seller);
+            $seller = $this->upsertSeller($data['seller'] ?? [], $request, $stored, $vehicle->seller);
             $vehicle->update([
                 ...Arr::except($data, ['seller', 'seller_id_proof', 'photos']),
-                'seller_id' => $seller->id,
+                'seller_id' => $seller?->id,
             ]);
             $this->storePhotos($vehicle, $request->input('photos', []), $request, $stored);
         });
@@ -316,12 +318,23 @@ class VehicleController extends Controller
         ];
     }
 
-    private function upsertSeller(array $input, Request $request, array &$stored, ?Seller $current = null): Seller
+    /** Showrooms / places direct purchases came from before (suggestions for the intake form). */
+    private function sources(): array
     {
+        return Vehicle::withTrashed()->whereNotNull('source')->distinct()->orderBy('source')->limit(200)->pluck('source')->all();
+    }
+
+    /** The seller is optional: nothing typed (and no ID proof) = none. */
+    private function upsertSeller(array $input, Request $request, array &$stored, ?Seller $current = null): ?Seller
+    {
+        $input = array_map(fn ($v) => is_string($v) && trim($v) === '' ? null : $v, $input);
+        if (empty($input['name']) && empty($input['phone']) && ! $request->file('seller_id_proof')) {
+            return null;
+        }
         // Same phone = same person/agency: reuse the record so their history stays linked.
-        $seller = ($current && $current->phone === $input['phone'])
-            ? $current
-            : Seller::firstOrNew(['phone' => $input['phone']]);
+        $phone = $input['phone'] ?? null;
+        $seller = ($current && $phone !== null && $current->phone === $phone) ? $current
+            : ($phone !== null ? Seller::firstOrNew(['phone' => $phone]) : ($current && $current->phone === null ? $current : new Seller));
 
         $seller->fill(Arr::only($input, ['name', 'phone', 'address', 'id_proof_type']));
 

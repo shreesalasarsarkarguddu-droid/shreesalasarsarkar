@@ -27,11 +27,15 @@ class StoreVehicleRequest extends FormRequest
         $upper = fn ($v) => $v === null ? null : strtoupper(preg_replace('/\s+/', '', (string) $v));
 
         $this->merge([
-            'chassis_number' => $upper($this->chassis_number),
-            'engine_number' => $upper($this->engine_number),
+            'chassis_number' => $upper($this->chassis_number) ?: null,
+            'engine_number' => $upper($this->engine_number) ?: null,
             'registration_number' => $upper($this->registration_number) ?: null,
             'company_name' => $this->company_name ? trim($this->company_name) : null,
             'model_name' => $this->model_name ? trim($this->model_name) : null,
+            'color' => $this->color ? trim($this->color) : null,
+            // where a direct purchase came from; a seized vehicle has none
+            'source' => $this->intake_type === 'customer_buy' && trim((string) $this->source) !== '' ? trim(preg_replace('/\s+/', ' ', $this->source)) : null,
+            'intake_date' => $this->intake_date ?: now()->toDateString(),
         ]);
         $this->normalizeParty('seller');
     }
@@ -46,12 +50,13 @@ class StoreVehicleRequest extends FormRequest
             'company_name' => ['required', 'string', 'max:60'],
             'model_name' => ['required', 'string', 'max:80'],
             'variant' => ['nullable', 'string', 'max:80'],
-            'model_year' => ['required', 'integer', 'min:1980', 'max:'.(now()->year + 1)],
-            'color' => ['nullable', 'string', 'max:40'],
-            'registration_number' => ['nullable', 'string', 'max:20'],
-            // Unique across soft-deleted rows too, matching the DB unique index.
-            'chassis_number' => ['required', 'string', 'min:5', 'max:32', Rule::unique('ad_vehicles')->ignore($vehicle?->id)],
-            'engine_number' => ['required', 'string', 'min:4', 'max:32'],
+            'model_year' => ['nullable', 'integer', 'min:1980', 'max:'.(now()->year + 1)],
+            'color' => ['required', 'string', 'max:40'],
+            'registration_number' => ['required', 'string', 'min:4', 'max:20'],
+            'source' => ['nullable', 'string', 'max:120'],
+            // Optional; when given, unique across soft-deleted rows too, matching the DB unique index.
+            'chassis_number' => ['nullable', 'string', 'min:5', 'max:32', Rule::unique('ad_vehicles')->ignore($vehicle?->id)],
+            'engine_number' => ['nullable', 'string', 'min:4', 'max:32'],
             // Staff enter the cost at intake but never see or change it afterwards.
             'purchase_price' => [Rule::excludeIf(fn () => $vehicle && ! $this->user()->isDealerOwner()), 'required', 'numeric', 'min:0', 'max:9999999999'],
             'branch_id' => ['nullable', 'integer', Rule::exists('ad_branches', 'id')->where('is_active', true)],
@@ -59,7 +64,7 @@ class StoreVehicleRequest extends FormRequest
             'intake_date' => ['required', 'date', 'before_or_equal:today'],
             'remarks' => ['nullable', 'string', 'max:2000'],
 
-            ...$this->partyRules('seller', 'seller_id_proof'),
+            ...$this->partyRules('seller', 'seller_id_proof', optional: true),
 
             'photos' => ['nullable', 'array', 'max:'.config('autodeal.max_photos')],
             'photos.*.file' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', "max:{$maxPhoto}"],
@@ -71,6 +76,15 @@ class StoreVehicleRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($v) {
+            // the same registration may come back after it was sold, but not twice in stock at once
+            $vehicle = $this->route('vehicle');
+            if ($this->registration_number && ! $v->errors()->has('registration_number')) {
+                $twin = Vehicle::where('registration_number', $this->registration_number)->whereNotIn('status', ['sold', 'archived'])
+                    ->when($vehicle, fn ($q) => $q->whereKeyNot($vehicle->id))->first();
+                if ($twin) {
+                    $v->errors()->add('registration_number', "{$twin->title} with this registration is already in stock.");
+                }
+            }
             if (! $v->errors()->has('chassis_number')) {
                 return;
             }
@@ -94,6 +108,7 @@ class StoreVehicleRequest extends FormRequest
     {
         return [
             'seller.name' => 'seller name',
+            'registration_number' => 'registration no.',
             'seller.phone' => 'seller mobile',
             'photos.*.file' => 'photo',
         ];

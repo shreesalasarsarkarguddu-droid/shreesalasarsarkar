@@ -59,10 +59,10 @@ class ExportController extends Controller
             ->orderBy('ad_vehicles.intake_date')->orderBy('ad_vehicles.id');
 
         return [
-            ['Branch', 'Status', 'Intake type', 'Intake date', 'Days in stock', 'Make', 'Model', 'Variant', 'Year', 'Colour',
+            ['Branch', 'Status', 'Intake type', 'Source', 'Intake date', 'Days in stock', 'Make', 'Model', 'Variant', 'Year', 'Colour',
                 'Reg no', 'Chassis no', 'Engine no', 'Cost', 'Expected price', 'Listed online', 'Seller', 'Seller mobile'],
             $q,
-            fn ($r) => [$r->branch, $r->status, $r->intake_type, $r->intake_date, (int) floor((time() - strtotime($r->intake_date)) / 86400),
+            fn ($r) => [$r->branch, $r->status, $r->intake_type, $r->source, $r->intake_date, (int) floor((time() - strtotime($r->intake_date)) / 86400),
                 $r->company_name, $r->model_name, $r->variant, $r->model_year, $r->color, $r->registration_number, $r->chassis_number,
                 $r->engine_number, $this->money($r->purchase_price), $this->money($r->expected_price), $r->is_listed ? 'Yes' : 'No', $r->seller, $r->seller_phone],
         ];
@@ -76,10 +76,10 @@ class ExportController extends Controller
             ->orderBy('ad_vehicles.intake_date')->orderBy('ad_vehicles.id');
 
         return [
-            ['Intake date', 'Branch', 'Intake type', 'Make', 'Model', 'Variant', 'Year', 'Reg no', 'Chassis no', 'Engine no',
+            ['Intake date', 'Branch', 'Intake type', 'Source', 'Make', 'Model', 'Variant', 'Year', 'Reg no', 'Chassis no', 'Engine no',
                 'Cost', 'Seller', 'Seller mobile', 'Current status'],
             $q,
-            fn ($r) => [$r->intake_date, $r->branch, $r->intake_type, $r->company_name, $r->model_name, $r->variant, $r->model_year,
+            fn ($r) => [$r->intake_date, $r->branch, $r->intake_type, $r->source, $r->company_name, $r->model_name, $r->variant, $r->model_year,
                 $r->registration_number, $r->chassis_number, $r->engine_number, $this->money($r->purchase_price), $r->seller, $r->seller_phone, $r->status],
         ];
     }
@@ -144,7 +144,7 @@ class ExportController extends Controller
     private function vehicles(array $f)
     {
         return DB::table('ad_vehicles')
-            ->join('ad_sellers', 'ad_sellers.id', '=', 'ad_vehicles.seller_id')
+            ->leftJoin('ad_sellers', 'ad_sellers.id', '=', 'ad_vehicles.seller_id')
             ->leftJoin('ad_branches', 'ad_branches.id', '=', 'ad_vehicles.branch_id')
             ->when($f['branch'] ?? null, fn ($q, $v) => $q->where('ad_vehicles.branch_id', $v))
             ->select('ad_vehicles.*', 'ad_sellers.name as seller', 'ad_sellers.phone as seller_phone', 'ad_branches.name as branch');
