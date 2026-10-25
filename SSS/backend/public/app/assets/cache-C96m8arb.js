@@ -1,0 +1,1 @@
+import{o as e}from"./api-Bd4grX4o.js";function t(t,n){e.invalidateQueries()}export{t};

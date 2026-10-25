@@ -1,0 +1,1 @@
+import{a as e,c as t,s as n}from"./api-Bd4grX4o.js";function r(r,i){return n({queryKey:[r],queryFn:()=>e(r),enabled:r!==null,placeholderData:i?.keep?t:void 0})}export{r as t};

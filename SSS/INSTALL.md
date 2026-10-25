@@ -179,6 +179,19 @@ Removing it for good: `php artisan autodeal:remove` saves a backup zip and the f
 Changing its screens: `cd backend && npm install && npm run build` (writes `public/autodeal-build`, commit it); `npm run dev`
 for hot reload.
 
+## Site on / off (power admin)
+
+One login, the power admin, can close the whole site: every page, the API, Auto Deal and the public catalogue show
+"Site is closed" (admins too). Scheduled jobs (nightly backup to Telegram) keep running.
+
+```bash
+php artisan site:poweradmin you@example.com   # make (or create, asks the password) the power admin
+```
+Then sign in at `https://businesstradecore.in/power` and press Turn the site OFF / ON. The power admin is not on the Users
+page and admins cannot change it. Emergency from the server: `php artisan site:on` (or `site:off "message"`).
+Next.js site: `python scripts/site_switch.py poweradmin you@example.com`, its page is `/power`, emergency
+`python scripts/site_switch.py on`.
+
 ## Local development
 
 ```bash

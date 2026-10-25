@@ -38,12 +38,20 @@ class Users
         DB::table('sessions')->where('user_id', $id)->delete();
     }
 
+    /** The power admin's login is not managed from the Users page (only from the server: php artisan site:poweradmin). */
+    private static function notPower(string $id): void
+    {
+        if (DB::table('users')->where('id', $id)->value('is_poweradmin')) {
+            throw RpcError::notAllowed('this login cannot be changed here');
+        }
+    }
+
     /** public.admin_list_users() */
     public function list(array $p, User $u): array
     {
         self::admin($u);
 
-        return DB::table('users')->orderByRaw('archived_at is not null')->orderByDesc('active')->orderByRaw("role = 'admin' desc")->orderBy('full_name')
+        return DB::table('users')->where('is_poweradmin', false)->orderByRaw('archived_at is not null')->orderByDesc('active')->orderByRaw("role = 'admin' desc")->orderBy('full_name')
             ->get(['id', 'email', 'full_name', 'role', 'active', 'permissions', 'last_sign_in_at', 'created_at', 'archived_at'])
             ->map(fn ($r) => ['user_id' => $r->id, 'email' => $r->email, 'full_name' => $r->full_name, 'role' => $r->role, 'active' => (bool) $r->active,
                 'permissions' => json_decode($r->permissions, true) ?? [], 'last_sign_in_at' => $r->last_sign_in_at, 'created_at' => $r->created_at,
@@ -91,6 +99,7 @@ class Users
             throw RpcError::bad('bad role');
         }
         $id = (string) ($p['p_user'] ?? '');
+        self::notPower($id);
         $active = (bool) ($p['p_active'] ?? false);
         if ($id === $u->id && ($role !== 'admin' || ! $active)) {
             throw RpcError::bad('you cannot remove your own admin access or switch yourself off');
@@ -118,6 +127,7 @@ class Users
         if (strlen((string) ($p['p_password'] ?? '')) < 8) {
             throw RpcError::bad('password must be at least 8 characters');
         }
+        self::notPower((string) ($p['p_user'] ?? ''));
         $target = User::find((string) ($p['p_user'] ?? ''));
         if (! $target) {
             throw RpcError::bad('user not found');
@@ -136,6 +146,7 @@ class Users
     {
         self::admin($u);
         $id = (string) ($p['p_user'] ?? '');
+        self::notPower($id);
         if ($id === $u->id) {
             throw RpcError::bad('use Sign out to sign yourself out');
         }
@@ -154,6 +165,7 @@ class Users
     {
         self::admin($u);
         $id = (string) ($p['p_user'] ?? '');
+        self::notPower($id);
         if ($id === $u->id) {
             throw RpcError::bad('you cannot remove yourself');
         }

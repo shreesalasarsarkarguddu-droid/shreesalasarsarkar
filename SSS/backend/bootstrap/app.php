@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\IsoTimes;
+use App\Http\Middleware\SiteOff;
 use App\Http\Middleware\StaffSession;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -19,7 +20,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // the React app signs in with the session cookie (Sanctum SPA): sessions + CSRF on the API
         $middleware->statefulApi();
-        $middleware->api(append: [StaffSession::class, IsoTimes::class]);
+        $middleware->api(append: [SiteOff::class, StaffSession::class, IsoTimes::class]);
+        // the site switch (power admin): pages too, Auto Deal and the public catalogue included
+        $middleware->web(append: [SiteOff::class]);
         // not signed in: the React app shows its own sign-in page (no Laravel "login" route)
         $middleware->redirectGuestsTo('/login');
     })

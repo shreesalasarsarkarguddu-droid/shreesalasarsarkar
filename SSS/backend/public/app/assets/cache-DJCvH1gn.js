@@ -1,1 +1,0 @@
-import{o as e}from"./api-C8VDvso6.js";function t(t,n){e.invalidateQueries()}export{t};

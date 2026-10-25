@@ -46,6 +46,11 @@ async function send(method: string, url: string, body?: unknown, retry = true): 
     return send(method, url, body, false);
   }
   if (res.status === 401 && url !== "/me" && url !== "/login") window.dispatchEvent(new Event(SIGNED_OUT));
+  // the site was switched off (power admin): reload, the server then shows its "site closed" page
+  if (res.status === 503) {
+    const j = (await res.clone().json().catch(() => null)) as { site_off?: boolean } | null;
+    if (j?.site_off) window.location.reload();
+  }
   return res;
 }
 

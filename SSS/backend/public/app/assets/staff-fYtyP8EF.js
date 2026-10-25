@@ -1,0 +1,1 @@
+import{o as e}from"./api-Bd4grX4o.js";async function t(){return e.getQueryData([`me`])??null}export{t};

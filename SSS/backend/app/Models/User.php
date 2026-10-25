@@ -24,6 +24,7 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
             'active' => 'boolean',
+            'is_poweradmin' => 'boolean',
             'permissions' => 'array',
             'force_logout_at' => 'datetime',
             'archived_at' => 'datetime',

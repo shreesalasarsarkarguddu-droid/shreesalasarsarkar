@@ -1,11 +1,13 @@
 <?php
 
 use App\Http\Controllers\AccountsController;
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LoansController;
 use App\Http\Controllers\PaymentsController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\RpcController;
+use App\Support\Perm;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -22,7 +24,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // open receipt books of the zones (people's receipt books form)
     Route::get('/receipt-series/open', function () {
-        \App\Support\Perm::need('cash');
+        Perm::need('cash');
 
         return response()->json(DB::table('receipt_series')->whereNull('closed_at')->orderBy('id')->get(['id', 'code']));
     });
@@ -45,10 +47,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/assignments', [ReportsController::class, 'assignments']);
 
     // admin
-    Route::get('/activity', [\App\Http\Controllers\AdminController::class, 'activity']);
-    Route::get('/notification-log', [\App\Http\Controllers\AdminController::class, 'notificationLog']);
-    Route::get('/backup', [\App\Http\Controllers\AdminController::class, 'backup']);
-    Route::get('/backup/autodeal-files', [\App\Http\Controllers\AdminController::class, 'backupAutodealFiles']);
+    Route::get('/activity', [AdminController::class, 'activity']);
+    Route::get('/notification-log', [AdminController::class, 'notificationLog']);
+    Route::get('/backup', [AdminController::class, 'backup']);
+    Route::get('/backup/autodeal-files', [AdminController::class, 'backupAutodealFiles']);
 
     // collecting payments
     Route::get('/payments/pending', [PaymentsController::class, 'pending']);

@@ -1,1 +1,0 @@
-import{a as e,c as t,s as n}from"./api-C8VDvso6.js";function r(r,i){return n({queryKey:[r],queryFn:()=>e(r),enabled:r!==null,placeholderData:i?.keep?t:void 0})}export{r as t};
