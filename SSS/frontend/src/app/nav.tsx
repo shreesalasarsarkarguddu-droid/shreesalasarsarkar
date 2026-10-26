@@ -130,6 +130,11 @@ export function TopNav({ access }: { access: Access }) {
           Auto Deal
         </a>
       )}
+      {access.power && (
+        <a href="/power" className="flex h-10 items-center rounded-lg px-3 text-sm font-semibold text-red-700 hover:bg-red-50">
+          Site power
+        </a>
+      )}
     </nav>
   );
 }
@@ -320,12 +325,19 @@ export function MenuButton({ access, name, signOut }: { access: Access; name: st
                     ))}
                   </div>
                 ))}
-              {autodeal && (
+              {(autodeal || access.power) && (
                 <div className="py-1">
                   <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">More</p>
-                  <a href={autodeal} className="flex h-11 items-center justify-between rounded-lg px-3 text-[15px] font-medium text-slate-700 hover:bg-slate-100">
-                    Auto Deal <span aria-hidden className="text-slate-400">↗</span>
-                  </a>
+                  {autodeal && (
+                    <a href={autodeal} className="flex h-11 items-center justify-between rounded-lg px-3 text-[15px] font-medium text-slate-700 hover:bg-slate-100">
+                      Auto Deal <span aria-hidden className="text-slate-400">↗</span>
+                    </a>
+                  )}
+                  {access.power && (
+                    <a href="/power" className="flex h-11 items-center rounded-lg px-3 text-[15px] font-semibold text-red-700 hover:bg-red-50">
+                      Site power (on / off)
+                    </a>
+                  )}
                 </div>
               )}
             </div>

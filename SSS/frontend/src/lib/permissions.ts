@@ -29,7 +29,7 @@ export const PRESETS: { key: string; label: string; role: "admin" | "staff"; per
   { key: "admin", label: "Admin", role: "admin", perms: [] },
 ];
 
-export type Access = { role: "admin" | "staff"; permissions: readonly string[] };
+export type Access = { role: "admin" | "staff"; permissions: readonly string[]; /** the power admin (site on / off) */ power?: boolean };
 
 export function can(a: Access | null | undefined, p: Permission): boolean {
   return !!a && (a.role === "admin" || a.permissions.includes(p));

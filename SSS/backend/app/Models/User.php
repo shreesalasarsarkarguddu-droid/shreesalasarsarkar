@@ -51,6 +51,7 @@ class User extends Authenticatable
             'full_name' => $this->full_name,
             'role' => $this->role,
             'permissions' => array_values($this->permissions ?? []),
+            'power' => (bool) $this->is_poweradmin,
             'modules' => ['autodeal' => Module::enabled() && Module::installed()],
         ];
     }

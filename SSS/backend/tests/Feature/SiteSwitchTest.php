@@ -40,7 +40,7 @@ class SiteSwitchTest extends TestCase
 
         // the power admin still uses everything
         $this->as($power);
-        $this->getJson('/api/me')->assertOk();
+        $this->getJson('/api/me')->assertOk()->assertJsonPath('user.power', true);
         $this->assertSame('site_off', DB::table('data_audit')->orderByDesc('id')->value('action'));
     }
 
